@@ -1,0 +1,34 @@
+###############
+create stream kafka (
+	num  number,
+	symbol string
+)
+using KAFKA_CONSUMER(
+	host 172.17.185.249:9092
+	topic test-events
+	group RIODB
+);
+
+
+create window kafka_last_1000 
+running last, avg, max, min, median, mode, count_distinct, slope, std_dev
+from kafka.num 
+partition by symbol
+expire 10s
+range 1000;
+
+SELECT num+1 as new_num , symbol
+FROM kafka_last_1000 
+WHEN symbol like 'spy%'
+OUTPUT kafka_producer(
+	host 172.17.185.249:9092
+	topic test-events
+	key key1);
+
+SELECT last
+FROM kafka_last_1000 
+WHEN symbol like 'spy%'
+OUTPUT stdout
+limit 1000 
+timeout 1s
+;

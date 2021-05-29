@@ -1,0 +1,20 @@
+
+### TCP stream receives data via UDP port: 
+
+create stream udp_stream (
+ num 	number,
+ symbol string
+)
+using UDP(port 2333);
+
+# create window of previous 1000 messages received from TCP
+create window udp_last_1000 
+running first, last, previous, avg 
+from udp_stream.num
+range 1000;
+
+## output every message to screen
+SELECT last, count 
+FROM udp_last_1000 
+# WHEN num > 0
+OUTPUT stdout ;
