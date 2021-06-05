@@ -40,7 +40,7 @@ public class OutputClassLoader {
 		
 		pluginName = pluginName.toUpperCase().trim();
 		
-		RioDB.rio.getLogger().debug("Plugin factory loading '" + pluginName + "'");
+		RioDB.rio.getSystemSettings().getLogger().debug("Plugin factory loading '" + pluginName + "'");
 		
 		if(pluginName.equals("STDOUT"))
 			return new STDOUT();
@@ -50,9 +50,8 @@ public class OutputClassLoader {
 		URL[] classLoaderUrls;
 		try {
 
-			String urlStr = "file:/" + System.getProperty("user.dir").replace('\\', '/') + "/plugins/"
-					+ pluginName.toLowerCase() + ".jar";
-			RioDB.rio.getLogger().debug("URL:   " + urlStr);
+			String urlStr = "file:/" + RioDB.rio.getSystemSettings().getPluginDirectory() + pluginName.toLowerCase() + ".jar";
+			RioDB.rio.getSystemSettings().getLogger().debug("URL:   " + urlStr);
 			classLoaderUrls = new URL[] { new URL(urlStr) };
 
 			// Create a new URLClassLoader

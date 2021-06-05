@@ -42,7 +42,7 @@ public final class SQLStreamOperations {
 		String streamName = SQLStreamOperations.getStreamName(newStmt);
 		
 		if (streamName == null || streamName.length() == 0) {
-			RioDB.rio.getLogger().error("ERROR: Stream must have a name and at least one field.");
+			RioDB.rio.getSystemSettings().getLogger().error("ERROR: Stream must have a name and at least one field.");
 			return false;
 		}
 

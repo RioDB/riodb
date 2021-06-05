@@ -154,7 +154,7 @@ public class WindowOfTimeComplex_OLD implements Window {
 		this.requiresSum = functionsRequired[SQLFunctionMap.getFunctionId("sum")];
 		this.requiresVariance = functionsRequired[SQLFunctionMap.getFunctionId("variance")];
 
-		RioDB.rio.getLogger().debug("constructing Window of time, complex");
+		RioDB.rio.getSystemSettings().getLogger().debug("constructing Window of time, complex");
 
 		windowSummary = new WindowSummary();
 

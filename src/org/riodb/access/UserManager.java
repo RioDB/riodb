@@ -304,7 +304,7 @@ public class UserManager {
 		} catch (FileNotFoundException e) {
 			throw new ExceptionAccessMgt("Password file provided is not found.");
 		}
-		RioDB.rio.getLogger().debug("Password File provided " + users.size() + " user accounts.");
+		RioDB.rio.getSystemSettings().getLogger().debug("Password File provided " + users.size() + " user accounts.");
 
 	}
 
@@ -384,7 +384,7 @@ public class UserManager {
 
 			writer.close();
 		} catch (IOException e) {
-			RioDB.rio.getLogger()
+			RioDB.rio.getSystemSettings().getLogger()
 					.error("Error writing password file: " + e.getMessage().replace("\n", "").replace("\r", ""));
 		}
 

@@ -127,7 +127,7 @@ public class QueryManager implements Runnable {
 	}
 
 	public void run() {
-		RioDB.rio.getLogger().info("Starting query manager for Stream[" + streamId + "] ...");
+		RioDB.rio.getSystemSettings().getLogger().info("Starting query manager for Stream[" + streamId + "] ...");
 		while (!interrupt) {
 			EventWithSummaries esum = inbox.poll();
 			if (esum != null) {
@@ -141,12 +141,12 @@ public class QueryManager implements Runnable {
 						// the query returns TRUE if it reached end-of-life. 
 						if (q.evalAndGetStatus(esum)) {
 							qItr.remove();
-							RioDB.rio.getLogger().debug("Query removed... ");
+							RioDB.rio.getSystemSettings().getLogger().debug("Query removed... ");
 						}
 					} catch (ExceptionSQLExecution e) {
 						if (!erroAlreadyCaught) {
-							RioDB.rio.getLogger().debug("Error executing query.");
-							RioDB.rio.getLogger().debug(e.getMessage());
+							RioDB.rio.getSystemSettings().getLogger().debug("Error executing query.");
+							RioDB.rio.getSystemSettings().getLogger().debug(e.getMessage());
 							erroAlreadyCaught = true;
 						}
 					}
@@ -164,6 +164,6 @@ public class QueryManager implements Runnable {
 				}
 			}
 		}
-		RioDB.rio.getLogger().info("Stopping query manager for Stream[" + streamId + "] ...");
+		RioDB.rio.getSystemSettings().getLogger().info("Stopping query manager for Stream[" + streamId + "] ...");
 	}
 }

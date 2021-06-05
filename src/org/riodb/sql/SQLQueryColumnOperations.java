@@ -281,7 +281,7 @@ final public class SQLQueryColumnOperations {
 		for(String s : words) {
 			newExpression = newExpression + s + " ";
 		}
-		RioDB.rio.getLogger().debug("Statement: "+ newExpression);
+		RioDB.rio.getSystemSettings().getLogger().debug("Statement: "+ newExpression);
 		
 		return new SQLQueryColumnFromExpression(newExpression, heading);
 	}

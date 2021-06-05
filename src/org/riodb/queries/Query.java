@@ -73,7 +73,7 @@ public class Query {
 		// returns true if this query can be destroyed. reached its limit.
 
 		if (limitByTime && limit < RioDB.rio.getEngine().getClock().getCurrentSecond()) {
-			RioDB.rio.getLogger().debug("query reached age");
+			RioDB.rio.getSystemSettings().getLogger().debug("query reached age");
 			return true; // this Query is overdue and can be destroyed.
 		}
 

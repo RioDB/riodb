@@ -70,7 +70,7 @@ public class SQLWindowConditionExpression implements SQLWindowCondition {
 		
 		try {
 			
-			RioDB.rio.getLogger().debug("Compiling dynamic class "+className);
+			RioDB.rio.getSystemSettings().getLogger().debug("Compiling dynamic class "+className);
 			
 			@SuppressWarnings("unchecked")
 			Class<SQLWindowConditionCompiled> newClass = (Class<SQLWindowConditionCompiled>) InMemoryJavaCompiler.newInstance().compile("org.riodb.sql."+ className , source.toString());
@@ -85,7 +85,7 @@ public class SQLWindowConditionExpression implements SQLWindowCondition {
 			}
 			
 		} catch (Exception e) {
-			RioDB.rio.getLogger().debug("Error compiling dynamic class: ["+expression + "] " + e.getMessage().replace("\n", "\\n"));
+			RioDB.rio.getSystemSettings().getLogger().debug("Error compiling dynamic class: ["+expression + "] " + e.getMessage().replace("\n", "\\n"));
 			throw new ExceptionSQLStatement("Error evaluating query conditions.");
 		}
 

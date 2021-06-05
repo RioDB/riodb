@@ -63,7 +63,7 @@ final public class SQLQueryConditionOperations {
 
 		String expression = formatExpressionPre(whenStr);
 
-		RioDB.rio.getLogger().debug("expression PRE:" + expression);
+		RioDB.rio.getSystemSettings().getLogger().debug("expression PRE:" + expression);
 
 		// ArrayLists of StringLike and StringIn objects if needed
 		ArrayList<SQLStringLIKE> likeList = new ArrayList<SQLStringLIKE>();
@@ -307,7 +307,7 @@ final public class SQLQueryConditionOperations {
 		expression = SQLParser.textDecode(expression).replace("''", "'");
 		//System.out.println("new expression: " + expression);
 		
-		RioDB.rio.getLogger().debug("expression POST:" + expression);
+		RioDB.rio.getSystemSettings().getLogger().debug("expression POST:" + expression);
 
 		return new SQLQueryConditionExpression(expression, likeArr, inArr, whenStr, requiredWindows);
 	}

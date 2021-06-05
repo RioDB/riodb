@@ -97,12 +97,12 @@ public class HTTPInterface {
 			httpServer.createContext("/", new RootHandler());
 			httpServer.createContext("/rio", new RioHandler());
 			httpServer.setExecutor(null); // creates a default executor
-			RioDB.rio.getLogger().info("Starting HTTPServer on " + port);
+			RioDB.rio.getSystemSettings().getLogger().info("Starting HTTPServer on " + port);
 			httpServer.start();
 			success = true;
 		} catch (IOException e) {
-			RioDB.rio.getLogger().error("Error starting HTTP interface");
-			RioDB.rio.getLogger().error(e.getMessage());
+			RioDB.rio.getSystemSettings().getLogger().error("Error starting HTTP interface");
+			RioDB.rio.getSystemSettings().getLogger().error(e.getMessage());
 			httpServer = null;
 			return false;
 		}
@@ -150,7 +150,7 @@ public class HTTPInterface {
 						params.setSSLParameters(sslParameters);
 
 					} catch (Exception ex) {
-						RioDB.rio.getLogger().error("Failed to create HTTPS port");
+						RioDB.rio.getSystemSettings().getLogger().error("Failed to create HTTPS port");
 					}
 				}
 			});
@@ -172,13 +172,13 @@ public class HTTPInterface {
 				});
 			}
 			httpsServer.setExecutor(null);
-			RioDB.rio.getLogger().info("Starting HTTPsServer on " + port);
+			RioDB.rio.getSystemSettings().getLogger().info("Starting HTTPsServer on " + port);
 			httpsServer.start();
 			success = true;
 		} catch (NoSuchAlgorithmException | IOException | KeyStoreException | CertificateException
 				| UnrecoverableKeyException | KeyManagementException e) {
-			RioDB.rio.getLogger().error("Error starting HTTPS Interface.");
-			RioDB.rio.getLogger().error(e.getMessage());
+			RioDB.rio.getSystemSettings().getLogger().error("Error starting HTTPS Interface.");
+			RioDB.rio.getSystemSettings().getLogger().error(e.getMessage());
 			httpsServer = null;
 			success = false;
 		}
@@ -207,7 +207,7 @@ public class HTTPInterface {
 
 					} catch ( ExceptionAccessMgt | ExceptionSQLStatement | RioDBPluginException e) {
 						response = "{\"code\": 2, \"message\":\"" + e.getMessage() + "\"}";
-						RioDB.rio.getLogger().debug(e.getMessage());
+						RioDB.rio.getSystemSettings().getLogger().debug(e.getMessage());
 					}
 				} else
 					response = "{\"code\": 2, \"message\": \"stmt not understood.\"}";
@@ -253,8 +253,8 @@ public class HTTPInterface {
 			}
 			response = textBuilder.toString();
 		} catch (IOException e) {
-			RioDB.rio.getLogger().error("Error converting inputStream to String");
-			RioDB.rio.getLogger().error(e.getMessage());
+			RioDB.rio.getSystemSettings().getLogger().error("Error converting inputStream to String");
+			RioDB.rio.getSystemSettings().getLogger().error(e.getMessage());
 		}
 
 		return response;
@@ -265,12 +265,12 @@ public class HTTPInterface {
 		if (httpServer != null) {
 			httpServer.stop(0);
 			httpServer = null;
-			RioDB.rio.getLogger().info("Stopped HTTP interface");
+			RioDB.rio.getSystemSettings().getLogger().info("Stopped HTTP interface");
 		}
 		if (httpsServer != null) {
 			httpsServer.stop(0);
 			httpsServer = null;
-			RioDB.rio.getLogger().info("Stopped HTTPS interface");
+			RioDB.rio.getSystemSettings().getLogger().info("Stopped HTTPS interface");
 		}
 
 	}

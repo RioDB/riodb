@@ -159,7 +159,7 @@ public class WindowWrapperPartitioned extends WindowWrapper {
 			Map.Entry<String, Window> entry = iter.next();
 			if (entry.getValue().isDueForExpiration(currentSecond)) {
 				iter.remove();
-				RioDB.rio.getLogger().debug("removed expired window.");
+				RioDB.rio.getSystemSettings().getLogger().debug("removed expired window.");
 			} else {
 				defaultWindow.trimExpiredWindowElements(currentSecond);
 			}

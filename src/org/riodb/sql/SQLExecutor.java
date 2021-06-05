@@ -51,11 +51,11 @@ public final class SQLExecutor {
 					if (statement.startsWith("select ")) {
 						if (RioDB.rio.getUserMgr() == null
 								|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("QUERY")) {
-							RioDB.rio.getLogger().debug("Statement: " + statement);
+							RioDB.rio.getSystemSettings().getLogger().debug("Statement: " + statement);
 							
 							responseList.add(SQLQueryOperations.createQuery(statement));
 						} else {
-							RioDB.rio.getLogger().debug("User not authorized to QUERY");
+							RioDB.rio.getSystemSettings().getLogger().debug("User not authorized to QUERY");
 							responseList.add("\"User not authorized to QUERY.\"");
 							responseCode = 1;
 						}
@@ -65,13 +65,13 @@ public final class SQLExecutor {
 									|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("STREAM")) {
 								if (SQLStreamOperations.createStream(statement)) {
 									responseList.add("\"Stream created.\"");
-									RioDB.rio.getLogger().info("Stream created.");
+									RioDB.rio.getSystemSettings().getLogger().info("Stream created.");
 								} else {
 									responseList.add("\"Stream creation failed.\"");
-									RioDB.rio.getLogger().info("Stream creation failed.");
+									RioDB.rio.getSystemSettings().getLogger().info("Stream creation failed.");
 								}
 							} else {
-								RioDB.rio.getLogger().debug("User not authorized to manage streams.");
+								RioDB.rio.getSystemSettings().getLogger().debug("User not authorized to manage streams.");
 								responseList.add("\"User not authorized to manage streams\"");
 								responseCode = 1;
 							}
@@ -80,30 +80,30 @@ public final class SQLExecutor {
 									|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("WINDOW")) {
 								if (SQLWindowOperations.createWindow(statement)) {
 									responseList.add("\"Window created.\"");
-									RioDB.rio.getLogger().info("Window created.");
+									RioDB.rio.getSystemSettings().getLogger().info("Window created.");
 								}
 							} else {
-								RioDB.rio.getLogger().debug("User not authorized to manage windows.");
+								RioDB.rio.getSystemSettings().getLogger().debug("User not authorized to manage windows.");
 								responseList.add("\"User not authorized to manage windows.\"");
 								responseCode = 1;
 							}
 
 						} else if (statement.contains(" user ")) {
 							if (RioDB.rio.getUserMgr() == null) {
-								RioDB.rio.getLogger().debug("User Management is not enabled.");
+								RioDB.rio.getSystemSettings().getLogger().debug("User Management is not enabled.");
 								responseList.add("\"User Management is not enabled.\"");
 								responseCode = 1;
 							} else if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("ADMIN")) {
 								RioDB.rio.getUserMgr().changeRequest(originalStatement, actingUser);
 								responseList.add("\"User created.\"");
-								RioDB.rio.getLogger().debug("User created.");
+								RioDB.rio.getSystemSettings().getLogger().debug("User created.");
 							} else {
-								RioDB.rio.getLogger().debug("User not authorized with ADMIN.");
+								RioDB.rio.getSystemSettings().getLogger().debug("User not authorized with ADMIN.");
 								responseList.add("\"User not authorized with ADMIN.\"");
 								responseCode = 1;
 							}
 						} else {
-							RioDB.rio.getLogger().debug("Unknown CREATE command.");
+							RioDB.rio.getSystemSettings().getLogger().debug("Unknown CREATE command.");
 							throw new ExceptionSQLStatement("Unknown CREATE command.");
 						}
 					} else if (statement.startsWith("drop ")) {
@@ -112,13 +112,13 @@ public final class SQLExecutor {
 									|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("STREAM")) {
 								if (SQLStreamOperations.dropStream(statement)) {
 									responseList.add("\"Stream dropped.\"");
-									RioDB.rio.getLogger().info("Stream dropped.");
+									RioDB.rio.getSystemSettings().getLogger().info("Stream dropped.");
 								} else {
 									responseList.add("\"Stream not found.\"");
 									responseCode = 1;
 								}
 							} else {
-								RioDB.rio.getLogger().debug("User not authorized to manage streams.");
+								RioDB.rio.getSystemSettings().getLogger().debug("User not authorized to manage streams.");
 								responseList.add("\"User not authorized to manage streams.\"");
 								responseCode = 1;
 							}
@@ -127,13 +127,13 @@ public final class SQLExecutor {
 									|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("WINDOW")) {
 								if (SQLWindowOperations.dropWindow(statement)) {
 									responseList.add("\"Window dropped.\"");
-									RioDB.rio.getLogger().info("window dropped.");
+									RioDB.rio.getSystemSettings().getLogger().info("window dropped.");
 								} else {
 									responseList.add("\"Window not found.\"");
 									responseCode = 1;
 								}
 							} else {
-								RioDB.rio.getLogger().debug("User not authorized to manage windows.");
+								RioDB.rio.getSystemSettings().getLogger().debug("User not authorized to manage windows.");
 								responseList.add("\"User not authorized to manage windows.\"");
 								responseCode = 1;
 							}
@@ -142,13 +142,13 @@ public final class SQLExecutor {
 									|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("QUERY")) {
 								if (SQLQueryOperations.dropQuery(statement)) {
 									responseList.add("\"Query dropped.\"");
-									RioDB.rio.getLogger().info("Query dropped.");
+									RioDB.rio.getSystemSettings().getLogger().info("Query dropped.");
 								} else {
 									responseList.add("\"Query not found.\"");
 									responseCode = 1;
 								}
 							} else {
-								RioDB.rio.getLogger().debug("User not authorized to manage queries.");
+								RioDB.rio.getSystemSettings().getLogger().debug("User not authorized to manage queries.");
 								responseList.add("\"User not authorized to manage queries.\"");
 								responseCode = 1;
 							}
@@ -159,7 +159,7 @@ public final class SQLExecutor {
 							} else if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("ADMIN")) {
 								RioDB.rio.getUserMgr().changeRequest(statement, actingUser);
 								responseList.add("User dropped.");
-								RioDB.rio.getLogger().debug("User dropped.");
+								RioDB.rio.getSystemSettings().getLogger().debug("User dropped.");
 							} else {
 								responseList.add("\"User not authorized to manage queries.\"");
 								responseCode = 1;
@@ -200,7 +200,7 @@ public final class SQLExecutor {
 						} else if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("ADMIN")) {
 							String r = RioDB.rio.getUserMgr().changeRequest(originalStatement, actingUser);
 							responseList.add("\"" + r + "\"");
-							RioDB.rio.getLogger().debug(r);
+							RioDB.rio.getSystemSettings().getLogger().debug(r);
 						} else {
 							responseList.add("\"User not authorized to manage queries.\"");
 							responseCode = 1;

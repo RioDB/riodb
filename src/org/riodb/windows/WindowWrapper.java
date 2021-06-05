@@ -124,7 +124,7 @@ public class WindowWrapper {
 			}
 		} catch (ExceptionSQLExecution e) {
 			if (!errorAlreadyCaught) {
-				RioDB.rio.getLogger()
+				RioDB.rio.getSystemSettings().getLogger()
 						.error("Window " + windowName + ": " + e.getMessage().replace("\n", " ").replace("\r", " "));
 				errorAlreadyCaught = true;
 			}
