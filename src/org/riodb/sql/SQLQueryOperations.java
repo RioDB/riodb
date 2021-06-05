@@ -146,8 +146,8 @@ public final class SQLQueryOperations {
 			limitUnit = 'q';
 			limitByTime = false;
 			timeoutByTime = true;
-			if(timeout == -1 || timeout > RioDB.rio.getHttpInterface().getTimeout()) {
-				timeout = RioDB.rio.getHttpInterface().getTimeout();
+			if(timeout == -1 || timeout > RioDB.rio.getSystemSettings().getHttpInterface().getTimeout()) {
+				timeout = RioDB.rio.getSystemSettings().getHttpInterface().getTimeout();
 			}
 			
 			//Output output = SQLQueryOutputOperations.getOutput(outputStr, columnHeaders);

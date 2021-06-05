@@ -18,54 +18,27 @@
  
 */
 package org.riodb.engine;
-/*
-	Copyright (c) 2021 Lucio D Matos,  www.riodb.org
 
-This file is part of RioDB
-
-RioDB is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-any later version.
-
-RioDB is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-A copy of the GNU General Public License should be found in the root
-directory. If not, see <https://www.gnu.org/licenses/>.
-
-*/
-
-
-import org.apache.logging.log4j.Logger;
 import org.riodb.access.ExceptionAccessMgt;
 import org.riodb.access.UserManager;
-import org.apache.logging.log4j.LogManager;
+
 
 public class RioDB {
 	
 	static final String VERSION = "v0.1";
 	
-	// logger
-	private final static Logger logger = LogManager.getLogger(RioDB.class.getName());
-	public Logger getLogger() {
-		return logger;
+	private final static SystemSettings settings = new SystemSettings();
+	public SystemSettings getSystemSettings() {
+		return settings;
 	}
 	
-	// HTTP interface server (to receive SQL statement requests)
-	private final HTTPInterface httpInterface = new HTTPInterface();
-	public  HTTPInterface getHttpInterface() {
-		return httpInterface;
-	}
-
-	// Engine that contains and runs streams, windows, queries, etc.
+	
+		// Engine that contains and runs streams, windows, queries, etc.
 	private final Engine rioEngine = new Engine();
 	public Engine getEngine() {
 		return rioEngine;
 	}
-
+	
 	// User manager for controlling authentication and privileges
 	private static UserManager userMgr = null;
 	public void setUserMgr(String credentialsFile) throws ExceptionAccessMgt {
@@ -82,14 +55,14 @@ public class RioDB {
 
 	// start services
 	public void start() {
-		logger.info("#############   Starting Engine...  #################");
+		settings.getLogger().info("#############   Starting Engine...  #################");
 		rioEngine.start();
-		logger.info("RioDB is ready");
+		settings.getLogger().info("RioDB is ready");
 	}
 
 	// stop services
 	private void pause() {
-		logger.info("#############   Stopping Engine...  #################");
+		settings.getLogger().info("#############   Stopping Engine...  #################");
 		rioEngine.stop();
 		Clock.quickPause();
 	}
@@ -106,6 +79,7 @@ public class RioDB {
 	/// MAIN
 	public static void main(String[] args) throws InterruptedException {
 		
+		
 		/*
 		 *  Per the license, the terminal must FIRST display an attribution to the copyright of riodb.org
 		 *  If the project is forked, this copyright notice must be preserved and displayed first.
@@ -120,7 +94,7 @@ public class RioDB {
 
 
 		// Load initial configuration.
-		if (!Config.loadConfig(args))
+		if (!settings.loadConfig(args))
 			System.exit(0);
 		
 		// Start services

@@ -83,10 +83,10 @@ public class SQLQueryConditionExpression implements SQLQueryCondition {
 				"	}\r\n" + 
 				"}\r\n" + 
 				"";
-		
+				
 		try {
 			
-			RioDB.rio.getLogger().debug("Compiling dynamic class "+className);
+			RioDB.rio.getSystemSettings().getLogger().debug("Compiling dynamic class "+className);
 			
 			//System.out.println(source);
 			

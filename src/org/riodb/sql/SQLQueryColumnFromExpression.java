@@ -53,7 +53,7 @@ public class SQLQueryColumnFromExpression implements SQLQueryColumn {
 		
 		try {
 
-			RioDB.rio.getLogger().debug("Compiling dynamic class " + className);
+			RioDB.rio.getSystemSettings().getLogger().debug("Compiling dynamic class " + className);
 
 			@SuppressWarnings("unchecked")
 			Class<SQLQueryColumnCompiled> newClass = (Class<SQLQueryColumnCompiled>) InMemoryJavaCompiler.newInstance()
@@ -63,7 +63,7 @@ public class SQLQueryColumnFromExpression implements SQLQueryColumn {
 
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
-			RioDB.rio.getLogger().debug("Error compiling dynamic class: ["+expression + "] " + e.getMessage().replace("\n", "\\n"));
+			RioDB.rio.getSystemSettings().getLogger().debug("Error compiling dynamic class: ["+expression + "] " + e.getMessage().replace("\n", "\\n"));
 			throw new ExceptionSQLStatement("Error evaluating query conditions.");
 		}
 

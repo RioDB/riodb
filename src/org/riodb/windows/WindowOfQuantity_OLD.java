@@ -159,7 +159,7 @@ public class WindowOfQuantity_OLD implements Window {
 		this.requiresSum = functionsRequired[SQLFunctionMap.getFunctionId("sum")];
 		this.requiresVariance = functionsRequired[SQLFunctionMap.getFunctionId("variance")];
 
-		RioDB.rio.getLogger().debug("constructing Window of Quantity");
+		RioDB.rio.getSystemSettings().getLogger().debug("constructing Window of Quantity");
 
 		// start empty initial stack
 		initialQueue = new ArrayDeque<Double>();

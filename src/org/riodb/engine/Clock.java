@@ -55,7 +55,7 @@ public class Clock implements Runnable {
 	@Override
 	public void run() {
 		try {
-			RioDB.rio.getLogger().debug("Starting clock...");
+			RioDB.rio.getSystemSettings().getLogger().debug("Starting clock...");
 			while (true) {
 				int now = (int) (System.currentTimeMillis() / 1000L);
 				if(now > currentSecond) {
@@ -65,7 +65,7 @@ public class Clock implements Runnable {
 				Thread.sleep(1);
 			}
 		} catch (InterruptedException e) {
-			RioDB.rio.getLogger().debug("Clock stopped.");
+			RioDB.rio.getSystemSettings().getLogger().debug("Clock stopped.");
 		}
 	}
 

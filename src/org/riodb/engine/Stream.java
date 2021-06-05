@@ -42,7 +42,7 @@ public class Stream implements Runnable {
 
 	public Stream(int streamId, String name, RioDBStreamEventDef def, String dataSourceType, String dataSourceParams)
 			throws ExceptionSQLStatement, RioDBPluginException {
-		RioDB.rio.getLogger().info("Creating stream[" + streamId + "]" + name);
+		RioDB.rio.getSystemSettings().getLogger().info("Creating stream[" + streamId + "]" + name);
 		this.streamId = streamId;
 		this.streamName = name;
 		this.streamEventDef = def;
@@ -58,7 +58,7 @@ public class Stream implements Runnable {
 			streamDataSource = DataSourceClassLoader.getInputPlugin(dataSourceType);
 			streamDataSource.init(dataSourceParams, def);
 		} else {
-			RioDB.rio.getLogger().error("Failed to create stream because dataSource Type is missing");
+			RioDB.rio.getSystemSettings().getLogger().error("Failed to create stream because dataSource Type is missing");
 		}
 		
 		/*
@@ -146,7 +146,7 @@ public class Stream implements Runnable {
 		try {
 			streamDataSource.start();
 		} catch (RioDBPluginException e) {
-			RioDB.rio.getLogger().info("Error starting input plugin: "+ e.getMessage().replace("\n", "").replace("\r", ""));
+			RioDB.rio.getSystemSettings().getLogger().info("Error starting input plugin: "+ e.getMessage().replace("\n", "").replace("\r", ""));
 		}
 
 	}
@@ -155,21 +155,21 @@ public class Stream implements Runnable {
 
 		// stop data source first
 		try {
-			RioDB.rio.getLogger().debug("Stopping DataSource for stream "+streamId);
+			RioDB.rio.getSystemSettings().getLogger().debug("Stopping DataSource for stream "+streamId);
 			streamDataSource.stop();
 		} catch (RioDBPluginException e) {
-			RioDB.rio.getLogger().info("Error stopping input plugin: "+ e.getMessage().replace("\n", "").replace("\r", ""));
+			RioDB.rio.getSystemSettings().getLogger().info("Error stopping input plugin: "+ e.getMessage().replace("\n", "").replace("\r", ""));
 		}
 		Clock.quickPause();
 		// stop stream
 		interrupt = true;
 		streamThread.interrupt();
-		RioDB.rio.getLogger().debug("Stopping DataSource thread for stream "+streamId);
+		RioDB.rio.getSystemSettings().getLogger().debug("Stopping DataSource thread for stream "+streamId);
 		counter = 0;
 		Clock.quickPause();
 		// stop queries
 		streamQueryMgr.stop();
-		RioDB.rio.getLogger().debug("Stopping Query Mgr for stream "+streamId);
+		RioDB.rio.getSystemSettings().getLogger().debug("Stopping Query Mgr for stream "+streamId);
 		Clock.quickPause();
 	}
 
@@ -219,7 +219,7 @@ public class Stream implements Runnable {
 
 	@Override
 	public void run() {
-		RioDB.rio.getLogger().info("Starting Event Handler for Stream[" + streamId + "] ...");
+		RioDB.rio.getSystemSettings().getLogger().info("Starting Event Handler for Stream[" + streamId + "] ...");
 		try {
 
 			while (!interrupt) {
@@ -252,17 +252,17 @@ public class Stream implements Runnable {
 					}
 				}
 			}
-			RioDB.rio.getLogger().info("EventHandler for stream [" + streamId + "] stopped.");
+			RioDB.rio.getSystemSettings().getLogger().info("EventHandler for stream [" + streamId + "] stopped.");
 
 		} catch (RioDBPluginException e) {
-			RioDB.rio.getLogger().debug("plugin returned error: " + e.getMessage());
+			RioDB.rio.getSystemSettings().getLogger().debug("plugin returned error: " + e.getMessage());
 			//e.printStackTrace();
 		}
 
 		if (interrupt) {
-			RioDB.rio.getLogger().info("EventHandler for stream [" + streamId + "] stopped.");
+			RioDB.rio.getSystemSettings().getLogger().info("EventHandler for stream [" + streamId + "] stopped.");
 		} else {
-			RioDB.rio.getLogger().info("EventHandler for stream [" + streamId + "] stopped unexpectedly.");
+			RioDB.rio.getSystemSettings().getLogger().info("EventHandler for stream [" + streamId + "] stopped unexpectedly.");
 		}
 	}
 }

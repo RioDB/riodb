@@ -45,7 +45,7 @@ public class WindowManager {
 
 	public void addWindow(WindowWrapper newWindow) {
 		windowWrapperList.add(newWindow);
-		RioDB.rio.getLogger().debug("Window '" + newWindow.getName() + "' added");
+		RioDB.rio.getSystemSettings().getLogger().debug("Window '" + newWindow.getName() + "' added");
 	}
 
 	public boolean removeWindow(int index) {

@@ -150,7 +150,7 @@ public class WindowOfTimeSimple implements Window {
 		this.requiresPrevious = functionsRequired[SQLFunctionMap.getFunctionId("previous")];
 		this.requiresSum = functionsRequired[SQLFunctionMap.getFunctionId("sum")];
 		
-		RioDB.rio.getLogger().debug("constructing Window of time, simple");
+		RioDB.rio.getSystemSettings().getLogger().debug("constructing Window of time, simple");
 		// list = new LinkedList<SecondNode>();
 		secondSummaryList = new ArrayDeque<SecondNode>();
 		windowSummary = new WindowSummary();
