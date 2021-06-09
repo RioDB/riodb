@@ -43,12 +43,13 @@ public class SystemSettings {
 
 	// default config file location
 	static final String DEFAULT_CONFIG_FILE = "riodb.conf";
-	static final String DEFAULT_CONFIG_SUBDIR = "conf/";
-	static final String DEFAULT_PLUGIN_SUBDIR = "plugins/";
-	static final String DEFAULT_SQL_SUBDIR = "sql/";
+	static final String DEFAULT_CONFIG_SUBDIR = "conf";
+	static final String DEFAULT_PLUGIN_SUBDIR = "plugins";
+	static final String DEFAULT_SQL_SUBDIR = "sql";
 	static final String RQL_FILE_EXTENSION = "sql";
 
 	private static String pluginJarDirectory;
+	private static String sqlDirectory;
 
 	public String getPluginDirectory() {
 		return pluginJarDirectory;
@@ -89,7 +90,7 @@ public class SystemSettings {
 			return false;
 		}
 
-		String configFile = System.getProperty("user.home") + "/" + DEFAULT_CONFIG_SUBDIR + DEFAULT_CONFIG_FILE;
+		String configFile = System.getProperty("user.home") + "/" + DEFAULT_CONFIG_SUBDIR +"/"+ DEFAULT_CONFIG_FILE;
 		configFile = adaptPathSlashes(configFile);
 
 		if (args.length > 1 && args[0].equals("-f")) {
@@ -127,7 +128,7 @@ public class SystemSettings {
 		String httpsKeystoreFile = "";
 		String httpsKeystorePwd = "";
 		String credentialsFile = null;
-		String sqlDirectory = System.getProperty("user.home") + "/" + DEFAULT_SQL_SUBDIR;
+		sqlDirectory = System.getProperty("user.home") + "/" + DEFAULT_SQL_SUBDIR;
 		pluginJarDirectory = System.getProperty("user.home") + "/" + DEFAULT_PLUGIN_SUBDIR;
 		
 		for (String line : fileContent) {
@@ -184,9 +185,19 @@ public class SystemSettings {
 			}
 			Clock.quickPause();
 		}
-		
+
+		// format sqlDirectory path
+		if(!sqlDirectory.endsWith("/") && !sqlDirectory.endsWith("\\")) {
+			sqlDirectory = sqlDirectory + "/";
+		}
 		sqlDirectory = adaptPathSlashes(sqlDirectory);
+		
+		// format plugin directory path
+		if(!pluginJarDirectory.endsWith("/") && !pluginJarDirectory.endsWith("\\")) {
+			pluginJarDirectory = pluginJarDirectory + "/";
+		}
 		pluginJarDirectory = adaptPathSlashes(pluginJarDirectory);
+
 		
 		logger.info("RioDB " + RioDB.VERSION + " - Copyright (c) 2021 www.riodb.org");
 		logger.debug("Java VM name: " + System.getProperty("java.vm.name"));
@@ -195,7 +206,7 @@ public class SystemSettings {
 		logger.debug("Plugin dir: " + pluginJarDirectory);
 		logger.debug("SQL file dir: " + sqlDirectory);
 
-		success = loadSQLFiles(sqlDirectory);
+		success = loadSQLFiles();
 		if(!success) {
 			return false;
 		}
@@ -233,7 +244,7 @@ public class SystemSettings {
 		return success;
 	}
 
-	public final static boolean loadSQLFiles(String sqlDirectory) {
+	public final static boolean loadSQLFiles() {
 		
 		if(sqlDirectory == null)
 			return true;
@@ -260,12 +271,14 @@ public class SystemSettings {
 			// Print the names of files and directories
 			if (file.toLowerCase().endsWith(("." + RQL_FILE_EXTENSION))) {
 				
-				Path fileName = Path.of(sqlDirectory + file);
-				logger.info("Loading " + file + " ...");
+				String fileName = adaptPathSlashes(sqlDirectory + file);
+				
+				Path filePath = Path.of(fileName);
+				logger.info("Loading " + fileName + " ...");
 
 				try {
 					
-					String fileContent = Files.readString(fileName);
+					String fileContent = Files.readString(filePath);
 
 					if (fileContent != null && fileContent.contains(";")) {
 
