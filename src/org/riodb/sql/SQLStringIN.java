@@ -18,7 +18,6 @@
  
 */
 
-
 /*
  * 	Instead of a final class (without variables) that checks if a string in IN a list of comma-separated strings,
  *  this class is initialized with pre-determined variables to expedite comparisons, 
@@ -29,11 +28,15 @@
 
 package org.riodb.sql;
 
+import java.util.HashSet;
+
 public class SQLStringIN {
 
-	private String list[];
+	private HashSet<String> strings;
 
 	SQLStringIN(String str) throws ExceptionSQLStatement {
+
+		strings = new HashSet<String>();
 
 		String originalStr = str;
 //		System.out.println("{"+str+"}");
@@ -43,82 +46,36 @@ public class SQLStringIN {
 			if (str.length() > 1 && str.charAt(str.length() - 1) == ')') {
 				str = str.substring(0, str.length() - 1);
 			} else {
-				throw new ExceptionSQLStatement(SQLStmtErrorMsg.write(36,originalStr));
-				
+				throw new ExceptionSQLStatement(SQLStmtErrorMsg.write(36, originalStr));
+
 			}
 		} else {
-			throw new ExceptionSQLStatement(SQLStmtErrorMsg.write(36,originalStr));
+			throw new ExceptionSQLStatement(SQLStmtErrorMsg.write(36, originalStr));
 		}
 
 		str = str.trim();
-		list = str.split(",");
+		String list[] = str.split(",");
 		for (int i = 0; i < list.length; i++) {
 			list[i] = list[i].trim();
-			if (list[i] != null && list[i].length() > 0 && list[i].charAt(0) == '\'') {
+			if (list[i] != null && (list[i].equals("''") || list[i].toLowerCase().equals("null"))) {
+				list[i] = null;
+			} else if (list[i] != null && list[i].length() > 0 && list[i].charAt(0) == '\''
+					&& list[i].charAt(list[i].length() - 1) == '\'') {
 				list[i] = list[i].substring(1);
-				if (list[i].length() > 1 && list[i].charAt(list[i].length() - 1) == '\'') {
-					list[i] = list[i].substring(0, list[i].length() - 1);
-				} else {
-					throw new ExceptionSQLStatement("IN condition requires non-empty strings enclosed by single quote, like  IN ('hello')  \n\t IN " + originalStr);
-				}
+				list[i] = list[i].substring(0, list[i].length() - 1);
 			} else {
-				throw new ExceptionSQLStatement("IN condition requires non-empty strings enclosed by single quote, like  IN ('hello')  \n\t IN " + originalStr);			}
+				throw new ExceptionSQLStatement(
+						"IN condition requires comma-separated strings enclosed by single quote, like  IN('word','more words',null,'Got it?')  \n\t IN "
+								+ originalStr);
+			}
+			
+			strings.add(list[i]);
 		}
-		removeNulls();
-		removeDuplicates();
-		
+
 	}
 
 	public boolean match(String s) {
-		if (s == null || s.length() == 0) {
-			return list.length == 0;
-		}
-		for (int i = 0; i < list.length; i++) {
-			if (list[i].equals(s))
-				return true;
-		}
-		return false;
+		return strings.contains(s);
 	}
 
-	private void removeNulls() {
-
-		for (int i = list.length - 1; i >= 0; i--) {
-			if (list[i] == null || list[i].length() == 0) {
-
-				// remove item from list
-				String[] newList = new String[list.length - 1];
-				for (int j = 0; j < i; j++) {
-					newList[j] = list[j];
-				}
-				for (int j = i; j < newList.length; j++) {
-					newList[j] = list[j + 1];
-				}
-				list = newList;
-			}
-		}
-	}
-
-	private void removeDuplicates() {
-
-		for (int i = list.length - 1; i >= 0; i--) {
-			int dups = 0;
-			for (int j = 0; j < list.length; j++) {
-				if (j != i && list[j].equals(list[i])) {
-					dups++;
-				}
-			}
-			if (dups > 0) {
-
-				// remove item from list
-				String[] newList = new String[list.length - 1];
-				for (int j = 0; j < i; j++) {
-					newList[j] = list[j];
-				}
-				for (int j = i; j < newList.length; j++) {
-					newList[j] = list[j + 1];
-				}
-				list = newList;
-			}
-		}
-	}
 }
