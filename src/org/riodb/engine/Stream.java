@@ -6,6 +6,7 @@ import org.riodb.queries.Query;
 import org.riodb.queries.QueryManager;
 import org.riodb.sql.ExceptionSQLStatement;
 import org.riodb.windows.WindowManager;
+import org.riodb.windows.WindowSummary;
 import org.riodb.windows.WindowWrapper;
 
 import org.riodb.plugin.RioDBDataSource;
@@ -177,8 +178,8 @@ public class Stream implements Runnable {
 		return streamEventDef;
 	}
 
-	public void sendEventResultsRefToQueries(EventWithSummaries esum) {
-		streamQueryMgr.putEventRef(esum);
+	public void sendEventResultsRefToQueries(EventWithSummaries ews) {
+		streamQueryMgr.putEventRef(ews);
 	}
 
 	protected int inboxSize() {
@@ -232,7 +233,12 @@ public class Stream implements Runnable {
 				RioDBStreamEvent event = streamDataSource.getNextEvent();
 				if (event != null) {
 
-					streamWindowMgr.putEventRef(event);
+					WindowSummary results[] = streamWindowMgr.putEventRef(event);
+					
+					EventWithSummaries ews = new EventWithSummaries(event, results);
+					
+					
+					sendEventResultsRefToQueries(ews);
 
 				} 
 				else {

@@ -168,7 +168,7 @@ public final class SQLExecutor {
 							throw new ExceptionSQLStatement("Unknown drop command.");
 						}
 					} else if (statement.startsWith("kill ")) {
-//						success = createQuery(statement);
+//						success = killQuery(statement);
 //						response = response + "Query killed.\n";
 					} else if (statement.startsWith("list ")) {
 						if (statement.contains(" streams")) {
