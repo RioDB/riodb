@@ -28,7 +28,6 @@ package org.riodb.windows;
 import java.util.ArrayList;
 
 import org.riodb.engine.RioDB;
-import org.riodb.queries.EventWithSummaries;
 
 import org.riodb.plugin.RioDBStreamEvent;
 
@@ -130,7 +129,7 @@ public class WindowManager {
 		return "";
 	}
 
-	public void putEventRef(RioDBStreamEvent event) {
+	public WindowSummary[] putEventRef(RioDBStreamEvent event) {
 
 		WindowSummary results[] = new WindowSummary[windowWrapperList.size()];
 		// guarantee that currentSecond is the same for all windows. 
@@ -139,9 +138,8 @@ public class WindowManager {
 			results[i] = (WindowSummary) windowWrapperList.get(i).putEventRef(event, currentSecond);
 		}
 
-		EventWithSummaries esum = new EventWithSummaries(event, results);
-
-		RioDB.rio.getEngine().getStream(streamId).sendEventResultsRefToQueries(esum);
+		return results;
+		
 	}
 	
 	public void trimExpiredWindowElements(int currentSecond) {

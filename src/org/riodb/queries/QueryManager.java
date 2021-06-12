@@ -25,6 +25,7 @@ import java.util.Iterator;
 import org.jctools.queues.SpscChunkedArrayQueue;
 import org.riodb.engine.RioDB;
 import org.riodb.sql.ExceptionSQLExecution;
+//import org.riodb.plugin.RioDBStreamEvent;
 
 public class QueryManager implements Runnable {
 	
@@ -128,6 +129,10 @@ public class QueryManager implements Runnable {
 
 	public void run() {
 		RioDB.rio.getSystemSettings().getLogger().info("Starting query manager for Stream[" + streamId + "] ...");
+		
+		// for future enhancement, queries should be able to use data from previous event. 
+		//RioDBStreamEvent previousEvent = null;
+		
 		while (!interrupt) {
 			EventWithSummaries esum = inbox.poll();
 			if (esum != null) {
@@ -150,8 +155,10 @@ public class QueryManager implements Runnable {
 							erroAlreadyCaught = true;
 						}
 					}
-
 				}
+
+				// for future enhancement, queries should be able to use data from previous event. 
+				//previousEvent = esum.getEventRef();
 
 			} else {
 				// Save CPU cycles.

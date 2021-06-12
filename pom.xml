@@ -2,20 +2,39 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>RioDB</groupId>
-	<artifactId>RioDB</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<groupId>org.riodb</groupId>
+	<artifactId>riodb</artifactId>
+	<version>0.1-SNAPSHOT</version>
 	<build>
 		<sourceDirectory>src</sourceDirectory>
-		<resources>
-			<resource>
-				<directory>src</directory>
-				<excludes>
-					<exclude>**/*.java</exclude>
-				</excludes>
-			</resource>
-		</resources>
 		<plugins>
+			<plugin>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<configuration>
+					<archive>
+						<manifest>
+							<mainClass>org.riodb.engine.RioDB</mainClass>
+						</manifest>
+						<manifestEntries>
+							<Multi-Release>true</Multi-Release>
+						</manifestEntries>
+					</archive>
+					<descriptorRefs>
+						<descriptorRef>jar-with-dependencies</descriptorRef>
+					</descriptorRefs>
+					<finalName>${project.artifactId}</finalName>
+					<appendAssemblyId>false</appendAssemblyId>
+				</configuration>
+				<executions>
+					<execution>
+						<id>make-my-jar-with-dependenciess</id>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
 			<plugin>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.8.1</version>
@@ -52,7 +71,6 @@
 			<artifactId>log4j-core</artifactId>
 			<version>2.14.0</version>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.mdkt.compiler/InMemoryJavaCompiler -->
 		<dependency>
 			<groupId>org.mdkt.compiler</groupId>
 			<artifactId>InMemoryJavaCompiler</artifactId>

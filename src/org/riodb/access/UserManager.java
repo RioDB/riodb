@@ -384,8 +384,7 @@ public class UserManager {
 
 			writer.close();
 		} catch (IOException e) {
-			RioDB.rio.getSystemSettings().getLogger()
-					.error("Error writing password file: " + e.getMessage().replace("\n", "").replace("\r", ""));
+			RioDB.rio.getSystemSettings().getLogger().error("Error writing password file: " + e.getMessage().replace("\n", "").replace("\r", ""));
 		}
 
 	}

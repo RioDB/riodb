@@ -47,9 +47,13 @@ public class SystemSettings {
 	static final String DEFAULT_PLUGIN_SUBDIR = "plugins";
 	static final String DEFAULT_SQL_SUBDIR = "sql";
 	static final String RQL_FILE_EXTENSION = "sql";
+	static final String DEFAULT_SSL_CERT_FILE = ".ssl/keystore.jks";
+	static final String DEFAULT_PASSWD_FILE = ".access/users.dat";
 
 	private static String pluginJarDirectory;
 	private static String sqlDirectory;
+	private static String passwdFile = DEFAULT_PASSWD_FILE;
+	private static String sslCertFile = DEFAULT_SSL_CERT_FILE;
 
 	public String getPluginDirectory() {
 		return pluginJarDirectory;
@@ -74,7 +78,6 @@ public class SystemSettings {
 		//
 	}
 
-	
 	public final boolean loadConfig(String[] args) {
 
 		boolean success = true;
@@ -90,12 +93,16 @@ public class SystemSettings {
 			return false;
 		}
 
-		String configFile = System.getProperty("user.home") + "/" + DEFAULT_CONFIG_SUBDIR +"/"+ DEFAULT_CONFIG_FILE;
+		String configFile = System.getProperty("user.home") + "/" + DEFAULT_CONFIG_SUBDIR + "/" + DEFAULT_CONFIG_FILE;
 		configFile = adaptPathSlashes(configFile);
 
 		if (args.length > 1 && args[0].equals("-f")) {
 			configFile = args[1];
 		}
+		if (!configFile.contains(":") && !configFile.startsWith("/") && !configFile.startsWith("\\")) {
+			configFile = System.getProperty("user.home") + "/" + configFile;
+		}
+		configFile = adaptPathSlashes(configFile);
 
 		Path filePath = Path.of(configFile);
 
@@ -104,13 +111,14 @@ public class SystemSettings {
 			fileContent = (ArrayList<String>) Files.readAllLines(filePath);
 			if (fileContent != null && fileContent.size() > 0) {
 				success = runConfig(fileContent);
+				logger.debug("Finished loading config file: " + configFile);
 			} else {
 				success = false;
 				System.out.println("Error reading " + configFile);
 			}
 
 		} catch (IOException e) {
-			System.out.println("Error reading " + configFile + "\n   " + e.getMessage());
+			System.out.println("Error reading " + configFile + " -   " + e.getMessage());
 			success = false;
 		}
 
@@ -121,16 +129,16 @@ public class SystemSettings {
 	}
 
 	private static boolean runConfig(ArrayList<String> fileContent) {
-		
+
 		boolean success = true;
 		int httpPort = 0;
 		int httpsPort = 0;
-		String httpsKeystoreFile = "";
 		String httpsKeystorePwd = "";
-		String credentialsFile = null;
 		sqlDirectory = System.getProperty("user.home") + "/" + DEFAULT_SQL_SUBDIR;
 		pluginJarDirectory = System.getProperty("user.home") + "/" + DEFAULT_PLUGIN_SUBDIR;
-		
+		passwdFile = System.getProperty("user.home") + "/" + DEFAULT_PASSWD_FILE;
+		sslCertFile = System.getProperty("user.home") + "/" + DEFAULT_SSL_CERT_FILE;
+
 		for (String line : fileContent) {
 			line = line.replace('\t', ' ');
 			line = line.trim();
@@ -143,20 +151,27 @@ public class SystemSettings {
 					if (words[1].contains("#")) {
 						words[1] = words[1].substring(0, words[1].indexOf("#"));
 					} else if (words[0].equals("log4j_properties")) {
-						
+
 						String log4j2XMLfile = words[1];
-						if(!log4j2XMLfile.contains(":") && !log4j2XMLfile.startsWith("/")) {
+						if (!log4j2XMLfile.contains(":") && !log4j2XMLfile.startsWith("/") && !log4j2XMLfile.startsWith("\\")) {
 							log4j2XMLfile = System.getProperty("user.home") + "/" + log4j2XMLfile;
 						}
 						log4j2XMLfile = adaptPathSlashes(log4j2XMLfile);
-						
-						File file = new File(words[1]);
+
+						File file = new File(log4j2XMLfile);
 						LoggerContext context = (LoggerContext) LogManager.getContext(false);
 						context.setConfigLocation(file.toURI());
 
 						// DOMConfigurator.configure(words[1]);
 
 						Thread.currentThread().setName("RIODB");
+						logger.info("RioDB " + RioDB.VERSION + " - Copyright (c) 2021 www.riodb.org");
+						logger.debug("Java VM name: " + System.getProperty("java.vm.name"));
+						logger.debug("Java Version: " + System.getProperty("java.version"));
+						logger.debug("Java Home: " + System.getProperty("java.home"));
+						
+						
+						logger.debug("log4j2 config file: " + log4j2XMLfile);
 
 						Clock.quickPause();
 					}
@@ -171,11 +186,11 @@ public class SystemSettings {
 						if (SQLParser.isNumber(words[1]))
 							httpsPort = Integer.valueOf(words[1]);
 					} else if (words[0].equals("https_keystore_file")) {
-						httpsKeystoreFile = words[1];
+						sslCertFile = words[1];
 					} else if (words[0].equals("https_keystore_pwd")) {
 						httpsKeystorePwd = words[1];
 					} else if (words[0].equals("credentials_file")) {
-						credentialsFile = words[1];
+						passwdFile = words[1];
 					} else if (words[0].equals("sql_dir")) {
 						sqlDirectory = words[1];
 					} else if (words[0].equals("plugin_dir")) {
@@ -187,35 +202,29 @@ public class SystemSettings {
 		}
 
 		// format sqlDirectory path
-		if(!sqlDirectory.endsWith("/") && !sqlDirectory.endsWith("\\")) {
+		if (!sqlDirectory.endsWith("/") && !sqlDirectory.endsWith("\\")) {
 			sqlDirectory = sqlDirectory + "/";
 		}
 		sqlDirectory = adaptPathSlashes(sqlDirectory);
-		
+
 		// format plugin directory path
-		if(!pluginJarDirectory.endsWith("/") && !pluginJarDirectory.endsWith("\\")) {
+		if (!pluginJarDirectory.endsWith("/") && !pluginJarDirectory.endsWith("\\")) {
 			pluginJarDirectory = pluginJarDirectory + "/";
 		}
 		pluginJarDirectory = adaptPathSlashes(pluginJarDirectory);
 
-		
-		logger.info("RioDB " + RioDB.VERSION + " - Copyright (c) 2021 www.riodb.org");
-		logger.debug("Java VM name: " + System.getProperty("java.vm.name"));
-		logger.debug("Java Version: " + System.getProperty("java.version"));
-		logger.debug("Java Home: " + System.getProperty("java.home"));
 		logger.debug("Plugin dir: " + pluginJarDirectory);
 		logger.debug("SQL file dir: " + sqlDirectory);
-
+		
 		success = loadSQLFiles();
-		if(!success) {
+		if (!success) {
 			return false;
 		}
-		
+
 		Clock.quickPause();
 		if (httpPort > 0) {
-			if (credentialsFile != null) {
-				logger.error(
-						"Security violation. Credentials cannot be used when HTTP API (unencrypted) is enabled.");
+			if (passwdFile != null) {
+				logger.error("Security violation. Credentials cannot be used when HTTP API (unencrypted) is enabled.");
 				return false;
 			}
 			success = httpInterface.startHttp(httpPort);
@@ -223,19 +232,34 @@ public class SystemSettings {
 				return false;
 		}
 		Clock.quickPause();
-		if (httpsPort > 0 && httpsPort != httpPort && httpsKeystoreFile.length() > 0 && httpsKeystorePwd.length() > 0) {
-
+		if (httpsPort > 0 && httpsPort != httpPort && sslCertFile.length() > 0 && httpsKeystorePwd.length() > 0) {
+			
 			// load credentials configuration before opening ports.
-			if (credentialsFile != null) {
+			if (passwdFile != null) {
+				
+				if(!passwdFile.startsWith("/") && !passwdFile.startsWith("\\") && !passwdFile.contains(":")) {
+					passwdFile = System.getProperty("user.home") + "/" + passwdFile;
+				}
+				passwdFile = adaptPathSlashes(passwdFile);
+				logger.debug("Password file: " + passwdFile);
+				
 				try {
-					RioDB.rio.setUserMgr(credentialsFile);
+					RioDB.rio.setUserMgr(passwdFile);
 				} catch (ExceptionAccessMgt e) {
 					logger.error("Loading Credentials File: " + e.getMessage());
 					return false;
 				}
 			}
+			
+			// format password file and ssl cert file paths:
+			if(!sslCertFile.startsWith("/") && !sslCertFile.startsWith("\\") && !sslCertFile.contains(":")) {
+				sslCertFile = System.getProperty("user.home") + "/" + sslCertFile;
+			}
+			sslCertFile = adaptPathSlashes(sslCertFile);
+			logger.debug("SSL Cert file: " + sslCertFile);
+						
 
-			success = httpInterface.startHttps(httpsKeystoreFile, httpsKeystorePwd, httpsPort);
+			success = httpInterface.startHttps(sslCertFile, httpsKeystorePwd, httpsPort);
 			if (!success) {
 				return false;
 			}
@@ -245,8 +269,8 @@ public class SystemSettings {
 	}
 
 	public final static boolean loadSQLFiles() {
-		
-		if(sqlDirectory == null)
+
+		if (sqlDirectory == null)
 			return true;
 
 		boolean success = true;
@@ -258,11 +282,11 @@ public class SystemSettings {
 		// into an abstract pathname
 		File f = new File(sqlDirectory);
 
-		if(f==null || f.length() == 0) {
-			logger.warn("SQL directory '"+ sqlDirectory +"' not found.");
+		if (f == null || f.length() == 0) {
+			logger.warn("No .sql files found in '" + sqlDirectory );
 			return true;
 		}
-		
+
 		// Populates the array with names of files and directories
 		sqlFiles = f.list();
 
@@ -270,14 +294,14 @@ public class SystemSettings {
 		for (String file : sqlFiles) {
 			// Print the names of files and directories
 			if (file.toLowerCase().endsWith(("." + RQL_FILE_EXTENSION))) {
-				
+
 				String fileName = adaptPathSlashes(sqlDirectory + file);
-				
+
 				Path filePath = Path.of(fileName);
 				logger.info("Loading " + fileName + " ...");
 
 				try {
-					
+
 					String fileContent = Files.readString(filePath);
 
 					if (fileContent != null && fileContent.contains(";")) {
@@ -313,17 +337,17 @@ public class SystemSettings {
 		return success;
 
 	}
-	
+
 	// fix forward or back slashes based on OS
 	private static String adaptPathSlashes(String path) {
-		if(path == null) {
+		if (path == null) {
 			return path;
 		}
 		String OS = System.getProperty("os.name").toLowerCase();
-		if(OS.indexOf("win") >= 0) {
-			return path.replace("/","\\");
+		if (OS.indexOf("win") >= 0) {
+			return path.replace("/", "\\");
 		}
-		return path.replace("\\","/");
+		return path.replace("\\", "/");
 	}
 
 }
