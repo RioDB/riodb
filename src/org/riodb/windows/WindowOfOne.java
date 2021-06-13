@@ -169,5 +169,5 @@ public class WindowOfOne implements Window {
 		}
 		return false;
 	}
-
+	
 }

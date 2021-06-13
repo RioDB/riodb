@@ -147,5 +147,15 @@ public class WindowManager {
 			windowWrapperList.get(i).trimExpiredWindowElements(currentSecond);;
 		}
 	}
+	
+	public void resetWindow(String windowName) {
+		getWindow(windowName).resetWindow(); 
+	}
+	
+	public void resetAllWindows() {
+		for (int i = 0; i < windowWrapperList.size(); i++) {
+			windowWrapperList.get(i).resetWindow();
+		}
+	}
 
 }

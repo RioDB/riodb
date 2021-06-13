@@ -501,7 +501,7 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 		}
 		String streamName = fromStr.substring(0, fromStr.indexOf("."));
 		streamName = streamName.trim();
-		return RioDB.rio.getEngine().getStream(streamName);
+		return RioDB.rio.getEngine().getStreamId(streamName);
 	}
 
 	public static final String getWindowWhereStr(String stmt) throws ExceptionSQLStatement {
@@ -615,7 +615,7 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 	}
 	
 	public static final boolean isStreamName(String word) {
-		if (RioDB.rio.getEngine().getStream(word) >= 0) {
+		if (RioDB.rio.getEngine().getStreamId(word) >= 0) {
 			return true;
 		}
 		return false;

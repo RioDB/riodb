@@ -165,4 +165,8 @@ public class WindowWrapperPartitioned extends WindowWrapper {
 			}
 		}
 	}
+	
+	public void resetWindow() {
+		windowMap = new HashMap<String, Window>();
+	}
 }

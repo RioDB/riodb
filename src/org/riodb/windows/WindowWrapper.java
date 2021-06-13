@@ -143,5 +143,9 @@ public class WindowWrapper {
 			defaultWindow.trimExpiredWindowElements(currentSecond);
 		}
 	}
+	
+	public void resetWindow() {
+		defaultWindow = defaultWindow.makeFreshClone();
+	}
 
 }

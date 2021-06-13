@@ -32,10 +32,10 @@ public class WindowSummaryOfOne implements WindowSummaryInterface {
 
 	// clone
 	WindowSummaryOfOne(WindowSummaryOfOne source) {
-			this.full = source.full;
-			this.value = source.value;
-			this.previous = source.previous;
-		};
+		this.full = source.full;
+		this.value = source.value;
+		this.previous = source.previous;
+	};
 
 	@Override
 	public double getAvg() {
@@ -229,4 +229,5 @@ public class WindowSummaryOfOne implements WindowSummaryInterface {
 	public double getPopulationVariance() {
 		return 0;
 	}
+
 }

@@ -195,7 +195,7 @@ public final class SQLWindowOperations {
 			String id[] = words[2].split(",");
 			
 			if(id.length == 2) {
-				int streamId = RioDB.rio.getEngine().getStream(id[0]);
+				int streamId = RioDB.rio.getEngine().getStreamId(id[0]);
 				if (streamId == -1) {
 					return false;
 				}

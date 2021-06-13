@@ -102,7 +102,7 @@ public final class SQLStreamOperations {
 		if (words.length >= 3 && words[0] != null && words[0].equals("drop") && words[1] != null
 				&& words[1].equals("stream") && words[2] != null && words[2].length() > 0) {
 
-			int streamId = RioDB.rio.getEngine().getStream(words[2]);
+			int streamId = RioDB.rio.getEngine().getStreamId(words[2]);
 
 			if (streamId >= 0) {
 				return RioDB.rio.getEngine().removeStream(streamId);
