@@ -35,9 +35,9 @@ public class Clock implements Runnable {
 	private Thread clockThread;
 
 	public Clock() {
-		currentSecond = Long.valueOf(System.currentTimeMillis() / 1000).intValue();
-		clockThread = new Thread(this);
-		clockThread.setName("RIO_CLOCK_THREAD");
+	//	currentSecond = Long.valueOf(System.currentTimeMillis() / 1000).intValue();
+	//	clockThread = new Thread(this);
+	//	clockThread.setName("RIO_CLOCK_THREAD");
 	}
 
 	public int getCurrentSecond() {
@@ -45,6 +45,10 @@ public class Clock implements Runnable {
 	}
 
 	public void start() {
+		currentSecond = Long.valueOf(System.currentTimeMillis() / 1000).intValue();
+		clockThread = new Thread(this);
+		clockThread.setName("RIO_CLOCK_THREAD");
+		
 		clockThread.start();
 	}
 

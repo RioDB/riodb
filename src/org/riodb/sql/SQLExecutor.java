@@ -191,8 +191,72 @@ public final class SQLExecutor {
 								responseCode = 1;
 							}
 						}
+					} else if (statement.startsWith("reset window ")) {
+						if (RioDB.rio.getUserMgr() == null
+								|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("WINDOW")) {
+
+							String target = statement.substring(13);
+							if(target!=null && target.contains(".")) {
+								String streamName = target.substring(0,target.indexOf(".")-1).trim();
+								if(RioDB.rio.getEngine().getStreamId(streamName) >= 0) {
+									String windowName = target.substring(target.indexOf(".")).trim();
+									if (windowName.equals("all")) {
+										RioDB.rio.getEngine().getStream(streamName).resetAllWindows();
+										responseList.add("Reset all windows for stream "+ streamName);
+									} else if(RioDB.rio.getEngine().getStream(streamName).getWindowMgr().hasWindow(windowName)) {
+										RioDB.rio.getEngine().getStream(streamName).getWindowMgr().getWindow(windowName).resetWindow();
+										responseList.add("Reset window "+ target);
+									} else {
+										responseList.add("Window "+ target + " was not found.");
+										responseCode = 1;
+									}
+								}
+								else {
+									responseList.add("Stream "+ streamName + " does not exist.");
+									responseCode = 1;
+								}
+							}
+							else {
+								responseList.add("\"Invalid syntax for reset command. Try: reset window streamName.windowName; \"");
+								responseCode = 1;
+							
+							}							
+							
+						} else {
+							RioDB.rio.getSystemSettings().getLogger().debug("User not authorized to manage windows.");
+							responseList.add("\"User not authorized to manage windows.\"");
+							responseCode = 1;
+						}
+
+						
 					} else if (statement.startsWith("status")) {
 						responseList.add(RioDB.rio.getEngine().status());
+					} else if (statement.startsWith("system ")) {
+						
+						if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("ADMIN")) {
+							String verb = statement.substring(7).replace(";", "");
+							if(verb.equals("start") ) {
+								if(!RioDB.rio.getEngine().isOnline()) {
+									RioDB.rio.getEngine().start();
+								}
+								responseList.add("\"RioDB is online. Streams are running\"");
+							} else if(verb.equals("stop") ) {
+								if(RioDB.rio.getEngine().isOnline()) {
+									RioDB.rio.getEngine().stop();
+								}
+								responseList.add("\"RioDB is offline. Streams are stopped.\"");
+							}
+							else {
+								responseList.add("\"System command '"+ verb +"' unknown. Try 'system start;' or 'system stop;'\"");
+								responseCode = 1;
+							}
+
+						} else {
+							responseList.add("\"User not authorized to manage system.\"");
+							responseCode = 1;
+						}
+						
+						
 					} else if (statement.startsWith("change user ")) {
 						if (RioDB.rio.getUserMgr() == null) {
 							responseList.add("\"User Management is not enabled.\"");

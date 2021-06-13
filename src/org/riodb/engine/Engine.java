@@ -1,3 +1,23 @@
+/*
+ 	Copyright (c) 2021 Lucio D Matos,  www.riodb.org
+ 
+    This file is part of RioDB
+    
+    RioDB is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    any later version.
+
+    RioDB is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    A copy of the GNU General Public License should be found in the root
+    directory. If not, see <https://www.gnu.org/licenses/>.
+ 
+*/
+
 package org.riodb.engine;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -18,7 +38,7 @@ public class Engine {
 
 	// online/offline flag
 	private boolean online;
-	
+
 	// Streams
 	private Stream streams[];
 
@@ -26,20 +46,22 @@ public class Engine {
 		streams = new Stream[0];
 		online = false;
 	}
-	
+
 	// get online flag
 	public boolean isOnline() {
 		return online;
 	}
-	
+
 	// Internal system clock
 	private final Clock clock = new Clock();
+
 	public final Clock getClock() {
 		return clock;
 	}
-	
+
 	// counter to ensure dynamic objects are always created with unique name;
 	private final AtomicInteger globalCounter = new AtomicInteger(0);
+
 	public int counterNext() {
 		return globalCounter.incrementAndGet();
 	}
@@ -66,19 +88,19 @@ public class Engine {
 			String window = streamName.substring((streamName.indexOf(".") + 1));
 
 			for (int i = 0; i < streams.length; i++) {
-				if(streams[i] != null) {
-				if (streams[i].getName().equals(stream)) {
-					return streams[i].describeWindow(window);
-				}
+				if (streams[i] != null) {
+					if (streams[i].getName().equals(stream)) {
+						return streams[i].describeWindow(window);
+					}
 				}
 			}
 
 		} else {
 			for (int i = 0; i < streams.length; i++) {
-				if(streams[i] != null) {
-				if (streams[i].getName().equals(streamName)) {
-					return streams[i].describe();
-				}
+				if (streams[i] != null) {
+					if (streams[i].getName().equals(streamName)) {
+						return streams[i].describe();
+					}
 				}
 			}
 		}
@@ -91,15 +113,31 @@ public class Engine {
 	}
 
 	// get Stream by Name
-	public int getStream(String name) {
+	public Stream getStream(String name) {
+		if (name == null)
+			return null;
+
+		for (int i = 0; i < streams.length; i++) {
+			if (streams[i] != null) {
+				if (name.equals(streams[i].getName())) {
+					return streams[i];
+				}
+			}
+		}
+
+		return null;
+	}
+
+	// get Stream ID by Name
+	public int getStreamId(String name) {
 		if (name == null)
 			return -1;
 
 		for (int i = 0; i < streams.length; i++) {
-			if(streams[i] != null) {
-			if (name.equals(streams[i].getName())) {
-				return i;
-			}
+			if (streams[i] != null) {
+				if (name.equals(streams[i].getName())) {
+					return i;
+				}
 			}
 		}
 
@@ -110,7 +148,7 @@ public class Engine {
 	public int getStreamCount() {
 		int counter = 0;
 		for (int i = 0; i < streams.length; i++) {
-			if(streams[i] != null) {
+			if (streams[i] != null) {
 				counter++;
 			}
 		}
@@ -152,7 +190,7 @@ public class Engine {
 				if (i > 0) {
 					response = response + ",";
 				}
-				response = response + streams[i].getWindowMgr().listAllWindows() ;
+				response = response + streams[i].getWindowMgr().listAllWindows();
 			}
 
 		}
@@ -170,7 +208,7 @@ public class Engine {
 					response = response + " , ";
 				}
 				notNullStreams++;
-				
+
 				response = response + "\"" + streams[i].getName() + "\"";
 			}
 		}
@@ -191,7 +229,7 @@ public class Engine {
 
 		if (streamId >= 0 && streamId < streams.length) {
 			streams[streamId].stop();
-			// TODO: ensure graceful removal of query threads... 
+			// TODO: ensure graceful removal of query threads...
 			streams[streamId] = null;
 			return true;
 		}
@@ -211,23 +249,29 @@ public class Engine {
 	}
 
 	// start ONE stream process
-	public void start(int streamId) {
+	public boolean start(int streamId) {
+		if(!online) {
+			return false;
+		}
 		clock.start();
 		Clock.quickPause();
 		if (streamId < streams.length) {
 			streams[streamId].start();
 		}
+		return true;
 	}
 
 	public String status() {
 
-		String response = "[ ";
+		String stat = "offline";
+		if(online) {
+			stat = "online";
+		}
+			
+		String response = "[\n    { \"system_status\": \""+ stat +"\" }";
 		for (int i = 0; i < streams.length; i++) {
 			if (streams[i] != null) {
-				if (i > 0) {
-					response = response + " , ";
-				}
-				response = response + "\n " + streams[i].status();
+				response = response + ",\n " + streams[i].status();
 			}
 		}
 		response = response + "\n]";
@@ -236,32 +280,15 @@ public class Engine {
 
 	// start all stream processes
 	public void stop() {
-		online = false;/*
-	 	Copyright (c) 2021 Lucio D Matos,  www.riodb.org
-		 
-	    This file is part of RioDB
-	    
-	    RioDB is free software: you can redistribute it and/or modify
-	    it under the terms of the GNU General Public License as published by
-	    the Free Software Foundation, either version 3 of the License, or
-	    any later version.
-
-	    RioDB is distributed in the hope that it will be useful,
-	    but WITHOUT ANY WARRANTY; without even the implied warranty of
-	    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	    GNU General Public License for more details.
-
-	    A copy of the GNU General Public License should be found in the root
-	    directory. If not, see <https://www.gnu.org/licenses/>.
-	 
-	*/
-
+		online = false;
 
 		for (int i = 0; i < streams.length; i++) {
 			if (streams[i] != null) {
 				streams[i].stop();
 			}
 		}
+		
+		RioDB.rio.getSystemSettings().getLogger().debug("RioDB is offline.");
 	}
 
 	// start ONE stream process
@@ -272,6 +299,7 @@ public class Engine {
 		Clock.quickPause();
 		clock.start();
 		Clock.quickPause();
+		RioDB.rio.getSystemSettings().getLogger().debug("RioDB is online.");
 	}
 
 	public void trimExpiredWindowElements(int currentSecond) {
@@ -281,11 +309,11 @@ public class Engine {
 			}
 		}
 	}
-	
+
 	public boolean dropQuery(int queryId) {
 		for (int i = 0; i < streams.length; i++) {
 			if (streams[i] != null) {
-				if(streams[i].dropQuery(queryId)){
+				if (streams[i].dropQuery(queryId)) {
 					return true;
 				}
 			}

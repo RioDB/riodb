@@ -303,4 +303,5 @@ public class WindowSummary implements WindowSummaryInterface {
 	public boolean isEmpty() {
 		return count == 0;
 	}
+
 }

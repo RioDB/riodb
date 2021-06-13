@@ -57,7 +57,7 @@ public class SQLQueryResources {
 				if(drivingStreamId != -1) {
 					throw new ExceptionSQLStatement("Query can select from only ONE (explicit) driving stream.");
 				}
-				drivingStreamId = RioDB.rio.getEngine().getStream(resourceName);
+				drivingStreamId = RioDB.rio.getEngine().getStreamId(resourceName);
 				drivingStreamAlias = resourceAlias;
 			}
 			

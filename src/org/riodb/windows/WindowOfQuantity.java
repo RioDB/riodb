@@ -1126,5 +1126,5 @@ public class WindowOfQuantity implements Window {
 		}
 		return false;
 	}
-
+	
 }
