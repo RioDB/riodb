@@ -20,46 +20,64 @@
 
 
 /*
- *  a mutable counter variable class
- */
+
+   A mutable counter variable class
+      
+*/
+
+
 
 package org.riodb.windows;
 
 public class Counter {
-	private int x;
+	// counter value is x
+	private int n;
 
+	// constructor starts with 1
 	public Counter() {
-		x = 1;
+		n = 1;
 	}
 
-	public Counter(int x) {
-		this.x = x;
+	// constructor starts with n
+	public Counter(int n) {
+		this.n = n;
 	}
 
+	// compare counter with another int value
 	public int compare(int y) {
-		return (x < y) ? -1 : ((x == y) ? 0 : 1);
+		return (n < y) ? -1 : ((n == y) ? 0 : 1);
 	}
+	
+	// single method decrements counter and checks if it reaches zero
 	public boolean decrementReachZero() {
-		if (--x == 0) {
+		if (--n == 0) {
 			return true;
 		}
 		return false;
 	}
+	
+	// gets n
 	public int intValue() {
-		return x;
+		return n;
 	}
+	
+	// increment n
 	public void increment() {
-		x++;
+		n++;
 	}
+	
+	// check if n equals int
 	public boolean isEQ(int y) {
-		return x == y;
+		return n == y;
 	}
 
+	// check if n is greater than int
 	public boolean isGT(int y) {
-		return x > y;
+		return n > y;
 	}
 
+	// check if n is less than int
 	public boolean isLT(int y) {
-		return x < y;
+		return n < y;
 	}
 }

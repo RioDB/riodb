@@ -18,6 +18,15 @@
  
 */
 
+/*
+ *    The Engine is a container of:
+ *       array of Stream (stores all Streams initialized by this RioDB instance)
+ *       a final Clock (a global way to obtain the current rounded second 
+ *       a final AtomicInteger counter (for ensuring unique naming of objects down the road)
+ *        
+ *    Engine is basically the top level orchestrator of RioDB
+ */
+
 package org.riodb.engine;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -26,27 +35,24 @@ import org.riodb.sql.ExceptionSQLStatement;
 
 import org.riodb.plugin.RioDBPluginException;
 
-/*
- *    StreamManager is nothing more than a container of Streams,
- *    to enable RioDB to handle more than 1 stream.   
- */
-
 public class Engine {
 
-	// default initial capacity for LinkedBlockingQueues
-	// private static final int queueInitSize = 65536;
-
-	// online/offline flag
-	private boolean online;
-
-	// Streams
+	/*
+	 *   Stream array:
+	 *   For performance reasons, we're not using ArrayList. Just a simple array of objects. 
+	 *   This means that adding/removing require rebuilding the array. 
+	 * 
+	 */
 	private Stream streams[];
 
+	// constructor
 	Engine() {
 		streams = new Stream[0];
 		online = false;
 	}
 
+	// online/offline flag
+	private boolean online;
 	// get online flag
 	public boolean isOnline() {
 		return online;
@@ -54,38 +60,45 @@ public class Engine {
 
 	// Internal system clock
 	private final Clock clock = new Clock();
-
+	// getter for clock
 	public final Clock getClock() {
 		return clock;
 	}
 
 	// counter to ensure dynamic objects are always created with unique name;
+	// It is atomic in case we have multiple threads updating it.
 	private final AtomicInteger globalCounter = new AtomicInteger(0);
-
+	// getter to increment and get the next counter value
 	public int counterNext() {
 		return globalCounter.incrementAndGet();
 	}
 
+	// Method for adding a new Stream
+	// TODO: Security improvement to check requester permission here since the method is public
 	public boolean addStream(Stream newStream) throws ExceptionSQLStatement, RioDBPluginException {
 
-		Stream newStreams[] = new Stream[streams.length + 1];
+		// create a new array that has length + 1 to accommodate new Stream
+		Stream newStreamArray[] = new Stream[streams.length + 1];
 		for (int i = 0; i < streams.length; i++) {
 			if (newStream.getName().equals(streams[i].getName()))
 				// duplicate name
 				return false;
-			newStreams[i] = streams[i];
+			newStreamArray[i] = streams[i];
 		}
-		newStreams[streams.length] = newStream;
-		streams = newStreams;
+		// add the new stream to the new stream Array
+		newStreamArray[streams.length] = newStream;
+		// replace old streams array with new (longer) stream array
+		streams = newStreamArray;
 		return true;
 	}
 
-	// get all streams in a string
-	public String describe(String streamName) {
+	// describe an object
+	public String describe(String objectToDescribe) {
 
-		if (streamName.contains(".") && streamName.indexOf('.') < (streamName.length() - 2)) {
-			String stream = streamName.substring(0, streamName.indexOf("."));
-			String window = streamName.substring((streamName.indexOf(".") + 1));
+		// if the object to describe is in streamName.windowName format, it's a window
+		if (objectToDescribe.contains(".") && objectToDescribe.indexOf('.') < (objectToDescribe.length() - 2)) {
+			String stream = objectToDescribe.substring(0, objectToDescribe.indexOf("."));
+			String window = objectToDescribe.substring((objectToDescribe.indexOf(".") + 1));
 
 			for (int i = 0; i < streams.length; i++) {
 				if (streams[i] != null) {
@@ -94,16 +107,18 @@ public class Engine {
 					}
 				}
 			}
-
-		} else {
+		} 
+		// else, the object to describe is a stream.
+		else {
 			for (int i = 0; i < streams.length; i++) {
 				if (streams[i] != null) {
-					if (streams[i].getName().equals(streamName)) {
+					if (streams[i].getName().equals(objectToDescribe)) {
 						return streams[i].describe();
 					}
 				}
 			}
 		}
+		// if nothing was found...
 		return "";
 	}
 
@@ -216,6 +231,7 @@ public class Engine {
 		return response;
 	}
 
+	/*
 	// print counters for debugging
 	public void printMsgCounters() {
 		String s = "";
@@ -224,7 +240,13 @@ public class Engine {
 		}
 		System.out.println(s);
 	}
+	*/
 
+	/* 
+	   remove a stream from array
+	   we are not resizing the array. Only setting the decommissioned
+	   stream slot to null. 
+	*/
 	public boolean removeStream(int streamId) {
 
 		if (streamId >= 0 && streamId < streams.length) {
@@ -261,6 +283,7 @@ public class Engine {
 		return true;
 	}
 
+	// provide a system status string in JSON format
 	public String status() {
 
 		String stat = "offline";
@@ -268,17 +291,24 @@ public class Engine {
 			stat = "online";
 		}
 			
-		String response = "[\n    { \"system_status\": \""+ stat +"\" }";
+		String response = "{\n   \"system_status\": \""+ stat +"\",\n   \"streams\": [\n   ";
+		boolean first = true;
 		for (int i = 0; i < streams.length; i++) {
 			if (streams[i] != null) {
-				response = response + ",\n " + streams[i].status();
+				if(first) {
+					first = false;
+				}
+				else {
+					response = response + ",";
+				}
+				response = response + "\n " + streams[i].status();
 			}
 		}
-		response = response + "\n]";
+		response = response + "\n   ]\n}";
 		return response;
 	}
 
-	// start all stream processes
+	// stop all stream processes
 	public void stop() {
 		online = false;
 
@@ -291,7 +321,7 @@ public class Engine {
 		RioDB.rio.getSystemSettings().getLogger().debug("RioDB is offline.");
 	}
 
-	// start ONE stream process
+	// stop ONE stream process
 	public void stop(int streamId) {
 		if (streamId < streams.length) {
 			streams[streamId].stop();
@@ -310,6 +340,14 @@ public class Engine {
 		}
 	}
 
+	/*
+	 *  Drop a query... 
+	 *  We don't really now the address of a query here. So we loop through all
+	 *  Streams asking each of them to drop the query if they find it. 
+	 *  TODO: Possible enhancement to include StreamID has part of query ID:
+	 *    1.5 would mean that query #5 belongs in Stream #1
+	 *    Then, no more need for looping. 
+	 */
 	public boolean dropQuery(int queryId) {
 		for (int i = 0; i < streams.length; i++) {
 			if (streams[i] != null) {

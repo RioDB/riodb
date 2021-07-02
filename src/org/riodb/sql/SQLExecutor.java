@@ -167,9 +167,6 @@ public final class SQLExecutor {
 						} else {
 							throw new ExceptionSQLStatement("Unknown drop command.");
 						}
-					} else if (statement.startsWith("kill ")) {
-//						success = killQuery(statement);
-//						response = response + "Query killed.\n";
 					} else if (statement.startsWith("list ")) {
 						if (statement.contains(" streams")) {
 							responseList.add(RioDB.rio.getEngine().listStreams());
@@ -183,7 +180,7 @@ public final class SQLExecutor {
 					} else if (statement.startsWith("describe ")) {
 						String streamName = statement.substring(9);
 						if (streamName.length() > 2 && streamName.indexOf(";") > 0) {
-							if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("ADMIN")) {
+							if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("STREAM")) {
 								streamName = streamName.substring(0, streamName.indexOf(";")).trim();
 								responseList.add(RioDB.rio.getEngine().describe(streamName));
 							} else {
@@ -229,12 +226,13 @@ public final class SQLExecutor {
 						}
 
 						
-					} else if (statement.startsWith("status")) {
-						responseList.add(RioDB.rio.getEngine().status());
 					} else if (statement.startsWith("system ")) {
-						
-						if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("ADMIN")) {
-							String verb = statement.substring(7).replace(";", "");
+						String verb = statement.substring(7).replace(";", "");
+						if (verb.equals("status")) {
+							responseList.add(RioDB.rio.getEngine().status());
+						} 
+						else if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("ADMIN")) {
+							
 							if(verb.equals("start") ) {
 								if(!RioDB.rio.getEngine().isOnline()) {
 									RioDB.rio.getEngine().start();

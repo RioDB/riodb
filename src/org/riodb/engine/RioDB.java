@@ -17,6 +17,22 @@
     directory. If not, see <https://www.gnu.org/licenses/>.
  
 */
+
+
+
+/*
+
+	RioDB is the MAIN.
+	It declares the following:
+		A final VERSION String
+		SystemSettings object - for system variables
+		an Engine - to orchestrate and run streams
+		an UserManagemer object to manage user authentication and authorization
+		
+		Top level methods for start/pause/shutdown
+		
+*/
+
 package org.riodb.engine;
 
 import org.riodb.access.ExceptionAccessMgt;
@@ -116,7 +132,8 @@ public class RioDB {
 			}
 		});
 		while (true) {
-			Thread.sleep(1000);
+			// just keep sleeping
+			Thread.sleep(5000);
 		}
 	}
 

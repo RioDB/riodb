@@ -18,10 +18,18 @@
  
 */
 
+
+/*
+
+     Class used to raise exception when SQL statement has access
+     related issue.
+
+*/
+
+
 package org.riodb.access;
 
 
-// Class used to raise exception when SQL statement has issuest.
 
 final public class ExceptionAccessMgt extends Exception{
 

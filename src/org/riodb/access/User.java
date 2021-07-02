@@ -18,30 +18,48 @@
  
 */
 
+/*
+
+	Class to define a user.
+	Users are only enabled when HTTPS API is enabled. 
+
+*/
+
+
 package org.riodb.access;
 
 public class User {
 
+	// user password hash
 	private String userPwdHash;
+	// user access level
 	private int accessLevel = 0;
 
+	// constructor
 	public User(String userPwd) {
 		this.userPwdHash = userPwd;
 	}
 
+	// getter for access level
 	public AccessLevel getUserAccessLevel() {
 		return new AccessLevel(accessLevel);
 	}
 
+	// getter for password hash
 	public String getPwd() {
 		return userPwdHash;
 	}
 
+	// password reset
 	public void resetPwd(String newPwdHash) {
+		//TODO: Check if request is called with permission. 
+		//And create separate function for resseting own passwd. 
 		userPwdHash = newPwdHash;
 	}
 
+	// set user permission
 	public void setAccess(String verb) throws ExceptionAccessMgt {
+		//TODO: Check if request is called with permission. 
 		this.accessLevel = AccessLevel.getAccessLevelCode(verb);
 	}
 

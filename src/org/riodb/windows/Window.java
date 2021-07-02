@@ -18,6 +18,11 @@
  
 */
 
+/*
+
+	An interface to describe what windows should be made like
+
+*/
 package org.riodb.windows;
 
 public interface Window {
@@ -46,9 +51,10 @@ public interface Window {
 	public void printElements();
 	// checks if this window requires a function:
 	public boolean requiresFunction(int functionId);
-	// add element with timestamp, trim expired, and get a clone of the WindowSummary
+	// trim expired, add element with timestamp,and get a clone of the WindowSummary
 	public WindowSummaryInterface trimAddAndGetWindowSummaryCopy(double element, int currentSecond);
 	// trim expired and get clone of the WindowSummary
+	// used when a window does NOT match its query condition, but should still trim expired entries
 	public WindowSummaryInterface trimAndGetWindowSummaryCopy(int currentSecond);
 	// function to evict expired elements (effective on windowOfTime* only)
 	public int trimExpiredWindowElements(int currentSecond);

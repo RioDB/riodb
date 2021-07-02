@@ -18,6 +18,13 @@
  
 */
 
+/*
+
+	Numeric Constants that are used throughout RioDB windows
+
+ */
+
+
 package org.riodb.windows;
 
 import java.math.BigDecimal;
@@ -28,7 +35,9 @@ public final class Constants {
 
 	// Math Context for BigDecimal computation everywhere
 	public static final MathContext MATH_CONTEXT = new MathContext(20, RoundingMode.HALF_UP);
+	// A static BigDecimal assigned -1
 	public static final BigDecimal NEGATIVE_ONE = new BigDecimal(-1);
+	// A static BigDecimal assigned 1
 	public static final BigDecimal ONE = new BigDecimal(1);
 	
 }

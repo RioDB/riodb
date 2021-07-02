@@ -19,25 +19,37 @@
 */
 
 
+/*
+
+	A wrapper that stores a double value and a timestamp
+
+*/
 package org.riodb.windows;
 
 public class ValueWithTimestamp implements Comparable<ValueWithTimestamp> {
+	
 	private double value;
+	// timestamp is rounded to second
+	// TODO: Is there a need to handle timestamp in millisec or nanosec? 
 	private int second;
 
+	// constructor
 	ValueWithTimestamp(double value, int second) {
 		this.value = value;
 		this.second = second;
 	}
 
+	// get value
 	public double doubleValue() {
 		return value;
 	}
 
+	// get second
 	public int getSecond() {
 		return second;
 	}
 
+	// compare value with value of another ValueWithTimestamp
 	public int compareTo(ValueWithTimestamp anotherVWT) {
 		return Double.compare(value, anotherVWT.value);
 	}

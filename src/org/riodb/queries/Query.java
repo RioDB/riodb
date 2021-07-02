@@ -18,6 +18,13 @@
  
 */
 
+/*
+
+	A query object that will process EventWithSummaries and,
+	if there's a match, invoke the RioDBOutput.
+  
+ */
+
 package org.riodb.queries;
 
 import org.riodb.engine.RioDB;
@@ -29,23 +36,37 @@ import org.riodb.plugin.RioDBOutput;
 
 public class Query {
 
+	// The condition of the query
 	private SQLQueryCondition sqlQueryCondition;
+	// The columns to be processed when a condition matches.
 	private SQLQueryColumn columns[];
+	// The output that will handle selected events (that match condition)
 	private RioDBOutput output;
 
+	// Does this query expired by time?
 	private boolean limitByTime;
+	// limit til expired
 	private int limit;
 
+	// Does this query take a timeout after each match?
 	private boolean usesTimeout;
+	// Is the timeout duration measured by time?
 	private boolean timeoutByTime;
+	// the timeout
 	private int timeout;
+	// is the query currently in timeout?
 	private boolean currentlyInTimeout;
+	// when the current timeout ends
 	private int currentTimeoutTil;
+
 	
+	// THIS query id
 	private int queryId;
 
+	// The original query statement?
 	private String queryStr;
 
+	// constructor
 	public Query(SQLQueryCondition condition, RioDBOutput output, SQLQueryColumn columns[], int limit, boolean limitByTime,
 			int timeout, boolean timeoutByTime, String queryStr) {
 		this.sqlQueryCondition = condition;
@@ -68,23 +89,29 @@ public class Query {
 		}
 	}
 
+	// run a query, and get status to see if it can be dropped
 	public boolean evalAndGetStatus(EventWithSummaries esum) throws ExceptionSQLExecution {
 
-		// returns true if this query can be destroyed. reached its limit.
-
+		// PART 1, take care of expiring queries and queries in timeout
+		
+		// If the query is limited by time and the time is up, drop the query
 		if (limitByTime && limit < RioDB.rio.getEngine().getClock().getCurrentSecond()) {
 			RioDB.rio.getSystemSettings().getLogger().debug("query reached age");
 			return true; // this Query is overdue and can be destroyed.
 		}
 
+		// If the query is currently in a timeout
 		if (currentlyInTimeout) {
+			// if it's timeout by time, chech if the time is up
 			if (timeoutByTime) {
 				if (currentTimeoutTil <= RioDB.rio.getEngine().getClock().getCurrentSecond()) {
 					currentlyInTimeout = false;
 				} else {
 					return false; // cut it short. But don't destroy query.
 				}
-			} else {
+			} 
+			// else, if timeout is event count, check if count is up. 
+			else {
 				currentTimeoutTil--;
 				if (currentTimeoutTil == 0) {
 					currentlyInTimeout = false;
@@ -94,17 +121,25 @@ public class Query {
 			}
 		}
 
+		// PART 2: run the query
+		
+		// if the query is in timeout, we skip it. Otherwise, run it:
 		if (!currentlyInTimeout) {
 			
+			// if the condition is not null (some queries don't have a condition), check for condition match:
 			if (sqlQueryCondition != null && !sqlQueryCondition.match(esum.getEventRef(), esum.getWindowSummariesRef())) {
 				return false;
 			}
+			
+			// prepare selected values:
 			String columnValues[] = new String[columns.length];
 			for (int i = 0; i < columns.length; i++) {
 				columnValues[i] = columns[i].getValue(esum.getEventRef(), esum.getWindowSummariesRef());
 			}
-			output.send(columnValues);
+			// post selected values. 
+			output.post(columnValues);
 
+			// set timeout if necessary for this query
 			if (!limitByTime) {
 				limit--;
 				if (limit == 0) { // this query just hit it's limit end.
@@ -123,30 +158,37 @@ public class Query {
 		return false;
 	}
 
+	// get query limit
 	public int getLimit() {
 		return limit;
 	}
 
+	// get isLimitedByTime
 	public boolean isLimitedByTime() {
 		return limitByTime;
 	}
 
+	// get timeout
 	public int getTimeout() {
 		return timeout;
 	}
 
+	// get timeoutByTime
 	public boolean isTimedoutByTime() {
 		return timeoutByTime;
 	}
 
+	// get currentlyInTimeout
 	public boolean isCurrentlyInTimeout() {
 		return currentlyInTimeout;
 	}
 
+	// get queryId
 	public int getQueryId() {
 		return queryId;
 	}
 	
+	// get queryStr
 	public String getQueryStr() {
 		return queryStr;
 	}
