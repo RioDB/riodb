@@ -33,12 +33,16 @@ import org.riodb.sql.SQLFunctionMap;
 
 public class WindowOfOne implements Window {
 
+	// Window Summary is WindowSummaryOfOne
 	private final WindowSummaryOfOne windowSummary = new WindowSummaryOfOne();
 	
-	// partitionExpiration - to expire stale partitions. 
+	// Needed if wrapper uses partitioned windows 
 	private int partitionExpiration;
+	
+	// Last timestamp
 	private int lastEntryTime;
 	
+	// previous flag
 	private boolean requiresPrevious;
 
 	// Constructor
@@ -63,9 +67,10 @@ public class WindowOfOne implements Window {
 
 	}
 	
-
+	
 	@Override
 	public String getAggregations() {
+		// TODO: Loop through SQLFunctionMap ?
 		String s = "[\"average\",\"count\",\"count_distinct\",\"first\",\"last\",\"max\",\"median\",\"min\",\"mode\"";
 		
 		if(requiresPrevious)
@@ -76,47 +81,56 @@ public class WindowOfOne implements Window {
 		return s;
 	}
 
+	// range is always 1
 	@Override
 	public int getRange() {
 		return 1;
 	}
 
+	// get count
 	@Override
 	public int getWindowCount() {
 		return windowSummary.getCount();
 	}
 
+	// get last
 	@Override
 	public double getWindowLast() {
 		return windowSummary.getLast();
 	}
 
+	// get a deep copy
 	@Override
 	public WindowSummaryOfOne getWindowSummaryCopy() {
 		return new WindowSummaryOfOne(windowSummary);
 	}
 	
+	// is empty?
 	@Override
 	public boolean isEmpty() {
 		return windowSummary.isEmpty();
 	}
 
+	// is full??
 	@Override
 	public boolean isFull() {
 		return windowSummary.isFull();
 	}
 
+	// clone a copy in reset state
 	@Override
 	public Window makeFreshClone() {
 		return new WindowOfOne(requiresPrevious, partitionExpiration);
 	}
 
-	@Override // for debugging. prints to screen. 
+	// for debugging. prints to screen.
+	@Override 
 	public void printElements() {
 		System.out.print("element " + windowSummary.getLast());
 		
 	}
 
+	// requires any aggregate function?
 	@Override
 	public boolean requiresFunction(int functionId) {
 		if(functionId == SQLFunctionMap.getFunctionId("avg") ||
@@ -141,7 +155,6 @@ public class WindowOfOne implements Window {
 	}
 
 	// a wrapper function that adds an element and returns the windowSummary
-	// this saves a subsequent call to hashmap.get(window).get(windowsummary)
 	@Override
 	public WindowSummaryInterface trimAddAndGetWindowSummaryCopy(double element, int currentSecond) {
 		// currentSecond is not applicable for windowOfOne. Only here to satisfy interface. 		
@@ -149,6 +162,7 @@ public class WindowOfOne implements Window {
 		return getWindowSummaryCopy();
 	}
 	
+	// When a window does NOT match its condition, but should still expire entries
 	@Override
 	public WindowSummaryOfOne trimAndGetWindowSummaryCopy(int currentSecond) {
 		if(partitionExpiration > 0) {
@@ -157,11 +171,14 @@ public class WindowOfOne implements Window {
 		return new WindowSummaryOfOne(windowSummary);
 	}
 	
+	// window of fixed length 1 does not evict elements based on time. 
+	// method is only here to satisfy interface
 	@Override
 	public int trimExpiredWindowElements(int currentSecond) {
 		return 0;
 	}
 
+	// check if window is due for expiration
 	@Override
 	public boolean isDueForExpiration(int currentSecond) {
 		if(currentSecond - lastEntryTime > Window.GRACE_PERIOD) {

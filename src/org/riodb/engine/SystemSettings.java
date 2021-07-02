@@ -18,6 +18,11 @@
  
 */
 
+/*
+
+	A class for managing system settings, such as default directory paths
+	
+*/
 package org.riodb.engine;
 
 import java.io.File;
@@ -43,32 +48,42 @@ public class SystemSettings {
 
 	// default config file location
 	static final String DEFAULT_CONFIG_FILE = "riodb.conf";
+	// default config file subdirectory
 	static final String DEFAULT_CONFIG_SUBDIR = "conf";
+	// default plugin jar file subdirectory
 	static final String DEFAULT_PLUGIN_SUBDIR = "plugins";
+	// default sql file subdirectory
 	static final String DEFAULT_SQL_SUBDIR = "sql";
+	// default sql file extension
 	static final String RQL_FILE_EXTENSION = "sql";
+	// default ssl cert file
 	static final String DEFAULT_SSL_CERT_FILE = ".ssl/keystore.jks";
+	// default password file
 	static final String DEFAULT_PASSWD_FILE = ".access/users.dat";
 
+	// permanent plugin jar file directory path
 	private static String pluginJarDirectory;
+	// permanent SQL directory path
 	private static String sqlDirectory;
+	// permanent password file path
 	private static String passwdFile = DEFAULT_PASSWD_FILE;
+	// permanent ssl cert file path
 	private static String sslCertFile = DEFAULT_SSL_CERT_FILE;
 
 	public String getPluginDirectory() {
 		return pluginJarDirectory;
 	}
 
-	// logger
+	// logger object to be used by ALL RioDB
 	final static Logger logger = LogManager.getLogger(RioDB.class.getName());
-
+	// logger for getter. 
 	public Logger getLogger() {
 		return logger;
 	}
 
 	// HTTP interface server (to receive SQL statement requests)
 	private final static HTTPInterface httpInterface = new HTTPInterface();
-
+	// getter for httpInterface
 	public HTTPInterface getHttpInterface() {
 		return httpInterface;
 	}
@@ -78,36 +93,46 @@ public class SystemSettings {
 		//
 	}
 
+	// Method for loading configuration from .conf file
 	public final boolean loadConfig(String[] args) {
 
 		boolean success = true;
 
+		// if started application with -h for help
 		if (args.length > 0 && args[0].equals("-h")) {
 			System.out.println("Welcome to RioDB. More information at www.riodb.org\n" + "\n-h\tPrints help."
 					+ "\n-f\tSpecifies configuration file location. Default is conf/riodb.conf"
 					+ "\n-v\tPrints RioDB version.");
 			return false;
 		}
+		
+		// if user started application with -v to see version
 		if (args.length > 0 && args[0].equals("-v")) {
 			System.out.println("RioDB version " + RioDB.VERSION);
 			return false;
 		}
 
+		// config file:
 		String configFile = System.getProperty("user.home") + "/" + DEFAULT_CONFIG_SUBDIR + "/" + DEFAULT_CONFIG_FILE;
 		configFile = adaptPathSlashes(configFile);
 
+		// if user started application with -f to specify a confif file location:
 		if (args.length > 1 && args[0].equals("-f")) {
 			configFile = args[1];
 		}
+		
+		// If config file path does not start from OS root directory:
 		if (!configFile.contains(":") && !configFile.startsWith("/") && !configFile.startsWith("\\")) {
+			// prefix it with a relative path
 			configFile = System.getProperty("user.home") + "/" + configFile;
 		}
 		configFile = adaptPathSlashes(configFile);
 
+		// open config file. 
 		Path filePath = Path.of(configFile);
-
 		try {
 			ArrayList<String> fileContent;
+			// read conf file lines and do what's needed:
 			fileContent = (ArrayList<String>) Files.readAllLines(filePath);
 			if (fileContent != null && fileContent.size() > 0) {
 				success = runConfig(fileContent);
@@ -122,12 +147,14 @@ public class SystemSettings {
 			success = false;
 		}
 
+		// quick pause after loading conf, for object to finish initializing
 		Clock.quickPause();
 
 		return success;
 
 	}
 
+	// process config file lines:
 	private static boolean runConfig(ArrayList<String> fileContent) {
 
 		boolean success = true;
@@ -268,6 +295,8 @@ public class SystemSettings {
 		return success;
 	}
 
+	
+	// Load initial SQL statements
 	public final static boolean loadSQLFiles() {
 
 		if (sqlDirectory == null)

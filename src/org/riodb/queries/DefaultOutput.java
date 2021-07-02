@@ -18,37 +18,54 @@
  
 */
 
+/*
+
+	RioDB has a default output plugin. And it's not the STDOUT console. 
+	The default output is for when a Query statement is requested via HTTP API,
+	by default, the response is made to that API requester. 
+	
+	This default output implements RioDBOutput, and is a mechanism to
+	route query responses to the API request. 
+
+ */
 package org.riodb.queries;
 import org.riodb.engine.RioDB;
-
 import org.riodb.plugin.RioDBOutput;
 import org.riodb.plugin.RioDBPluginException;
 import org.riodb.plugin.RioDBPluginStatus;
 
 public class DefaultOutput implements RioDBOutput{
 	
+	// Column headers from SELECT ... statement
 	String[] columnHeaders;
+	// SessionId of the API request that submitted the query
 	Integer  sessionId;
+	// Status of this output plugin
 	final RioDBPluginStatus status = new RioDBPluginStatus(1);
+	// The streamId of the stream driving the query calling this output
 	int streamId = 0;
 
+	// return the output type (aka output plugin name)
 	@Override
 	public String getType() {
 		return "API_REQUEST_RESPONSE";
 	}
 	
+	// constructor
 	public DefaultOutput(int streamId, int sessionId, String[] columnHeaders) {
 		this.columnHeaders = columnHeaders;
 		this.streamId = streamId;
 		this.sessionId = sessionId;
 	}
 
+	// initializer (Plugins initialize after class loading)
 	@Override
 	public void init(String params, String[] columnHeaders) throws RioDBPluginException {
 	}
 
+	// post response to the output. 
 	@Override
-	public void send(String[] columns) {
+	public void post(String[] columns) {
 		String reply = "{";
 		for (int i = 0; i < Math.max(columnHeaders.length, columns.length); i++) {
 			reply = reply + " \""+columnHeaders[i]+"\" : \""+ columns[i] +"\",";
@@ -60,6 +77,7 @@ public class DefaultOutput implements RioDBOutput{
 		
 	}
 
+	// get plugin status
 	@Override
 	public RioDBPluginStatus status() {
 		return status;

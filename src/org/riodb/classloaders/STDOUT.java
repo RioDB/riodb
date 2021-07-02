@@ -18,6 +18,15 @@
  
 */
 
+/*
+	Output plugin class STDOUT is built-in in RioDB.
+	It's used to output selected (matched) data to the console where the
+	RioDB process is running. 
+	
+	When users submit query to output STDOUT, RioDB does not load
+	and external jar file, since STDOUT is already part of RioDB
+*/
+
 package org.riodb.classloaders;
 
 import org.riodb.plugin.*;
@@ -32,8 +41,9 @@ final public class STDOUT implements RioDBOutput {
 		// no init required for STDOUT
 	}
 
-	final public void send(String[] columns) {
+	final public void post(String[] columns) {
 
+		// basically, just print each of the columns selected onto console. 
 		String output = "";
 		for (String c : columns) {
 			output = output + c + "\t";

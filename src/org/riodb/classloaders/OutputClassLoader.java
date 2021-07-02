@@ -18,6 +18,15 @@
  
 */
 
+/*
+
+	A class loader to load custom output plugins. 
+	Just like input plugins, output plugins can be in the form of jar files, 
+	which are loaded when a user submits a query that points to such jar file. 
+	The jar file is loaded by this class loader. 
+
+*/
+
 package org.riodb.classloaders;
 
 import java.io.IOException;
@@ -35,6 +44,7 @@ public class OutputClassLoader {
 
 	public static RioDBOutput getOutputPlugin(String pluginName) throws ExceptionSQLStatement {
 
+		// check name of the plugin required.
 		if(pluginName == null || pluginName.length() == 0)
 			throw new ExceptionSQLStatement("OUTPUT name was blank");
 		
@@ -42,6 +52,8 @@ public class OutputClassLoader {
 		
 		RioDB.rio.getSystemSettings().getLogger().debug("Plugin factory loading '" + pluginName + "'");
 		
+		// STDOUT is an embedded plugin that does not require external jar file. 
+		// it's built-in to RioDB
 		if(pluginName.equals("STDOUT"))
 			return new STDOUT();
 		
@@ -50,6 +62,7 @@ public class OutputClassLoader {
 		URL[] classLoaderUrls;
 		try {
 
+			// Get file location of Output plugin jar. 
 			String urlStr = "file:/" + RioDB.rio.getSystemSettings().getPluginDirectory() + pluginName.toLowerCase() + ".jar";
 			RioDB.rio.getSystemSettings().getLogger().debug("URL:   " + urlStr);
 			classLoaderUrls = new URL[] { new URL(urlStr) };
@@ -63,11 +76,12 @@ public class OutputClassLoader {
 					.loadClass("org.riodb.plugin." + pluginName.toUpperCase());
 
 			// method 1
-			RioDBOutput li = (RioDBOutput) plugin.getDeclaredConstructor().newInstance();
+			RioDBOutput outputPlugin = (RioDBOutput) plugin.getDeclaredConstructor().newInstance();
 
 			urlClassLoader.close();
 
-			return li;
+			// return the new output plugin class
+			return outputPlugin;
 
 		} catch (MalformedURLException e) {
 			// TODO Auto-generated catch block

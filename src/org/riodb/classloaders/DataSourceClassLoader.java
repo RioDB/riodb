@@ -18,6 +18,15 @@
  
 */
 
+/*
+
+	Custom class loader to load JAR files when user creates a stream.
+	The stream loads a datasource, which is typically a jar file. 
+	This class loads such jar files. 
+
+*/
+
+
 package org.riodb.classloaders;
 
 import java.io.IOException;
@@ -41,8 +50,11 @@ public class DataSourceClassLoader {
 		URL[] classLoaderUrls;
 		try {
 			
+			// Get the file location of the plugin to load.
 			String urlStr = "file:/" + RioDB.rio.getSystemSettings().getPluginDirectory() + pluginName.toLowerCase() + ".jar";
 			RioDB.rio.getSystemSettings().getLogger().debug("URL:   " + urlStr);
+			
+			// url of class to be loaded
 			classLoaderUrls = new URL[] { new URL(urlStr) };
 
 			// Create a new URLClassLoader
@@ -54,24 +66,30 @@ public class DataSourceClassLoader {
 
 			
 			// method 1
-			RioDBDataSource li = (RioDBDataSource) plugin.getDeclaredConstructor().newInstance();
+			RioDBDataSource dataSource = (RioDBDataSource) plugin.getDeclaredConstructor().newInstance();
 			
 			
-			// method 2
-	        //Constructor<?> constructor = plugin.getConstructor();
-	        //ListenerInterface li = (ListenerInterface) constructor.newInstance();
+			/*
+			//  method 2
+			 
+	        Constructor<?> constructor = plugin.getConstructor();
+	        ListenerInterface dataSource = (ListenerInterface) constructor.newInstance();
 	         
 	        
-			//li.someInterfaceInit(settings);
+			dataSource.someInterfaceInit(settings);
 			
 	        
 	        // Getting a method from the loaded class and invoke it
-	        //Method method = plugin.getMethod("sayHello");
-	        //method.invoke(plugin);
-
+	        Method method = plugin.getMethod("sayHello");
+	        method.invoke(plugin);
+	        
+			*/
+			
+			// close loader
 			urlClassLoader.close();
 
-			return li;
+			// return the loaded datasource object
+			return dataSource;
 
 		} catch (MalformedURLException e) {
 			// TODO Auto-generated catch block

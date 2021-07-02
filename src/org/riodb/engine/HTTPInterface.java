@@ -18,6 +18,18 @@
  
 */
 
+/*
+
+	HTTP interface opens the API access to submit statement requests to RIODB
+	If HTTP interface is disabled (.conf file), then RioDB will rely solely on
+	the initial SQL files, without access to handle subsequent requests
+	via API. 
+	
+	This class configures the HTTP listener for the RioDB API as specified in
+	the .conf file loaded during start up.  
+
+*/
+
 package org.riodb.engine;
 
 import java.io.BufferedReader;
@@ -63,24 +75,26 @@ import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsParameters;
 import com.sun.net.httpserver.BasicAuthenticator;
 import com.sun.net.httpserver.HttpContext;
-//import com.sun.net.httpserver.HttpExchange;
 
 @SuppressWarnings("restriction")
 public class HTTPInterface {
 
+	// http server and https server
 	private static HttpServer httpServer = null;
 	private static HttpsServer httpsServer = null;
 
+	// max timeout for select statement (could become a .conf parameter passed to constructor)
 	private int selectStmtTimeout = 60;
-
+	// setter for timeout
 	public void setTimeout(int newTimeout) {
 		selectStmtTimeout = newTimeout;
 	}
-
+	// getter for timeout
 	public int getTimeout() {
 		return selectStmtTimeout;
 	}
 
+	// Method for starting an HTTP end point (NO SSL)
 	public boolean startHttp(int port) {
 		boolean success = false;
 		try {
@@ -109,6 +123,7 @@ public class HTTPInterface {
 		return success;
 	}
 
+	// Method for starting an HTTPS end point
 	public boolean startHttps(String keystoreFilename, String keyStorePasswd, int port) {
 		boolean success = false;
 		try {
@@ -185,11 +200,13 @@ public class HTTPInterface {
 		return success;
 	}
 
+	// The handler class that will reply calls to /rio 
 	static class RioHandler implements HttpHandler {
 		@Override
 		public void handle(HttpExchange t) throws IOException {
 
-			String response = "{\"code\": 0, \"message\": [\"This is RioDB. Tell me WHEN.\"]}";
+			// default response
+			String response = "{\"code\": 0, \"message\": [\"RioDB - Tell me WHEN.\"]}";
 			if (t.getRequestMethod().equals("POST")) {
 				String stmt = parseRequestBody(t.getRequestBody());
 				if (stmt != null && stmt.length() > 3) {
@@ -203,6 +220,8 @@ public class HTTPInterface {
 								userName = userName.toUpperCase();
 							}
 						}
+						
+						// Send the statement and username to the SQLExecutor class
 						response = SQLExecutor.execute(stmt, userName);
 
 					} catch ( ExceptionAccessMgt | ExceptionSQLStatement | RioDBPluginException e) {
@@ -218,6 +237,7 @@ public class HTTPInterface {
 			os.close();
 		}
 
+		// Convert input stream to jsonObject
 		private final String parseRequestBody(InputStream inputStream) {
 			String stmt = "";
 			String body = inputStreamToString(inputStream);
@@ -229,10 +249,11 @@ public class HTTPInterface {
 		}
 	}
 
+	// Default handler for URL root level. (The other handler responds to URL /rio
 	static class RootHandler implements HttpHandler {
 		@Override
 		public void handle(HttpExchange t) throws IOException {
-			String response = "{\"code\": 0, \"message\":\"RioDB. Tell me WHEN.\"}";
+			String response = "{\"code\": 0, \"message\":\"RioDB here - Tell me WHEN.\"}";
 			t.sendResponseHeaders(200, response.getBytes().length);
 			OutputStream os = t.getResponseBody();
 			os.write(response.getBytes());
@@ -240,6 +261,7 @@ public class HTTPInterface {
 		}
 	}
 
+	// Convert input stream to string
 	private static String inputStreamToString(InputStream inputStream) {
 
 		String response = "";
@@ -261,6 +283,7 @@ public class HTTPInterface {
 
 	}
 
+	// stop HTTP - For shutdown only. Once stopped, there's no way to submit a start-up request. 
 	public static void stop() {
 		if (httpServer != null) {
 			httpServer.stop(0);

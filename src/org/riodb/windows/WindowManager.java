@@ -18,9 +18,9 @@
  
 */
 
-
 /*
- *   A container of Windows, so that multiple windows can be created. 
+ *   A container of Windows, so that multiple windows can be created
+ *   in the same stream 
  */
 
 package org.riodb.windows;
@@ -38,42 +38,50 @@ public class WindowManager {
 	// an arraylist of windows created for a parent stream.
 	private final ArrayList<WindowWrapper> windowWrapperList = new ArrayList<WindowWrapper>();
 
-	public WindowManager(int streamId) {
+	public WindowManager() {
+		// this.streamId = streamId;
+	}
+
+	// streamId setter. It's not done in constructor because we're making
+	// WIndowManager final.
+	public void setStreamId(int streamId) {
 		this.streamId = streamId;
 	}
 
+	// add a window to this stream's windowManager
 	public void addWindow(WindowWrapper newWindow) {
 		windowWrapperList.add(newWindow);
 		RioDB.rio.getSystemSettings().getLogger().debug("Window '" + newWindow.getName() + "' added");
 	}
 
+	// remove window from this stream's windowManager
 	public boolean removeWindow(int index) {
-		if(windowWrapperList.size() > index) {
+		if (windowWrapperList.size() > index) {
 			windowWrapperList.remove(index);
 			return true;
 		}
 		return false;
 	}
 
-	// window count
+	// get count of windows in this stream windowManager
 	public int getWindowCount() {
 		return windowWrapperList.size();
 	}
 
-	// get WindowWrapper
+	// get WindowWrapper by index
 	public WindowWrapper getWindow(int index) {
 		return windowWrapperList.get(index);
 	}
-	
-	// get WindowWrapper
-		public WindowWrapper getWindow(String windowName) {
-			if(this.hasWindow(windowName))
+
+	// get WindowWrapper by name
+	public WindowWrapper getWindow(String windowName) {
+		if (this.hasWindow(windowName))
 			for (WindowWrapper w : windowWrapperList) {
 				if (w.getName().equals(windowName))
 					return w;
 			}
-			return null;
-		}
+		return null;
+	}
 
 	// Check if window requires a certain function
 	public boolean windowRequiresFunction(int windowId, int functionId) {
@@ -103,16 +111,18 @@ public class WindowManager {
 		}
 		return false;
 	}
-	
+
 	public int windowCount() {
 		return windowWrapperList.size();
 	}
 
-	// get all window names
+	// get all window names in JSON format
 	public String listAllWindows() {
 		String response = "";
 		for (int i = 0; i < windowWrapperList.size(); i++) {
-			response = response + "{\"window_id\": "+ i +", \"stream\":\""+ RioDB.rio.getEngine().getStream(streamId).getName() +"\", \"window_name\":\"" + windowWrapperList.get(i).getName() + "\"},";
+			response = response + "{\"window_id\": " + i + ", \"stream\":\""
+					+ RioDB.rio.getEngine().getStream(streamId).getName() + "\", \"window_name\":\""
+					+ windowWrapperList.get(i).getName() + "\"},";
 		}
 		if (response.length() > 2)
 			response = response.substring(0, response.length() - 1);
@@ -129,29 +139,41 @@ public class WindowManager {
 		return "";
 	}
 
+	/*
+	 * 	Method to process an event through all windows. 
+	 *  It loops through all windows, passing the event
+	 *  to each of them and collecting the windowSummary as response.
+	 *  All windowSummaries are collected into an array
+	 *  and returned. 
+	 * 
+	 */
 	public WindowSummary[] putEventRef(RioDBStreamEvent event) {
 
 		WindowSummary results[] = new WindowSummary[windowWrapperList.size()];
-		// guarantee that currentSecond is the same for all windows. 
+		// guarantee that currentSecond is the same for all windows.
 		int currentSecond = RioDB.rio.getEngine().getClock().getCurrentSecond();
 		for (int i = 0; i < windowWrapperList.size(); i++) {
 			results[i] = (WindowSummary) windowWrapperList.get(i).putEventRef(event, currentSecond);
 		}
 
 		return results;
-		
+
 	}
-	
+
+	// Trim windows to evict elements that are old (for window of time)
 	public void trimExpiredWindowElements(int currentSecond) {
 		for (int i = 0; i < windowWrapperList.size(); i++) {
-			windowWrapperList.get(i).trimExpiredWindowElements(currentSecond);;
+			windowWrapperList.get(i).trimExpiredWindowElements(currentSecond);
+			;
 		}
 	}
-	
+
+	// Reset a window back to empty, to await first entry
 	public void resetWindow(String windowName) {
-		getWindow(windowName).resetWindow(); 
+		getWindow(windowName).resetWindow();
 	}
-	
+
+	// Reset all windows to empty, awaiting first entry
 	public void resetAllWindows() {
 		for (int i = 0; i < windowWrapperList.size(); i++) {
 			windowWrapperList.get(i).resetWindow();

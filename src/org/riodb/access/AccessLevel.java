@@ -18,26 +18,40 @@
  
 */
 
+/*
+
+AccessLevel is an object to definal the FINAL values of what users can and cannot do.
+
+
+ */
+
+
 package org.riodb.access;
 
 public class AccessLevel {
 	
+	// final types of access levels in order of lowest to highest
 	static final String[] accessLevelCodes = {"NONE","QUERY","WINDOW","STREAM","ADMIN"};
 	
+	// what access level a user has
 	int accessLevel;
 	
+	// constructor
 	public AccessLevel(int accessLevel) {
 		this.accessLevel = accessLevel;
 	}
 	
+	// check if user's access level permits an action
 	public boolean can(String verb) throws ExceptionAccessMgt {
 		return accessLevel >= AccessLevel.getAccessLevelCode(verb);
 	}
 	
+	// gets the display name of an access level, for logging purposes. 
 	public String stringValue() {
 		return (accessLevelCodes[accessLevel]);
 	}
 	
+	// get the numeric id (array index) of an access code display name. 
 	public static int getAccessLevelCode(String verb) throws ExceptionAccessMgt {
 		for(int i = 0; i < accessLevelCodes.length; i++) {
 			if(accessLevelCodes[i].equals(verb)) {

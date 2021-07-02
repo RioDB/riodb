@@ -18,6 +18,15 @@
  
 */
 
+/*
+
+
+	A container for Queries
+
+ */
+
+
+
 package org.riodb.queries;
 
 import java.util.ArrayList;
@@ -25,18 +34,25 @@ import java.util.Iterator;
 import org.jctools.queues.SpscChunkedArrayQueue;
 import org.riodb.engine.RioDB;
 import org.riodb.sql.ExceptionSQLExecution;
-//import org.riodb.plugin.RioDBStreamEvent;
 
 public class QueryManager implements Runnable {
-	
-	public static final int QUEUE_INIT_CAPACITY = 244; // 10000;
+
+	// initial capacity of chunked array queue, and max capacity
+	// if unfamiliar, leave at 244 and 1000000
+	// If you have 1,000,000 queries pending, it's time to review your architecture
+	public static final int QUEUE_INIT_CAPACITY = 244;
 	public static final int MAX_CAPACITY = 1000000;
 
+	// streamId that this query is called from
 	private int streamId;
+	
+	// ArrayList of queries
 	private final ArrayList<Query> queries = new ArrayList<Query>();
-	private final SpscChunkedArrayQueue<EventWithSummaries> inbox = 
+	// queue of eventWithSummaries after processed by windows. 
+	private final SpscChunkedArrayQueue<EventWithSummaries> queryInbox = 
 			new SpscChunkedArrayQueue<EventWithSummaries>(QUEUE_INIT_CAPACITY, MAX_CAPACITY);;
 
+	// Thread for running queries
 	private Thread queryMgrThread;
 	private boolean interrupt;
 	private boolean erroAlreadyCaught;
@@ -45,34 +61,41 @@ public class QueryManager implements Runnable {
 	// Sessions of API SELECT statements that are waiting for a reply. 
 	private final QuerySessions sessions = new QuerySessions();
 	
+	// constructor
+	public QueryManager() {
+		//this.streamId = streamId;
+		erroAlreadyCaught = false;
+	}
+	
+	// sets the streamId of this query mgr
+	// It's not done in constructor because QueryManager is created as final
+	public void setStreamId(int streamId) {
+		this.streamId = streamId;
+	}
+
+	// For handling queries that came in via HTTP Request api
 	public String request(Integer sessionId, int timeout) throws InterruptedException {
 		return sessions.request(sessionId, timeout);
 	}
-	
+
+	// For responding to a query that came in via HTTP Request API
 	public void respond(Integer sessionId, String reply) {
 		sessions.respond(sessionId, reply);
 	}	
 
-	public QueryManager(int streamId) {
-		this.streamId = streamId;
-		erroAlreadyCaught = false;
-	}
-
+	// adds a query (sync in case of concurrent requests)
 	public synchronized int addQueryRef(Query query) {
 		int slot = queries.size();
 		queries.add(query);
 		return slot;
 	}
 
-	public synchronized void removeQuery(int queryId) {
-		queries.remove(queryId);
-	}
-	
+	// get query count (of this stream only)
 	public int queryCount() {
 		return queries.size();
 	}
 
-	// get all window names
+	// get all queries in JSON format
 	public String listAllQueries() {
 		String response = "";
 		for (int i = 0; i < queries.size(); i++) {
@@ -83,8 +106,8 @@ public class QueryManager implements Runnable {
 		return response;
 	}
 	
-	// drop a query
-	public boolean dropQuery(int queryId) {
+	// drop a query (sync in case of concurrent requests)
+	public synchronized boolean dropQuery(int queryId) {
 		for (int i = 0; i < queries.size(); i++) {
 			if(queries.get(i).getQueryId() == queryId) {
 				queries.remove(i);
@@ -94,21 +117,24 @@ public class QueryManager implements Runnable {
 		return false;
 	}
 
-	// get all window names
+	// Describe a query
 	public String describeQuery(int queryId) {
 		if(queryId < queries.size()-1)
 			return queries.get(queryId).getQueryStr();  
 		return null;
 	}
 	
+	// This is for Stream to send eventWithSummaries to the Query mgr. 
 	public void putEventRef(EventWithSummaries s) {
-		inbox.offer(s);
+		queryInbox.offer(s);
 	}
 	
+	// Get number of awaiting events to be processed by queries
 	public int inboxSize() {
-		return inbox.size();
+		return queryInbox.size();
 	}
 
+	// start Runnable thread - queryManager run its own thread.
 	public void start() {
 		interrupt = false;
 		queryMgrThread = new Thread(this);
@@ -116,34 +142,48 @@ public class QueryManager implements Runnable {
 		queryMgrThread.start();
 	}
 
+	// stop queryManager thread
 	public void stop() {
 		interrupt = true;
 		queryMgrThread.interrupt();
 	}
 	
+	// get status of QueryManager thread
 	public String status() {
 		if(interrupt)
 			return "stopped";
 		return "running";
 	}
 
+	// run method
 	public void run() {
 		RioDB.rio.getSystemSettings().getLogger().info("Starting query manager for Stream[" + streamId + "] ...");
 		
-		// for future enhancement, queries should be able to use data from previous event. 
+		// for future enhancement, queries should be able to reference data from previous event. 
 		//RioDBStreamEvent previousEvent = null;
 		
+		// loop until interrupted:
 		while (!interrupt) {
-			EventWithSummaries esum = inbox.poll();
+			// poll next eventWithSummaries from query inbox for processing:
+			EventWithSummaries esum = queryInbox.poll();
 			if (esum != null) {
 				
+				// Iterator to loop through queries
 				Iterator<Query> qItr = queries.iterator();
 				while (qItr.hasNext()) {
 					Query q = qItr.next();
 
 					try {
-						// call Query evaluation and get query status.
-						// the query returns TRUE if it reached end-of-life. 
+						/*
+						 for each query:
+						 call Query evaluation and get query status.
+						 the query returns TRUE if it reached end-of-life.
+						 When there's a matched record, the query itself handles calling posting the output. 
+						 This process does not need to collect selected values for output. 
+						 
+						 If the query hit end-of-life, remove it.
+						  
+						 */
 						if (q.evalAndGetStatus(esum)) {
 							qItr.remove();
 							RioDB.rio.getSystemSettings().getLogger().debug("Query removed... ");
@@ -157,8 +197,8 @@ public class QueryManager implements Runnable {
 					}
 				}
 
-				// for future enhancement, queries should be able to use data from previous event. 
-				//previousEvent = esum.getEventRef();
+				// for future enhancement, queries should be able to reference data from previous event. 
+				// previousEvent = esum.getEventRef();
 
 			} else {
 				// Save CPU cycles.

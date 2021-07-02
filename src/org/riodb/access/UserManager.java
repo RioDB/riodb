@@ -18,6 +18,12 @@
  
 */
 
+/*
+
+	Container class for users. 
+	Users are only enabled with HTTPS API is enabled. 
+
+ */
 package org.riodb.access;
 
 import java.io.BufferedWriter;
@@ -39,51 +45,61 @@ import com.google.common.hash.Hashing;
 
 public class UserManager {
 
+	// map of users (in memory)
 	private HashMap<String, User> users;
+
+	// Location of password file (it's updated when users are created,modified,deleted)
 	private String pwdFile;
 
+	// regex requirements for username. 
 	private final String userNameRegex = "^[a-zA-Z0-9_]*$";
 	private final String userNameRequirement = "Must contain only letters, numbers and underscores.";
 
+	// regex requirements for user password
 	private final String userPwdRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)[a-zA-Z\\d\\W]{8,63}$";
 	private final String userPwdRequirement = "Must contain at least 8 characters, lowecase, uppercase, number and special character.";
 
+	// constructor
 	public UserManager(String pwdFile) throws ExceptionAccessMgt {
 		users = new HashMap<String, User>();
 		this.pwdFile = pwdFile;
 		loadPwdFile();
 	}
 
+	// authenticate a user. 
 	public boolean authenticate(String userName, String userPwd) {
 
 		if (userName == null || userName.length() == 0 || userPwd == null || userPwd.length() == 0) {
 			return false;
 		}
 
+		// usernames are stored in uppercase by convention.
 		userName = userName.toUpperCase();
 
 		User u = users.get(userName);
 		if (u != null) {
-
+			// make hash of password provided, and check if it matches stored hash. 
 			String pwdHash = Hashing.sha256().hashString(userPwd, StandardCharsets.UTF_8).toString();
 			if (u.getPwd().equals(pwdHash)) {
 				return true;
 			}
-
 		}
 		return false;
 	}
 
-	// All user management operations are channeled through a single synchronized
-	// procedure to avoid race conditions on writing output file.
+	/*
+	 *  All user management operations are channeled through a single synchronized
+	 *  procedure to avoid race conditions on writing output file.
+	 */
 	public synchronized String changeRequest(String requestStmt, String actingUserName)
 			throws ExceptionAccessMgt, ExceptionSQLStatement {
 
+		// format SQL statement
 		String formattedStmt = SQLParser.formatStmt(requestStmt + ";");
 
 		String response = "";
 		if (formattedStmt.contains("create user ")) {
-			// original statement because the formatted version forces passwords to
+			// original statement because the formatted command modifies passwords to
 			// lowercase
 			createUser(requestStmt, actingUserName);
 			response = "User created.";
@@ -103,14 +119,17 @@ public class UserManager {
 			throw new ExceptionAccessMgt("Request type unknown.");
 		}
 
+		// update password file. 
 		writeToFile();
 		
 		return response;
 
 	}
 
+	//  create a user
 	private void createUser(String stmt, String actingUserName) throws ExceptionAccessMgt {
 
+		// check that requester has permissions to do this
 		if (!userIsAdmin(actingUserName) && !actingUserName.equals("SYSTEM") && !actingUserName.equals("ADMIN")) {
 			throw new ExceptionAccessMgt("Not authorized.");
 		}
@@ -134,28 +153,37 @@ public class UserManager {
 						"Invalid statement. Try: CREATE USER name password; all in one line. No comments.");
 			}
 
+			// extract username and password from command
 			String newUserName = params[2].trim().toUpperCase();
 			String newUserPwd = params[3].trim().replace(";", "");
 
+			// check for invalid usernames
 			if (newUserName.equals("ADMIN"))
 				throw new ExceptionAccessMgt("Cannot crate user named ADMIN.");
 			if (newUserName.equals("SYSTEM"))
 				throw new ExceptionAccessMgt("Cannot crate user named SYSTEM.");
 
+			// check for username regex requirements
 			if (!newUserName.matches(userNameRegex)) {
 				throw new ExceptionAccessMgt(userNameRequirement);
 			}
+			
+			// check for password requirements
 			if (!newUserPwd.matches(userPwdRegex)) {
 				System.out.println("password: " + newUserPwd);
 				throw new ExceptionAccessMgt(userPwdRequirement);
 			}
 
+			// check if user doesn't already exist
 			if (users.containsKey(newUserName)) {
 				throw new ExceptionAccessMgt("User already exists.");
 			}
 
+			// make hash of password (for storing hash)
 			String pwdHash = Hashing.sha256().hashString(newUserPwd, StandardCharsets.UTF_8).toString();
 			User u = new User(pwdHash);
+			
+			// add user to map
 			users.put(newUserName, u);
 
 		} else {
@@ -164,6 +192,7 @@ public class UserManager {
 
 	}
 
+	// drop user
 	private void dropUser(String stmt, String actingUserName) throws ExceptionAccessMgt {
 
 		String userToDrop = stmt.replace("drop user ", "").trim();
@@ -174,6 +203,7 @@ public class UserManager {
 
 		userToDrop = userToDrop.toUpperCase().replace(";", "");
 
+		// Check that requester is not trying to drop ADMIN or SYSTEM users
 		if (userToDrop.equals("ADMIN")) {
 			throw new ExceptionAccessMgt("User ADMIN cannot be dropped.");
 		}
@@ -193,6 +223,7 @@ public class UserManager {
 
 	}
 
+	// get access level of a user
 	public AccessLevel getUserAccessLevel(String userName) {
 		
 		if (userName != null) {
@@ -207,15 +238,19 @@ public class UserManager {
 			
 			User u = users.get(userName);
 			if (u != null) {
+				// return the users access level
 				return u.getUserAccessLevel();
 			}
 		}
-
+		
+		// if user doesn't exist, return access level NONE
 		return new AccessLevel(0); // NO ACCESS
 	}
 
+	// set access level of a user
 	private void setAccess(String stmt, String actingUserName) throws ExceptionAccessMgt {
 
+		// check if request is made with permission
 		if (!userIsAdmin(actingUserName) && !actingUserName.equals("SYSTEM") && !actingUserName.equals("ADMIN")) {
 			throw new ExceptionAccessMgt("Not authorized.");
 		}
@@ -231,13 +266,16 @@ public class UserManager {
 		String user = params[2].toUpperCase();
 		String verb = params[5].toUpperCase().replace(";", "").trim();
 
+		// make sure user exists, first
 		if (users.containsKey(user)) {
+			// update user access
 			users.get(user).setAccess(verb);
 		} else {
 			throw new ExceptionAccessMgt("User not found.");
 		}
 	}
 
+	// list all users. 
 	public String listUsers() {
 
 		// no special priv required to list users. It helps users police the system.
@@ -263,13 +301,19 @@ public class UserManager {
 
 	}
 
+	
+	// load password file during start up (if any was indicated in Conf file)
 	private void loadPwdFile() throws ExceptionAccessMgt {
 
+		// brand new map of users
 		users.clear();
 
+		// try opening and reading the provided password file
 		try {
 			File myObj = new File(pwdFile);
 			Scanner myReader = new Scanner(myObj);
+			
+			// loop. for each user in file, load them into memory (hashmap)
 			while (myReader.hasNextLine()) {
 				String data = myReader.nextLine().trim();
 				if (data != null && data.contains(" ")) {
@@ -307,7 +351,8 @@ public class UserManager {
 		RioDB.rio.getSystemSettings().getLogger().debug("Password File provided " + users.size() + " user accounts.");
 
 	}
-
+	
+	// reset user's password
 	private void resetPwd(String stmt, String actingUserName) throws ExceptionAccessMgt {
 		String newStmt = stmt.trim();
 
@@ -353,6 +398,7 @@ public class UserManager {
 
 	}
 
+	// Check if user is admin
 	private boolean userIsAdmin(String userName) {
 		User u = users.get(userName);
 		if (u != null) {
@@ -365,6 +411,8 @@ public class UserManager {
 		return false;
 	}
 
+	// Save the user data that is in-memory to a file on the disk. 
+	// Basically, update the same password file provided in conf file. 
 	private void writeToFile() {
 
 		String fileContent = "";
