@@ -36,23 +36,25 @@ public final class SQLExecutor {
 		int responseCode = 0; // 0 = good. 1 = at least 1 command didn't work. 2 = fatal.
 
 		if (stmt != null && stmt.contains(";")) {
-			
+
 			stmt = SQLParser.formatStripComments(stmt);
 
 			String statements[] = stmt.split(";");
 
 			for (String statement : statements) {
-				
+
 				String originalStatement = statement;
 				statement = SQLParser.formatStmt(statement + ";");
 
 				if (statement != null && !statement.equals(";")) {
 
+					RioDB.rio.getSystemSettings().getLogger().debug("STMT: \"" + statement + "\"");
+
 					if (statement.startsWith("select ")) {
 						if (RioDB.rio.getUserMgr() == null
 								|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("QUERY")) {
 							RioDB.rio.getSystemSettings().getLogger().debug("Statement: " + statement);
-							
+
 							responseList.add(SQLQueryOperations.createQuery(statement));
 						} else {
 							RioDB.rio.getSystemSettings().getLogger().debug("User not authorized to QUERY");
@@ -71,7 +73,8 @@ public final class SQLExecutor {
 									RioDB.rio.getSystemSettings().getLogger().info("Stream creation failed.");
 								}
 							} else {
-								RioDB.rio.getSystemSettings().getLogger().debug("User not authorized to manage streams.");
+								RioDB.rio.getSystemSettings().getLogger()
+										.debug("User not authorized to manage streams.");
 								responseList.add("\"User not authorized to manage streams\"");
 								responseCode = 1;
 							}
@@ -83,7 +86,8 @@ public final class SQLExecutor {
 									RioDB.rio.getSystemSettings().getLogger().info("Window created.");
 								}
 							} else {
-								RioDB.rio.getSystemSettings().getLogger().debug("User not authorized to manage windows.");
+								RioDB.rio.getSystemSettings().getLogger()
+										.debug("User not authorized to manage windows.");
 								responseList.add("\"User not authorized to manage windows.\"");
 								responseCode = 1;
 							}
@@ -118,7 +122,8 @@ public final class SQLExecutor {
 									responseCode = 1;
 								}
 							} else {
-								RioDB.rio.getSystemSettings().getLogger().debug("User not authorized to manage streams.");
+								RioDB.rio.getSystemSettings().getLogger()
+										.debug("User not authorized to manage streams.");
 								responseList.add("\"User not authorized to manage streams.\"");
 								responseCode = 1;
 							}
@@ -133,7 +138,8 @@ public final class SQLExecutor {
 									responseCode = 1;
 								}
 							} else {
-								RioDB.rio.getSystemSettings().getLogger().debug("User not authorized to manage windows.");
+								RioDB.rio.getSystemSettings().getLogger()
+										.debug("User not authorized to manage windows.");
 								responseList.add("\"User not authorized to manage windows.\"");
 								responseCode = 1;
 							}
@@ -148,7 +154,8 @@ public final class SQLExecutor {
 									responseCode = 1;
 								}
 							} else {
-								RioDB.rio.getSystemSettings().getLogger().debug("User not authorized to manage queries.");
+								RioDB.rio.getSystemSettings().getLogger()
+										.debug("User not authorized to manage queries.");
 								responseList.add("\"User not authorized to manage queries.\"");
 								responseCode = 1;
 							}
@@ -158,7 +165,7 @@ public final class SQLExecutor {
 								responseCode = 1;
 							} else if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("ADMIN")) {
 								RioDB.rio.getUserMgr().changeRequest(statement, actingUser);
-								responseList.add("User dropped.");
+								responseList.add("\"User dropped.\"");
 								RioDB.rio.getSystemSettings().getLogger().debug("User dropped.");
 							} else {
 								responseList.add("\"User not authorized to manage queries.\"");
@@ -178,74 +185,86 @@ public final class SQLExecutor {
 							responseList.add(RioDB.rio.getUserMgr().listUsers());
 						}
 					} else if (statement.startsWith("describe ")) {
-						String streamName = statement.substring(9);
-						if (streamName.length() > 2 && streamName.indexOf(";") > 0) {
-							if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("STREAM")) {
-								streamName = streamName.substring(0, streamName.indexOf(";")).trim();
-								responseList.add(RioDB.rio.getEngine().describe(streamName));
-							} else {
-								responseList.add("\"User not authorized to manage streams.\"");
-								responseCode = 1;
+						String[] words = statement.split(" ");
+						if (words.length == 3) {
+							words[2] = words[2].substring(0, words[2].indexOf(";")).trim();
+							if (words[1].equals("stream")) {
+								if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("STREAM")) {
+									responseList.add(RioDB.rio.getEngine().describe(words[2]));
+								} else {
+									responseList.add("\"User not authorized to manage streams.\"");
+									responseCode = 1;
+								}
+							} else if (words[1].equals("window")) {
+								if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("WINDOW")) {
+									responseList.add(RioDB.rio.getEngine().describe(words[2]));
+								} else {
+									responseList.add("\"User not authorized to manage windows.\"");
+									responseCode = 1;
+								}
 							}
+						} else {
+							responseList.add(
+									"\"Describe command should be like... DESCRIBE STREAM stran_name;  or DESCRIBE WINDOW stream_name.window_name;\"");
+							responseCode = 1;
 						}
 					} else if (statement.startsWith("reset window ")) {
 						if (RioDB.rio.getUserMgr() == null
 								|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("WINDOW")) {
 
 							String target = statement.substring(13);
-							if(target!=null && target.contains(".")) {
-								String streamName = target.substring(0,target.indexOf(".")-1).trim();
-								if(RioDB.rio.getEngine().getStreamId(streamName) >= 0) {
+							if (target != null && target.contains(".")) {
+								String streamName = target.substring(0, target.indexOf(".") - 1).trim();
+								if (RioDB.rio.getEngine().getStreamId(streamName) >= 0) {
 									String windowName = target.substring(target.indexOf(".")).trim();
 									if (windowName.equals("all")) {
 										RioDB.rio.getEngine().getStream(streamName).resetAllWindows();
-										responseList.add("Reset all windows for stream "+ streamName);
-									} else if(RioDB.rio.getEngine().getStream(streamName).getWindowMgr().hasWindow(windowName)) {
-										RioDB.rio.getEngine().getStream(streamName).getWindowMgr().getWindow(windowName).resetWindow();
-										responseList.add("Reset window "+ target);
+										responseList.add("\"Reset all windows for stream " + streamName + "\"");
+									} else if (RioDB.rio.getEngine().getStream(streamName).getWindowMgr()
+											.hasWindow(windowName)) {
+										RioDB.rio.getEngine().getStream(streamName).getWindowMgr().getWindow(windowName)
+												.resetWindow();
+										responseList.add("\"Reset window " + target + "\"");
 									} else {
-										responseList.add("Window "+ target + " was not found.");
+										responseList.add("\"Window " + target + " was not found.\"");
 										responseCode = 1;
 									}
-								}
-								else {
-									responseList.add("Stream "+ streamName + " does not exist.");
+								} else {
+									responseList.add("\"Stream " + streamName + " does not exist.\"");
 									responseCode = 1;
 								}
-							}
-							else {
-								responseList.add("\"Invalid syntax for reset command. Try: reset window streamName.windowName; \"");
+							} else {
+								responseList.add(
+										"\"Invalid syntax for reset command. Try: reset window streamName.windowName; \"");
 								responseCode = 1;
-							
-							}							
-							
+
+							}
+
 						} else {
 							RioDB.rio.getSystemSettings().getLogger().debug("User not authorized to manage windows.");
 							responseList.add("\"User not authorized to manage windows.\"");
 							responseCode = 1;
 						}
 
-						
 					} else if (statement.startsWith("system ")) {
 						String verb = statement.substring(7).replace(";", "");
 						if (verb.equals("status")) {
 							responseList.add(RioDB.rio.getEngine().status());
-						} 
-						else if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("ADMIN")) {
-							
-							if(verb.equals("start") ) {
-								if(!RioDB.rio.getEngine().isOnline()) {
+						} else if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("ADMIN")) {
+
+							if (verb.equals("start")) {
+								if (!RioDB.rio.getEngine().isOnline()) {
 									RioDB.rio.getEngine().start();
 								}
 								responseList.add("\"RioDB is online. Streams are running\"");
-							} else if(verb.equals("stop") ) {
-								if(RioDB.rio.getEngine().isOnline()) {
+							} else if (verb.equals("stop")) {
+								if (RioDB.rio.getEngine().isOnline()) {
 									RioDB.rio.getEngine().stop();
 								}
 								responseList.add("\"RioDB is offline. Streams are stopped.\"");
-							}
-							else {
-								responseList.add("\"System command '"+ verb +"' unknown. Try 'system start;' or 'system stop;'\"");
+							} else {
+								responseList.add("\"System command '" + verb
+										+ "' unknown. Try 'system start;' or 'system stop;'\"");
 								responseCode = 1;
 							}
 
@@ -253,8 +272,7 @@ public final class SQLExecutor {
 							responseList.add("\"User not authorized to manage system.\"");
 							responseCode = 1;
 						}
-						
-						
+
 					} else if (statement.startsWith("change user ")) {
 						if (RioDB.rio.getUserMgr() == null) {
 							responseList.add("\"User Management is not enabled.\"");
@@ -267,6 +285,18 @@ public final class SQLExecutor {
 							responseList.add("\"User not authorized to manage queries.\"");
 							responseCode = 1;
 						}
+					} else if (statement.startsWith("resetpwd ") || statement.startsWith("resetpassword ")) {
+						if (RioDB.rio.getUserMgr() == null) {
+							responseList.add("\"User Management is not enabled.\"");
+							responseCode = 1;
+						}
+						String newStmt =  originalStatement.replace("resetpwd ", "CHANGE user "+ actingUser +" set password ") ;
+						newStmt =  newStmt.replace("resetpassword ", "CHANGE user "+ actingUser +" set password ") ;
+						
+						String r = RioDB.rio.getUserMgr().changeRequest(newStmt, actingUser);
+						responseList.add("\"" + r + "\"");
+						RioDB.rio.getSystemSettings().getLogger().debug(r);
+
 					}
 				}
 			}

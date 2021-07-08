@@ -334,9 +334,13 @@ public class UserManager {
 
 					User newUser = new User(userPwd);
 
-					if (userName.equals("ADMIN"))
+					if (userName.equals("ADMIN")) {
 						newUser.setAccess("ADMIN");
-					else if (creds.length > 2) {
+						if(userPwd.equals("c918fadce1ecef2830b6f47e2116d18ea8b83629d46378c4780f15eba3146503")) {
+							RioDB.rio.getSystemSettings().getLogger().warn("ADMIN password is still set to default 'riodb'. Changing it!");
+						}
+					
+					}else if (creds.length > 2) {
 						if (creds[2].equals("ADMIN")) {
 							newUser.setAccess(creds[2]);
 						}
