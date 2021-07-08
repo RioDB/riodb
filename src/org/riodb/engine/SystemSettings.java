@@ -45,7 +45,7 @@ import org.riodb.plugin.RioDBPluginException;
 //import org.apache.log4j.xml.DOMConfigurator;
 
 public class SystemSettings {
-
+	
 	// default config file location
 	static final String DEFAULT_CONFIG_FILE = "riodb.conf";
 	// default config file subdirectory
@@ -60,6 +60,9 @@ public class SystemSettings {
 	static final String DEFAULT_SSL_CERT_FILE = ".ssl/keystore.jks";
 	// default password file
 	static final String DEFAULT_PASSWD_FILE = ".access/users.dat";
+
+	// Directory path of where RioDB is running
+	private static String javaRelativePath;
 
 	// permanent plugin jar file directory path
 	private static String pluginJarDirectory;
@@ -111,9 +114,23 @@ public class SystemSettings {
 			System.out.println("RioDB version " + RioDB.VERSION);
 			return false;
 		}
+		
+		try {
+			javaRelativePath = new File(".").getCanonicalPath();
+		} catch (IOException e1) {
+			System.out.println("Error getting canonical path:");
+			e1.printStackTrace();
+			return false;
+		}
+		
+		sqlDirectory 		= javaRelativePath + "/" + DEFAULT_SQL_SUBDIR;
+		pluginJarDirectory  = javaRelativePath + "/" + DEFAULT_PLUGIN_SUBDIR;
+		passwdFile 			= javaRelativePath + "/" + DEFAULT_PASSWD_FILE;
+		sslCertFile 		= javaRelativePath + "/" + DEFAULT_SSL_CERT_FILE;
+
 
 		// config file:
-		String configFile = System.getProperty("user.home") + "/" + DEFAULT_CONFIG_SUBDIR + "/" + DEFAULT_CONFIG_FILE;
+		String configFile = javaRelativePath + "/" + DEFAULT_CONFIG_SUBDIR + "/" + DEFAULT_CONFIG_FILE;
 		configFile = adaptPathSlashes(configFile);
 
 		// if user started application with -f to specify a confif file location:
@@ -124,7 +141,7 @@ public class SystemSettings {
 		// If config file path does not start from OS root directory:
 		if (!configFile.contains(":") && !configFile.startsWith("/") && !configFile.startsWith("\\")) {
 			// prefix it with a relative path
-			configFile = System.getProperty("user.home") + "/" + configFile;
+			configFile = javaRelativePath + "/" + configFile;
 		}
 		configFile = adaptPathSlashes(configFile);
 
@@ -161,10 +178,6 @@ public class SystemSettings {
 		int httpPort = 0;
 		int httpsPort = 0;
 		String httpsKeystorePwd = "";
-		sqlDirectory = System.getProperty("user.home") + "/" + DEFAULT_SQL_SUBDIR;
-		pluginJarDirectory = System.getProperty("user.home") + "/" + DEFAULT_PLUGIN_SUBDIR;
-		passwdFile = System.getProperty("user.home") + "/" + DEFAULT_PASSWD_FILE;
-		sslCertFile = System.getProperty("user.home") + "/" + DEFAULT_SSL_CERT_FILE;
 
 		for (String line : fileContent) {
 			line = line.replace('\t', ' ');
@@ -181,7 +194,7 @@ public class SystemSettings {
 
 						String log4j2XMLfile = words[1];
 						if (!log4j2XMLfile.contains(":") && !log4j2XMLfile.startsWith("/") && !log4j2XMLfile.startsWith("\\")) {
-							log4j2XMLfile = System.getProperty("user.home") + "/" + log4j2XMLfile;
+							log4j2XMLfile = javaRelativePath + "/" + log4j2XMLfile;
 						}
 						log4j2XMLfile = adaptPathSlashes(log4j2XMLfile);
 
@@ -265,7 +278,7 @@ public class SystemSettings {
 			if (passwdFile != null) {
 				
 				if(!passwdFile.startsWith("/") && !passwdFile.startsWith("\\") && !passwdFile.contains(":")) {
-					passwdFile = System.getProperty("user.home") + "/" + passwdFile;
+					passwdFile = javaRelativePath + "/" + passwdFile;
 				}
 				passwdFile = adaptPathSlashes(passwdFile);
 				logger.debug("Password file: " + passwdFile);
@@ -280,7 +293,7 @@ public class SystemSettings {
 			
 			// format password file and ssl cert file paths:
 			if(!sslCertFile.startsWith("/") && !sslCertFile.startsWith("\\") && !sslCertFile.contains(":")) {
-				sslCertFile = System.getProperty("user.home") + "/" + sslCertFile;
+				sslCertFile = javaRelativePath + "/" + sslCertFile;
 			}
 			sslCertFile = adaptPathSlashes(sslCertFile);
 			logger.debug("SSL Cert file: " + sslCertFile);

@@ -124,7 +124,7 @@ public class WindowManager {
 					+ RioDB.rio.getEngine().getStream(streamId).getName() + "\", \"window_name\":\""
 					+ windowWrapperList.get(i).getName() + "\"},";
 		}
-		if (response.length() > 2)
+		if (response.length() > 0)
 			response = response.substring(0, response.length() - 1);
 		return response;
 	}
@@ -133,10 +133,11 @@ public class WindowManager {
 	public String describeWindow(String windowName) {
 		for (int i = 0; i < windowWrapperList.size(); i++) {
 			if (windowWrapperList.get(i).getName().equals(windowName)) {
+				System.out.println("window found");
 				return windowWrapperList.get(i).describeWindow();
 			}
 		}
-		return "";
+		return "{}";
 	}
 
 	/*
@@ -152,7 +153,7 @@ public class WindowManager {
 		WindowSummary results[] = new WindowSummary[windowWrapperList.size()];
 		// guarantee that currentSecond is the same for all windows.
 		int currentSecond = RioDB.rio.getEngine().getClock().getCurrentSecond();
-		for (int i = 0; i < windowWrapperList.size(); i++) {
+		for (int i = 0; i < results.length; i++) {
 			results[i] = (WindowSummary) windowWrapperList.get(i).putEventRef(event, currentSecond);
 		}
 

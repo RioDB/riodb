@@ -95,7 +95,7 @@ public class RioDB {
 	/// MAIN
 	public static void main(String[] args) throws InterruptedException {
 		
-		
+
 		/*
 		 *  Per the license, the terminal must FIRST display an attribution to the copyright of riodb.org
 		 *  If the project is forked, this copyright notice must be preserved and displayed first.

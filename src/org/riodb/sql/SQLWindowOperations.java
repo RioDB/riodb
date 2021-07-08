@@ -391,12 +391,12 @@ public final class SQLWindowOperations {
 				if (fieldId >= 0) {
 					if (RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId)) {
 						// the field is numeric
-						int eventFloatIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getNumericFieldIndex(fieldId);
-						words[i] = "event.getFloat(" + String.valueOf(eventFloatIndex) + ")";
+						int eventNumberFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getNumericFieldIndex(fieldId);
+						words[i] = "event.getDouble(" + String.valueOf(eventNumberFieldIndex) + ")";
 						if (words[i + 1].equals("is_null")) {
-							words[i + 1] = "!= Float.NaN";
+							words[i + 1] = "!= Double.NaN";
 						} else if (words[i + 1].equals("is_not_null")) {
-							words[i + 1] = "= Float.NaN";
+							words[i + 1] = "= Double.NaN";
 						}
 
 					} else {
@@ -515,8 +515,11 @@ public final class SQLWindowOperations {
 		}
 		expression = expression.trim();
 		expression = expression.replace("=", "==");
-		expression = expression.replace("( \"", "(\"");
 		expression = expression.replace("!==", "!=");
+		expression = expression.replace(">==", ">=");
+		expression = expression.replace("<==", "<=");
+		
+		expression = expression.replace("( \"", "(\"");
 		expression = expression.replace(") .equals(", ").equals(");
 		while (expression.contains("  ")) {
 			expression = expression.replace("  ", " ");

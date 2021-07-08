@@ -295,7 +295,7 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 		int streamId = SQLParser.getWindowStreamId(stmt);
 
 		if (streamId < 0) {
-			throw new ExceptionSQLStatement("Invalid Stream name...");
+			throw new ExceptionSQLStatement("Invalid Stream name.");
 		}
 		String words[] = stmt.split(" ");
 		if (words.length < 5) {
@@ -310,10 +310,10 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 		if (words[3] == null || !words[3].equals("running")) {
 			throw new ExceptionSQLStatement("missing keyword: create window ... *running* ");
 		}
-		if (!stmt.contains("from")) {
+		if (!stmt.contains(" from ")) {
 			throw new ExceptionSQLStatement("missing keyword: create window ... running ... *from* ");
 		}
-		String fromStr = stmt.substring(stmt.indexOf("from") + 4);
+		String fromStr = stmt.substring(stmt.indexOf(" from ") + 6);
 		if (fromStr == null || !fromStr.contains(".")) {
 			throw new ExceptionSQLStatement("Steam malformed. use \"from stream.field \" notation.");
 		}
@@ -451,11 +451,11 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 		if (words[3] == null || !words[3].equals("running")) {
 			throw new ExceptionSQLStatement("missing keyword: create window ... *running* ");
 		}
-		String functionStr = stmt.substring(stmt.indexOf("running") + 7);
-		if (functionStr == null || !functionStr.contains("from")) {
+		String functionStr = stmt.substring(stmt.indexOf(" running ") + 9);
+		if (functionStr == null || !functionStr.contains(" from ")) {
 			throw new ExceptionSQLStatement("missing keyword: create window ... running ... *from* ");
 		}
-		functionStr = functionStr.substring(0, functionStr.indexOf("from"));
+		functionStr = functionStr.substring(0, functionStr.indexOf(" from "));
 		return functionStr;
 	}
 
@@ -492,10 +492,10 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 		if (words[3] == null || !words[3].equals("running")) {
 			throw new ExceptionSQLStatement("missing keyword: create window ... *running* ");
 		}
-		if (!stmt.contains("from")) {
+		if (!stmt.contains(" from ")) {
 			throw new ExceptionSQLStatement("missing keyword: create window ... running ... *from* ");
 		}
-		String fromStr = stmt.substring(stmt.indexOf("from") + 4);
+		String fromStr = stmt.substring(stmt.indexOf(" from ") + 6);
 		if (fromStr == null || !fromStr.contains(".")) {
 			throw new ExceptionSQLStatement("Steam malformed. use \"from stream.field \" notation.");
 		}
