@@ -31,7 +31,6 @@ import org.riodb.engine.RioDB;
 import org.riodb.sql.ExceptionSQLExecution;
 import org.riodb.sql.SQLQueryColumn;
 import org.riodb.sql.SQLQueryCondition;
-
 import org.riodb.plugin.RioDBOutput;
 
 public class Query {

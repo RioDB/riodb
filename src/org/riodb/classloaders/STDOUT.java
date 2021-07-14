@@ -33,14 +33,17 @@ import org.riodb.plugin.*;
 
 final public class STDOUT implements RioDBOutput {
 
+	@Override
 	public String getType() {
 		return "STDOUT";
 	}
 
+	@Override
 	public void init(String outputParams, String[] columnHeaders) throws RioDBPluginException {
 		// no init required for STDOUT
 	}
 
+	@Override
 	final public void post(String[] columns) {
 
 		// basically, just print each of the columns selected onto console. 
@@ -51,6 +54,7 @@ final public class STDOUT implements RioDBOutput {
 		System.out.println(output.substring(0, output.length() - 1)); // remove last tab
 	}
 
+	@Override
 	public RioDBPluginStatus status() {
 		return new RioDBPluginStatus(1);
 	}
