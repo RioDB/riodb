@@ -48,17 +48,22 @@ public class DataSourceClassLoader {
 		RioDB.rio.getSystemSettings().getLogger().debug("Plugin factory loading "+pluginName);
 		// Getting the jar URL which contains target class
 		URL[] classLoaderUrls;
+
+		String urlStr = "file:/" + RioDB.rio.getSystemSettings().getPluginDirectory() + pluginName.toLowerCase() + ".jar";
+		urlStr = urlStr.replace("file://","file:/");
+		
+		URLClassLoader urlClassLoader = null;
+
 		try {
 			
 			// Get the file location of the plugin to load.
-			String urlStr = "file:/" + RioDB.rio.getSystemSettings().getPluginDirectory() + pluginName.toLowerCase() + ".jar";
 			RioDB.rio.getSystemSettings().getLogger().debug("URL:   " + urlStr);
 			
 			// url of class to be loaded
 			classLoaderUrls = new URL[] { new URL(urlStr) };
 
 			// Create a new URLClassLoader
-			URLClassLoader urlClassLoader = new URLClassLoader(classLoaderUrls);
+			urlClassLoader = new URLClassLoader(classLoaderUrls);
 
 			// Load the target class
 			@SuppressWarnings("unchecked")
@@ -85,42 +90,46 @@ public class DataSourceClassLoader {
 	        
 			*/
 			
-			// close loader
-			urlClassLoader.close();
-
+			
 			// return the loaded datasource object
 			return dataSource;
 
 		} catch (MalformedURLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to MalformedURLException");
+			throw new ExceptionSQLStatement(e.getMessage());
 		} catch (ClassNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to ClassNotFoundException");
+			throw new ExceptionSQLStatement(e.getMessage());
 		} catch (NoSuchMethodException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to NoSuchMethodException");
+			throw new ExceptionSQLStatement(e.getMessage());
 		} catch (SecurityException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to SecurityException");
+			throw new ExceptionSQLStatement(e.getMessage());
 		} catch (InstantiationException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to InstantiationException");
+			throw new ExceptionSQLStatement(e.getMessage());
 		} catch (IllegalAccessException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to IllegalAccessException");
+			throw new ExceptionSQLStatement(e.getMessage());
 		} catch (IllegalArgumentException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to IllegalArgumentException");
+			throw new ExceptionSQLStatement(e.getMessage());
 		} catch (InvocationTargetException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to InvocationTargetException");
+			throw new ExceptionSQLStatement(e.getMessage());
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to IOException");
+			throw new ExceptionSQLStatement(e.getMessage());
+		}  finally{
+			if(urlClassLoader != null) {
+				try {
+					urlClassLoader.close();
+				} catch (IOException e) {
+					
+				}
+			}
 		}
-		
-		throw new ExceptionSQLStatement("error");
 		
 	}
 
