@@ -222,7 +222,7 @@ public class HTTPInterface {
 						}
 						
 						// Send the statement and username to the SQLExecutor class
-						response = SQLExecutor.execute(stmt, userName);
+						response = SQLExecutor.execute(stmt, userName, true);
 
 					} catch ( ExceptionAccessMgt | ExceptionSQLStatement | RioDBPluginException e) {
 						response = "{\"code\": 2, \"message\":\"" + e.getMessage() + "\"}";

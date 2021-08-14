@@ -146,12 +146,47 @@ public class Stream implements Runnable {
 	public String describeWindow(String windowName) {
 		return streamWindowMgr.describeWindow(windowName);
 	}
+	
+	// get window count
+	public int getWindowCount() {
+		return streamWindowMgr.getWindowCount();
+	}
 
 	// list queries in JSON format
 	public String listAllQueries() {
 		return streamQueryMgr.listAllQueries();
 	}
+	
+	// get QueryManager
+	public QueryManager getQueryMgr() {
+		return streamQueryMgr;
+	}
+	// get query count
+	public int getQueryCount() {
+		return streamQueryMgr.queryCount();
+	}
+	
+	// Check if any query depends on a stream
+	public boolean hasQueryDependantOnStream(int streamId) {
+		return streamQueryMgr.hasQueryDependantOnStream(streamId);
+	}
+	
+	// Check if any query depends on a window
+	public boolean hasQueryDependantOnWindow(int streamId, int windowId) {
+		return streamQueryMgr.hasQueryDependantOnWindow(streamId, windowId);
+	}
+	
+	// Check if any query depends on a stream
+	public boolean hasWindowDependantOnStream(int streamId) {
+		return streamWindowMgr.hasWindowDependantOnStream(streamId);
+	}
+	
 
+	// drop a query from this stream if it exists. False if not found.
+	public boolean dropWindow(String windowName) {
+		return streamWindowMgr.dropWindow(windowName);
+	}
+	
 	// drop a query from this stream if it exists. False if not found.
 	public boolean dropQuery(int queryId) {
 		return streamQueryMgr.dropQuery(queryId);
@@ -196,14 +231,14 @@ public class Stream implements Runnable {
 		}
 		Clock.quickPause();
 		// stop stream
+		RioDB.rio.getSystemSettings().getLogger().debug("Interrupting stream thread for stream " + streamId);
 		interrupt = true;
 		streamThread.interrupt();
-		RioDB.rio.getSystemSettings().getLogger().debug("Stopping DataSource thread for stream " + streamId);
 		// counter = 0;
 		Clock.quickPause();
 		// stop queries
-		streamQueryMgr.stop();
 		RioDB.rio.getSystemSettings().getLogger().debug("Stopping Query Mgr for stream " + streamId);
+		streamQueryMgr.stop();
 		Clock.quickPause();
 	}
 
@@ -227,19 +262,14 @@ public class Stream implements Runnable {
 		streamWindowMgr.addWindow(newWindow);
 	}
 
-	// remove window from this stream
-	public boolean removeWindow(int index) {
-		return streamWindowMgr.removeWindow(index);
-	}
-
 	// getter for the window manager
 	public WindowManager getWindowMgr() {
 		return streamWindowMgr;
 	}
 
 	// adds a query to the Stream
-	public int addQueryRef(Query query) {
-		return streamQueryMgr.addQueryRef(query);
+	public void addQueryRef(Query query) {
+		streamQueryMgr.addQueryRef(query);
 	}
 
 	/*

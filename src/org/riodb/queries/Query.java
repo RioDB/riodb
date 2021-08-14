@@ -31,6 +31,7 @@ import org.riodb.engine.RioDB;
 import org.riodb.sql.ExceptionSQLExecution;
 import org.riodb.sql.SQLQueryColumn;
 import org.riodb.sql.SQLQueryCondition;
+import org.riodb.sql.SQLQueryResources;
 import org.riodb.plugin.RioDBOutput;
 
 public class Query {
@@ -57,7 +58,8 @@ public class Query {
 	private boolean currentlyInTimeout;
 	// when the current timeout ends
 	private int currentTimeoutTil;
-
+	// list of resources used by this Query:
+	private SQLQueryResources queryResources;
 	
 	// THIS query id
 	private int queryId;
@@ -67,7 +69,7 @@ public class Query {
 
 	// constructor
 	public Query(SQLQueryCondition condition, RioDBOutput output, SQLQueryColumn columns[], int limit, boolean limitByTime,
-			int timeout, boolean timeoutByTime, String queryStr) {
+			int timeout, boolean timeoutByTime, String queryStr, SQLQueryResources queryResources) {
 		this.sqlQueryCondition = condition;
 		this.output = output;
 		this.columns = columns;
@@ -77,6 +79,7 @@ public class Query {
 		this.timeout = timeout;
 		this.timeoutByTime = timeoutByTime;
 		this.queryId = RioDB.rio.getEngine().counterNext();
+		this.queryResources = queryResources;
 		
 		currentlyInTimeout = false;
 		currentTimeoutTil = 0;
@@ -191,5 +194,17 @@ public class Query {
 	public String getQueryStr() {
 		return queryStr;
 	}
+	
+	// checks if query depends on a stream:
+	public boolean dependsOnStream(int streamId) {
+		return queryResources.dependsOnStream(streamId);
+	}
+	
+	// checks if query depends on a window
+	// checks if query dependes on a stream:
+	public boolean dependsOnWindow(int streamId, int windowId) {
+		return queryResources.dependsOnWindow(streamId, windowId);
+	}
+
 	
 }

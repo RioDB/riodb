@@ -269,6 +269,15 @@ final public class SQLQueryConditionOperations {
 			 * 
 			 * 
 			 */
+			else if (SQLParser.isMathOperator(words[i])) {
+				//String s = words[i] + " is Operator";
+				//System.out.println(s);
+
+			}
+			/*
+			 * 
+			 * 
+			 */
 			else if (SQLParser.isDelimiter(words[i])) {
 				//String s = words[i] + " is Delimiter";
 				//System.out.println(s);

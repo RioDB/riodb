@@ -71,11 +71,18 @@ public class WindowWrapper {
 	}
 
 	public String describeWindow() {
+
 		String s = "{\"name\":\"" + windowName + "\",\n \"steam\":\""
 				+ RioDB.rio.getEngine().getStream(streamId).getName() + "\",\n \"field\":\""
-				+ RioDB.rio.getEngine().getStream(streamId).getDef().getNumericFieldName(numericFieldIndex)
-				+ "\",\n \"where\": \"" + windowCondition.getExpression() + "\",\n \"running\":["
-				+ defaultWindow.getAggregations() + "]" + ",\n \"range_by\": ";
+				+ RioDB.rio.getEngine().getStream(streamId).getDef().getNumericFieldName(numericFieldIndex) + "\",\n";
+		
+				if(windowCondition != null) {
+					s = s + " \"where\": \"" + windowCondition.getExpression() + "\",\n";
+				}
+				
+				s = s + " \"running\":["
+				+ defaultWindow.getAggregations() + "]"  
+				+ ",\n \"range_by\": ";
 		if (rangeByTime) {
 			if (rangeByTimeFieldNumericIndexId == -1) {
 				s = s + "\"clock\"";
@@ -136,6 +143,10 @@ public class WindowWrapper {
 		if (functionId >= SQLFunctionMap.functionsAvailable() || functionId < 0)
 			return false;
 		return defaultWindow.requiresFunction(functionId);
+	}
+	
+	public int getStreamId() {
+		return streamId;
 	}
 
 	public void trimExpiredWindowElements(int currentSecond) {

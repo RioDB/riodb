@@ -757,5 +757,54 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 		}
 		return s;
 	}
+	
+	
+	public static String hidePassword(String stmt) {
+
+		if (stmt != null) {
+			String l = stmt.toLowerCase();
+			if (l.toLowerCase().contains(" password ")) {
+				int p1 = l.indexOf(" password ") + 10;
+				int p2 = l.indexOf(' ', p1);
+				if(p2 == -1) {
+					p2 = l.length();
+				}
+				String r = stmt.substring(0,p1);
+				r += "******";
+				if(stmt.length() > p2) {
+					r = r + stmt.substring(p2);
+				}
+				return r;
+			}
+			if (l.toLowerCase().startsWith("resetpwd ") && l.length() > 9) {
+				String r = stmt.substring(0,9);
+				r = r + " ******";
+				String pwd = stmt.substring(9);
+				if(pwd.contains(" ")) {
+					String afterPwd = pwd.substring(pwd.indexOf(" "));
+					r = r + " "+ afterPwd;
+				}
+				return r;
+			}
+			if (l.toLowerCase().startsWith("create user ") && l.length() > 9) {
+
+				String user = stmt.substring(12);
+				if(user.contains(" ")) {
+					int p1 = user.indexOf(" ") + 12;
+					
+					String r = stmt.substring(0,p1) + " ******";
+					
+					String pwd = stmt.substring(p1+1);
+					if (pwd.contains(" ")) {
+						
+						r = r + " " + pwd.substring(pwd.indexOf(" "));
+						
+					}
+					return r;
+				}
+			}
+		}
+		return stmt;
+	}
 
 }

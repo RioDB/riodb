@@ -169,7 +169,7 @@ public class Engine {
 		}
 		return counter;
 	}
-
+	
 	// gets the streamId of a window named... otherwise -1 if not found.
 	public int getStreamIdOfWindow(String windowName) {
 		if (streams.length == 0) {
@@ -212,6 +212,7 @@ public class Engine {
 		response = response + "\n]";
 		return response;
 	}
+	
 
 	// get all streams in a string
 	public String listStreams() {
@@ -250,9 +251,12 @@ public class Engine {
 	public boolean removeStream(int streamId) {
 
 		if (streamId >= 0 && streamId < streams.length) {
+			RioDB.rio.getSystemSettings().getLogger().debug("Stopping stream.");
 			streams[streamId].stop();
-			// TODO: ensure graceful removal of query threads...
+			Clock.quickPause();
+			RioDB.rio.getSystemSettings().getLogger().debug("erasing stream.");
 			streams[streamId] = null;
+			Clock.quickPause();
 			return true;
 		}
 		return false;
@@ -340,6 +344,20 @@ public class Engine {
 		}
 	}
 
+
+	/*
+	 *  Drop a WIndow... 
+	 */
+	public boolean dropWindow(String windowName) {
+		
+		int streamId = getStreamIdOfWindow(windowName);
+		
+		if (streamId >=0 && streams[streamId].dropWindow(windowName)) {
+					return true;
+		}
+		return false;
+	}
+
 	/*
 	 *  Drop a query... 
 	 *  We don't really now the address of a query here. So we loop through all
@@ -358,4 +376,41 @@ public class Engine {
 		}
 		return false;
 	}
+	
+	// Check if any query depends on a stream
+	public boolean hasQueryDependantOnStream(int streamId) {
+		for (int i = 0; i < streams.length; i++) {
+			if (streams[i] != null) {
+				if (streams[i].hasQueryDependantOnStream(streamId)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
+	// Check if any query depends on a window
+	public boolean hasQueryDependantOnWindow(int streamId, int windowId) {
+		for (int i = 0; i < streams.length; i++) {
+			if (streams[i] != null) {
+				if (streams[i].hasQueryDependantOnWindow(streamId, windowId)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
+	// Check if any query depends on a stream
+	public boolean hasWindowDependantOnStream(int streamId) {
+		for (int i = 0; i < streams.length; i++) {
+			if (streams[i] != null) {
+				if (streams[i].hasWindowDependantOnStream(streamId)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
 }

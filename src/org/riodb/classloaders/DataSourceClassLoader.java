@@ -118,9 +118,6 @@ public class DataSourceClassLoader {
 		} catch (InvocationTargetException e) {
 			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to InvocationTargetException");
 			throw new ExceptionSQLStatement(e.getMessage());
-		} catch (IOException e) {
-			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to IOException");
-			throw new ExceptionSQLStatement(e.getMessage());
 		}  finally{
 			if(urlClassLoader != null) {
 				try {
