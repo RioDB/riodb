@@ -339,7 +339,7 @@ public final class SQLExecutor {
 		if (responseList.size() > 1) {
 			responseJson = responseJson + "]";
 		}
-		responseJson = responseJson + "}";
+		responseJson = responseJson + "}\n";
 
 		return responseJson;
 	}

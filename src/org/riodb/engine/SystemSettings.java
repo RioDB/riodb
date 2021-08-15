@@ -59,7 +59,7 @@ public class SystemSettings {
 	// default ssl cert file
 	static final String DEFAULT_SSL_CERT_FILE = ".ssl/keystore.jks";
 	// default password file
-	static final String DEFAULT_PASSWD_FILE = ".access/users.dat";
+	//static final String DEFAULT_PASSWD_FILE = null; //".access/users.dat";
 	// default persisted statements file
 	static final String DEFAULT_PERSISTED_STMT_FILE_NAME = "apistmt";
 
@@ -73,7 +73,7 @@ public class SystemSettings {
 	// permanent SQL directory path
 	private static String persistedStatementsFile;
 	// permanent password file path
-	private static String passwdFile = DEFAULT_PASSWD_FILE;
+	private static String passwdFile = null; //DEFAULT_PASSWD_FILE;
 	// permanent ssl cert file path
 	private static String sslCertFile = DEFAULT_SSL_CERT_FILE;
 	
@@ -137,7 +137,7 @@ public class SystemSettings {
 		
 		sqlDirectory 		= javaRelativePath + "/" + DEFAULT_SQL_SUBDIR;
 		pluginJarDirectory  = javaRelativePath + "/" + DEFAULT_PLUGIN_SUBDIR;
-		passwdFile 			= javaRelativePath + "/" + DEFAULT_PASSWD_FILE;
+		//passwdFile 			= javaRelativePath + "/" + DEFAULT_PASSWD_FILE;
 		sslCertFile 		= javaRelativePath + "/" + DEFAULT_SSL_CERT_FILE;
 
 
