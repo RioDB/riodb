@@ -59,7 +59,9 @@ public class SystemSettings {
 	// default ssl cert file
 	static final String DEFAULT_SSL_CERT_FILE = ".ssl/keystore.jks";
 	// default password file
-	static final String DEFAULT_PASSWD_FILE = ".access/users.dat";
+	//static final String DEFAULT_PASSWD_FILE = null; //".access/users.dat";
+	// default persisted statements file
+	static final String DEFAULT_PERSISTED_STMT_FILE_NAME = "apistmt";
 
 	// Directory path of where RioDB is running
 	private static String javaRelativePath;
@@ -68,11 +70,21 @@ public class SystemSettings {
 	private static String pluginJarDirectory;
 	// permanent SQL directory path
 	private static String sqlDirectory;
+	// permanent SQL directory path
+	private static String persistedStatementsFile;
 	// permanent password file path
-	private static String passwdFile = DEFAULT_PASSWD_FILE;
+	private static String passwdFile = null; //DEFAULT_PASSWD_FILE;
 	// permanent ssl cert file path
 	private static String sslCertFile = DEFAULT_SSL_CERT_FILE;
+	
+	// persist user statements to disk, and recover them on reboot/startup
+	private static PersistedStatements persistedStatements;
+	
+	public PersistedStatements getPersistedStatements() {
+		return persistedStatements;
+	}
 
+	
 	public String getPluginDirectory() {
 		return pluginJarDirectory;
 	}
@@ -125,7 +137,7 @@ public class SystemSettings {
 		
 		sqlDirectory 		= javaRelativePath + "/" + DEFAULT_SQL_SUBDIR;
 		pluginJarDirectory  = javaRelativePath + "/" + DEFAULT_PLUGIN_SUBDIR;
-		passwdFile 			= javaRelativePath + "/" + DEFAULT_PASSWD_FILE;
+		//passwdFile 			= javaRelativePath + "/" + DEFAULT_PASSWD_FILE;
 		sslCertFile 		= javaRelativePath + "/" + DEFAULT_SSL_CERT_FILE;
 
 
@@ -153,7 +165,7 @@ public class SystemSettings {
 			fileContent = (ArrayList<String>) Files.readAllLines(filePath);
 			if (fileContent != null && fileContent.size() > 0) {
 				success = runConfig(fileContent);
-				logger.debug("Finished loading config file: " + configFile);
+				logger.info("Loaded config file: " + configFile);
 			} else {
 				success = false;
 				System.out.println("Error reading " + configFile);
@@ -246,15 +258,26 @@ public class SystemSettings {
 			sqlDirectory = sqlDirectory + "/";
 		}
 		sqlDirectory = adaptPathSlashes(sqlDirectory);
-
+		
+		persistedStatementsFile = sqlDirectory + "."+ DEFAULT_PERSISTED_STMT_FILE_NAME + "." + RQL_FILE_EXTENSION;
+		persistedStatementsFile = adaptPathSlashes(persistedStatementsFile);
+		
+		
 		// format plugin directory path
 		if (!pluginJarDirectory.endsWith("/") && !pluginJarDirectory.endsWith("\\")) {
 			pluginJarDirectory = pluginJarDirectory + "/";
 		}
 		pluginJarDirectory = adaptPathSlashes(pluginJarDirectory);
 
-		logger.debug("Plugin dir: " + pluginJarDirectory);
-		logger.debug("SQL file dir: " + sqlDirectory);
+		logger.info("Plugin dir: " + pluginJarDirectory);
+		logger.info("SQL file dir: " + sqlDirectory);
+		logger.debug("Persistant stmt file: " + persistedStatementsFile);
+		
+		
+		// Initialize statement persistance. 
+		persistedStatements = new PersistedStatements();
+		
+
 		
 		success = loadSQLFiles();
 		if (!success) {
@@ -325,7 +348,7 @@ public class SystemSettings {
 		File f = new File(sqlDirectory);
 
 		if (f == null || f.length() == 0) {
-			logger.warn("No .sql files found in '" + sqlDirectory );
+			logger.debug("No .sql files found in '" + sqlDirectory );
 			return true;
 		}
 
@@ -348,8 +371,19 @@ public class SystemSettings {
 
 					if (fileContent != null && fileContent.contains(";")) {
 
-						SQLExecutor.execute(fileContent, "SYSTEM");
-
+						// queries from .apistmt.sql are supplied by user (API) and can be dropped permanently. 
+						
+						if(persistedStatementsFile.equals(sqlDirectory + file)) {
+							logger.debug("loading persisted statements");
+							String loadOutput = SQLExecutor.execute(fileContent, "SYSTEM", true);
+							logger.debug(loadOutput);
+						}
+						// queries from other .sql files can be dropped, but will execute again on reboot.  
+						else {
+							String loadOutput = SQLExecutor.execute(fileContent, "SYSTEM", false); // permanent. Will always execute on reboot.
+							logger.debug(loadOutput);
+						}
+						
 					}
 				} catch (FileNotFoundException e) {
 					logger.error("Error loading SQL file. FILE NOT FOUND.");
@@ -390,6 +424,10 @@ public class SystemSettings {
 			return path.replace("/", "\\");
 		}
 		return path.replace("\\", "/");
+	}
+	
+	public String getPersistedStmtFile() {
+		return persistedStatementsFile;
 	}
 
 }

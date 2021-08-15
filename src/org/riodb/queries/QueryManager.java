@@ -34,6 +34,7 @@ import java.util.Iterator;
 import org.jctools.queues.SpscChunkedArrayQueue;
 import org.riodb.engine.RioDB;
 import org.riodb.sql.ExceptionSQLExecution;
+import org.riodb.sql.SQLParser;
 
 public class QueryManager implements Runnable {
 
@@ -84,10 +85,9 @@ public class QueryManager implements Runnable {
 	}	
 
 	// adds a query (sync in case of concurrent requests)
-	public synchronized int addQueryRef(Query query) {
-		int slot = queries.size();
+	public synchronized void addQueryRef(Query query) {
+		//Race condition possible if 2 users create a query at exactly same time. Unlikely. 
 		queries.add(query);
-		return slot;
 	}
 
 	// get query count (of this stream only)
@@ -99,7 +99,8 @@ public class QueryManager implements Runnable {
 	public String listAllQueries() {
 		String response = "";
 		for (int i = 0; i < queries.size(); i++) {
-			response = response + "{\"id\":" + queries.get(i).getQueryId() + ", \"stream\":\""+ RioDB.rio.getEngine().getStream(streamId).getName() +"\", \"statement\": \"" +  queries.get(i).getQueryStr().replace("\"","\\\"") + "\"},";
+			if(queries.get(i) != null)
+				response = response + "{\"id\":" + queries.get(i).getQueryId() + ", \"stream\":\""+ RioDB.rio.getEngine().getStream(streamId).getName() +"\", \"statement\": \"" +  SQLParser.hidePassword(queries.get(i).getQueryStr().replace("\"","\\\"")) + "\"},";
 		}
 		if (response.length() > 2)
 			response = response.substring(0, response.length() - 1);
@@ -108,8 +109,9 @@ public class QueryManager implements Runnable {
 	
 	// drop a query (sync in case of concurrent requests)
 	public synchronized boolean dropQuery(int queryId) {
+		
 		for (int i = 0; i < queries.size(); i++) {
-			if(queries.get(i).getQueryId() == queryId) {
+			if(queryId == queries.get(i).getQueryId()) {
 				queries.remove(i);
 				return true;
 			}
@@ -119,9 +121,35 @@ public class QueryManager implements Runnable {
 
 	// Describe a query
 	public String describeQuery(int queryId) {
-		if(queryId < queries.size()-1)
-			return queries.get(queryId).getQueryStr();  
-		return null;
+		
+		for (int i = 0; i < queries.size(); i++) {
+			if(queryId == queries.get(i).getQueryId()) {
+				return "\"" + queries.get(queryId).getQueryStr() + "\"";
+			}
+		}
+		return "\"Query not found.\"";
+	}
+	
+	// Check if any query depends on a stream
+	public boolean hasQueryDependantOnStream(int streamId) {
+		for (int i = 0; i < queries.size(); i++) {
+			if(queries.get(i) != null)
+				if(queries.get(i).dependsOnStream(streamId)) {
+					return true;
+				}
+		}
+		return false;
+	}
+	
+	// Check if any query depends on a window
+	public boolean hasQueryDependantOnWindow(int streamId, int windowId) {
+		for (int i = 0; i < queries.size(); i++) {
+			if(queries.get(i) != null)
+				if(queries.get(i).dependsOnWindow(streamId, windowId)) {
+					return true;
+				}
+		}
+		return false;
 	}
 	
 	// This is for Stream to send eventWithSummaries to the Query mgr. 

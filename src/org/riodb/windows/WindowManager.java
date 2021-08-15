@@ -54,11 +54,14 @@ public class WindowManager {
 		RioDB.rio.getSystemSettings().getLogger().debug("Window '" + newWindow.getName() + "' added");
 	}
 
-	// remove window from this stream's windowManager
-	public boolean removeWindow(int index) {
-		if (windowWrapperList.size() > index) {
-			windowWrapperList.remove(index);
-			return true;
+	// drop a window (sync in case of concurrent requests)
+	public synchronized boolean dropWindow(String windowName) {
+		
+		for (int i = 0; i < windowWrapperList.size(); i++) {
+			if(windowName.equals(windowWrapperList.get(i).getName())) {
+				windowWrapperList.remove(i);
+				return true;
+			}
 		}
 		return false;
 	}
@@ -102,12 +105,31 @@ public class WindowManager {
 		}
 		return -1;
 	}
+	
+	// get window name by id
+	public String getWindowName(int windowId) {
+			if (windowWrapperList.size() < windowId) {
+				return null;
+			}
+			return windowWrapperList.get(windowId).getName();
+	}
 
 	// window manager has window named...
 	public boolean hasWindow(String windowName) {
 		for (WindowWrapper w : windowWrapperList) {
 			if (w.getName().equals(windowName))
 				return true;
+		}
+		return false;
+	}
+	
+	// Check if any query depends on a stream
+	public boolean hasWindowDependantOnStream(int streamId) {
+		for (int i = 0; i < windowWrapperList.size(); i++) {
+			if(windowWrapperList.get(i) != null)
+				if(windowWrapperList.get(i).getStreamId() == streamId) {
+					return true;
+				}
 		}
 		return false;
 	}
@@ -133,8 +155,8 @@ public class WindowManager {
 	public String describeWindow(String windowName) {
 		for (int i = 0; i < windowWrapperList.size(); i++) {
 			if (windowWrapperList.get(i).getName().equals(windowName)) {
-				System.out.println("window found");
-				return windowWrapperList.get(i).describeWindow();
+				String description = windowWrapperList.get(i).describeWindow();
+				return description;
 			}
 		}
 		return "{}";

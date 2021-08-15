@@ -51,8 +51,6 @@ public class SQLQueryResources {
 				resourceAlias  = code.substring(code.indexOf(" ")+1).trim();
 			}
 			
-//			System.out.println(resourceName+"...");
-			
 			if(SQLParser.isStreamName(resourceName)) {
 				if(drivingStreamId != -1) {
 					throw new ExceptionSQLStatement("Query can select from only ONE (explicit) driving stream.");
@@ -144,6 +142,28 @@ public class SQLQueryResources {
 		if(drivingStreamAlias ==  null)
 			return false;
 		return drivingStreamAlias.equals(alias);
+	}
+	
+	public boolean dependsOnStream(int streamId) {
+		
+		for(int i = 0; i < resources.size(); i++) {
+			if(resources.get(i).getStreamId() == streamId) {
+				return true;
+			}	
+		}
+		
+		return false;
+	}
+	
+	public boolean dependsOnWindow(int streamId, int windowId) {
+		
+		for(int i = 0; i < resources.size(); i++) {
+			if(resources.get(i).getStreamId() == streamId && resources.get(i).getWindowId() == windowId) {
+				return true;
+			}	
+		}
+		
+		return false;
 	}
 
 }

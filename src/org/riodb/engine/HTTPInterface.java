@@ -132,7 +132,7 @@ public class HTTPInterface {
 
 			// SSL Context
 			SSLContext sslContext;
-			sslContext = SSLContext.getInstance("TLS");
+			sslContext = SSLContext.getInstance("TLSv1.2");
 
 			// KeyStore
 			char[] password = keyStorePasswd.toCharArray();
@@ -206,7 +206,7 @@ public class HTTPInterface {
 		public void handle(HttpExchange t) throws IOException {
 
 			// default response
-			String response = "{\"code\": 0, \"message\": [\"RioDB - Tell me WHEN.\"]}";
+			String response = "{\"code\": 0, \"message\": [\"RioDB - Tell me WHEN.\"]}\n";
 			if (t.getRequestMethod().equals("POST")) {
 				String stmt = parseRequestBody(t.getRequestBody());
 				if (stmt != null && stmt.length() > 3) {
@@ -222,7 +222,7 @@ public class HTTPInterface {
 						}
 						
 						// Send the statement and username to the SQLExecutor class
-						response = SQLExecutor.execute(stmt, userName);
+						response = SQLExecutor.execute(stmt, userName, true);
 
 					} catch ( ExceptionAccessMgt | ExceptionSQLStatement | RioDBPluginException e) {
 						response = "{\"code\": 2, \"message\":\"" + e.getMessage() + "\"}";
@@ -252,8 +252,8 @@ public class HTTPInterface {
 	// Default handler for URL root level. (The other handler responds to URL /rio
 	static class RootHandler implements HttpHandler {
 		@Override
-		public void handle(HttpExchange t) throws IOException {
-			String response = "{\"code\": 0, \"message\":\"RioDB here - Tell me WHEN.\"}";
+		public void handle(final HttpExchange t) throws IOException {
+			String response = "{\"code\": 0, \"message\":\"RioDB here - Tell me WHEN.\"}\n";
 			t.sendResponseHeaders(200, response.getBytes().length);
 			OutputStream os = t.getResponseBody();
 			os.write(response.getBytes());

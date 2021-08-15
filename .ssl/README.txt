@@ -3,18 +3,12 @@
      HTTPS, keystore, and authentication for RioDB
 
 
-Below are steps to configure HTTPS API.
-non-encrypted HTTP does not require these steps. 
+Below are steps to configure HTTPS API LISTENER.
 
 -------------------------------------------------------------------------------------
-STEP 1:  Generate the keystore
-
-Windows: make_ssl_key.bat
-Linux:   ./make_ssl_key.sh
-
+STEP 1:  Generate the keystore with the following command:
 (provide a password when prompted)
 
-Alternatively, modify and run the keytool command as needed:
 keytool -genkeypair -keyalg RSA -alias selfsigned -keystore keystore.jks -storepass pass_for_self_signed_cert -dname "CN=localhost, OU=Developers, O=Bull Bytes, L=Linz, C=AT"
 
 -------------------------------------------------------------------------------------
