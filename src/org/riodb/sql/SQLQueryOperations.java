@@ -233,37 +233,26 @@ public final class SQLQueryOperations {
 	public static final String describeQuery(String stmt) throws ExceptionSQLStatement {
 
 		String newStmt = SQLStreamOperations.formatSQL(stmt);
-		//System.out.println(newStmt);
-
-		System.out.println("newStmt:"+ newStmt);
+		
 		String words[] = newStmt.split(" ");
 		if(words.length >=3 &&
 				words[0] != null && words[0].equals("describe") &&
 				words[1] != null && words[1].equals("query") &&
 				words[2] != null && words[2].length()>0 ) {
 			
-			System.out.println(words[2]);
 			words[2] = words[2].replace(".", ",");
 			String id[] = words[2].split(",");
 			
-			System.out.println("id length: "+ id.length);
-			
 			if(id.length == 2) {
-				System.out.println("id[0]: "+id[0]);
 				int streamId = RioDB.rio.getEngine().getStreamId(id[0]);
-				System.out.println("streamId"+ streamId);
 				if (streamId == -1) {
 					throw new ExceptionSQLStatement("Stream not found.");
 				}
 				
 				// if window ID was provided, remove window by ID
-				System.out.println("id[1]: "+id[1]);
 				if(SQLParser.isNumber(id[1])) {
 					
 					int queryId = Integer.valueOf(id[1]);
-					System.out.println("queryId: "+queryId);
-
-					
 					return RioDB.rio.getEngine().getStream(streamId).getQueryMgr().describeQuery(queryId);
 
 				}

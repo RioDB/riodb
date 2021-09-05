@@ -31,16 +31,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.riodb.access.ExceptionAccessMgt;
-import org.riodb.sql.ExceptionSQLStatement;
 import org.riodb.sql.SQLExecutor;
 import org.riodb.sql.SQLParser;
 
-import org.riodb.plugin.RioDBPluginException;
 
 //import org.apache.log4j.xml.DOMConfigurator;
 
@@ -372,16 +369,23 @@ public class SystemSettings {
 					if (fileContent != null && fileContent.contains(";")) {
 
 						// queries from .apistmt.sql are supplied by user (API) and can be dropped permanently. 
-						
+
+						String loadOutput = "";
 						if(persistedStatementsFile.equals(sqlDirectory + file)) {
 							logger.debug("loading persisted statements");
-							String loadOutput = SQLExecutor.execute(fileContent, "SYSTEM", true);
+							loadOutput = SQLExecutor.execute(fileContent, "SYSTEM", true);
 							logger.debug(loadOutput);
 						}
 						// queries from other .sql files can be dropped, but will execute again on reboot.  
 						else {
-							String loadOutput = SQLExecutor.execute(fileContent, "SYSTEM", false); // permanent. Will always execute on reboot.
+							loadOutput = SQLExecutor.execute(fileContent, "SYSTEM", false); // permanent. Will always execute on reboot.
 							logger.debug(loadOutput);
+						}
+						
+						if(!loadOutput.contains("\"status\": 200")) {
+							success = false;
+							logger.error("Error loading configuration. "+ fileName);
+							break;
 						}
 						
 					}
@@ -393,20 +397,7 @@ public class SystemSettings {
 					logger.error("Error loading configuration. " + e.getMessage().replace("\n", "\\n"));
 					success = false;
 					break;
-				} catch (ExceptionSQLStatement e) {
-					logger.error("Error loading sql command. " + e.getMessage().replace("\n", "\\n"));
-					success = false;
-					break;
-				} catch (RioDBPluginException e) {
-					logger.error("Error loading stream plugin. " + e.getMessage().replace("\n", "\\n"));
-					success = false;
-					break;
-				} catch (ExceptionAccessMgt e) {
-					logger.error("Error loading user access command. " + e.getMessage().replace("\n", "\\n"));
-					success = false;
-					break;
-				}
-
+				} 
 			}
 		}
 

@@ -62,8 +62,10 @@ public final class SQLParser {
 			throw new ExceptionSQLStatement(SQLStmtErrorMsg.write(1, stmt));
 		}
 		String newStmt = textEncode(stmt); // .toLowerCase();
-		newStmt = formatStripComments(stmt); // .toLowerCase();
+		
+		newStmt = formatStripComments(newStmt); // .toLowerCase();
 
+		
 		newStmt = newStmt.replace("\t", " ");
 		newStmt = newStmt.replace("\n", " ");
 		newStmt = newStmt.replace("\r", " ");
@@ -86,7 +88,6 @@ public final class SQLParser {
 		newStmt = newStmt.replace("*", " * ");
 		newStmt = newStmt.replace("/", " / ");
 
-		
 		// newStmt = newStmt.replace(")", ") ");
 
 		while (newStmt.contains("  ")) {

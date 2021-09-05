@@ -37,6 +37,7 @@ package org.riodb.engine;
 
 import org.riodb.access.ExceptionAccessMgt;
 import org.riodb.access.UserManager;
+import org.riodb.plugin.RioDBPluginException;
 
 
 public class RioDB {
@@ -70,7 +71,7 @@ public class RioDB {
 	//RioDB() {}
 
 	// start services
-	public void start() {
+	public void start() throws RioDBPluginException {
 		settings.getLogger().info("#############   Starting Engine...  #################");
 		rioEngine.start();
 		settings.getLogger().info("RioDB is ready");
@@ -101,12 +102,12 @@ public class RioDB {
 		 *  If the project is forked, this copyright notice must be preserved and displayed first.
 		 *  If turned into a GUI application, the copyright notice must appear in an ABOUT page or similar. 
 		 */
-		System.out.println("^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^\r\n"+
-				"  RioDB "+ RioDB.VERSION +" - Copyright (c) 2021 riodb.org - Lucio D Matos\r\n"+
-				"  This program comes with ABSOLUTELY NO WARRANTY.\r\n" + 
-				"  This is free software, and you are welcome to use and redistribute it\r\n" + 
-				"  under the conditions of the GNU GPL-3.0-or-later license.\r\n" +
-				"^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^");
+		System.out.println(
+				"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n\n"+
+				" _        _  _   RioDB "+ RioDB.VERSION +" - Copyright (c) 2021 info at www.riodb.org\r\n" + 
+				"|_) o  _ | \\|_)  This program comes with no warranty.\r\n" + 
+				"| \\ | (_)|_/|_)  This is free software licensed under GPL-3.0 license. \r\n\n"+
+				"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
 
 
 		// Load initial configuration.
@@ -114,7 +115,12 @@ public class RioDB {
 			System.exit(0);
 		
 		// Start services
-		rio.start();
+		try {
+			rio.start();
+		} catch (RioDBPluginException e) {
+			settings.getLogger().info("Error starting services: "+
+		    e.getMessage().replace("\n", "").replace("\r", ""));
+		}
 		
 		// creates a shutdown hook to catch kill request. 
 		shutdownHook();

@@ -29,6 +29,8 @@
 
 package org.riodb.sql;
 
+import org.riodb.engine.RioDB;
+
 public class SQLStringLIKE {
 
 	private short comparisonType;
@@ -50,7 +52,7 @@ public class SQLStringLIKE {
 
 	SQLStringLIKE(String pattern){
 		
-		if(pattern == null || pattern.length() == 0) {
+		if(pattern == null || pattern.length() == 0 || pattern.equals("''")) {
 			this.comparisonType = 0;
 			firstHalf = true;
 //			System.out.println("is null");
@@ -141,6 +143,7 @@ public class SQLStringLIKE {
 				}
 			}
 		}
+		RioDB.rio.getSystemSettings().getLogger().debug("SQLStringLIKE object created with comparisonType = " + comparisonType + " and patterns: "+ getElements() );
 	}
 
 	public boolean match(String s) {
@@ -229,5 +232,16 @@ public class SQLStringLIKE {
 				return true;
 			}
 		}
+	}
+	
+	public String getElements() {
+		String elements = "";
+		for(int i = 0; i < patterns.length; i++) {
+			
+            elements = elements + "'"+ patterns[i] + "'";
+            if(i < patterns.length-2)
+            	elements = elements + ",";
+        }
+        return elements;
 	}
 }

@@ -50,27 +50,17 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
-
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
-
-import org.riodb.access.ExceptionAccessMgt;
-import org.riodb.sql.ExceptionSQLStatement;
 import org.riodb.sql.SQLExecutor;
-
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpPrincipal;
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsServer;
-
-import org.riodb.plugin.RioDBPluginException;
-
 import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsParameters;
 import com.sun.net.httpserver.BasicAuthenticator;
@@ -83,12 +73,15 @@ public class HTTPInterface {
 	private static HttpServer httpServer = null;
 	private static HttpsServer httpsServer = null;
 
-	// max timeout for select statement (could become a .conf parameter passed to constructor)
+	// max timeout for select statement (could become a .conf parameter passed to
+	// constructor)
 	private int selectStmtTimeout = 60;
+
 	// setter for timeout
 	public void setTimeout(int newTimeout) {
 		selectStmtTimeout = newTimeout;
 	}
+
 	// getter for timeout
 	public int getTimeout() {
 		return selectStmtTimeout;
@@ -179,7 +172,7 @@ public class HTTPInterface {
 					@Override
 					public boolean checkCredentials(String user, String pwd) {
 						// block requests posing as SYSTEM.
-						if(user == null || user.equals("SYSTEM")) {
+						if (user == null || user.equals("SYSTEM")) {
 							return false;
 						}
 						return RioDB.rio.getUserMgr().authenticate(user, pwd);
@@ -200,36 +193,30 @@ public class HTTPInterface {
 		return success;
 	}
 
-	// The handler class that will reply calls to /rio 
+	// The handler class that will reply calls to /rio
 	static class RioHandler implements HttpHandler {
 		@Override
 		public void handle(HttpExchange t) throws IOException {
 
 			// default response
-			String response = "{\"code\": 0, \"message\": [\"RioDB - Tell me WHEN.\"]}\n";
+			String response = "{\"status\": 200, \"message\": \"RioDB here. Tell me WHEN.\"}\n";
 			if (t.getRequestMethod().equals("POST")) {
 				String stmt = parseRequestBody(t.getRequestBody());
-				if (stmt != null && stmt.length() > 3) {
-					try {
+				if (stmt != null && stmt.length() > 0) {
 
-						String userName = null;
-						if (RioDB.rio.getUserMgr() != null) {
-							HttpPrincipal p = t.getPrincipal();
-							userName = p.getUsername();
-							if(userName != null) {
-								userName = userName.toUpperCase();
-							}
+					String userName = null;
+					if (RioDB.rio.getUserMgr() != null) {
+						HttpPrincipal p = t.getPrincipal();
+						userName = p.getUsername();
+						if (userName != null) {
+							userName = userName.toUpperCase();
 						}
-						
-						// Send the statement and username to the SQLExecutor class
-						response = SQLExecutor.execute(stmt, userName, true);
-
-					} catch ( ExceptionAccessMgt | ExceptionSQLStatement | RioDBPluginException e) {
-						response = "{\"code\": 2, \"message\":\"" + e.getMessage() + "\"}";
-						RioDB.rio.getSystemSettings().getLogger().debug(e.getMessage());
 					}
-				} else
-					response = "{\"code\": 2, \"message\": \"stmt not understood.\"}";
+
+						// Send the statement and username to the SQLExecutor class
+						response = SQLExecutor.execute(stmt, userName, true) + "\n";
+						
+				} 
 			}
 			t.sendResponseHeaders(200, response.getBytes().length);
 			OutputStream os = t.getResponseBody();
@@ -237,15 +224,18 @@ public class HTTPInterface {
 			os.close();
 		}
 
-		// Convert input stream to jsonObject
+		// Convert input stream to statement string
 		private final String parseRequestBody(InputStream inputStream) {
-			String stmt = "";
-			String body = inputStreamToString(inputStream);
-			@SuppressWarnings("deprecation")
-			JsonObject jsonObject = new JsonParser().parse(body).getAsJsonObject();
-			if (jsonObject.has("stmt"))
-				stmt = jsonObject.get("stmt").getAsString();
-			return stmt;
+
+			String requestPayload = inputStreamToString(inputStream).trim();
+			if (requestPayload != null && requestPayload.length() > 2) {
+				if (requestPayload.charAt(0) == '\"' && requestPayload.charAt(requestPayload.length() - 1) == '\"') {
+					requestPayload = requestPayload.substring(1);
+					requestPayload = requestPayload.substring(0, requestPayload.length() - 1);
+					return requestPayload;
+				}
+			}
+			return null;
 		}
 	}
 
@@ -253,7 +243,7 @@ public class HTTPInterface {
 	static class RootHandler implements HttpHandler {
 		@Override
 		public void handle(final HttpExchange t) throws IOException {
-			String response = "{\"code\": 0, \"message\":\"RioDB here - Tell me WHEN.\"}\n";
+			String response = "{\"status\": 200, \"message\":\"RioDB here. Tell me WHEN.\"}\n";
 			t.sendResponseHeaders(200, response.getBytes().length);
 			OutputStream os = t.getResponseBody();
 			os.write(response.getBytes());
@@ -283,7 +273,8 @@ public class HTTPInterface {
 
 	}
 
-	// stop HTTP - For shutdown only. Once stopped, there's no way to submit a start-up request. 
+	// stop HTTP - For shutdown only. Once stopped, there's no way to submit a
+	// start-up request.
 	public static void stop() {
 		if (httpServer != null) {
 			httpServer.stop(0);

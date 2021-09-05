@@ -37,7 +37,7 @@
 
 package org.riodb.engine;
 
-import org.riodb.classloaders.DataSourceClassLoader;
+import org.riodb.classloaders.InputClassLoader;
 import org.riodb.queries.EventWithSummaries;
 import org.riodb.queries.Query;
 import org.riodb.queries.QueryManager;
@@ -63,7 +63,7 @@ public class Stream implements Runnable {
 	private RioDBStreamEventDef streamEventDef;
 
 	// Runnable data source to receive data and put into the Inbox queue;
-	private RioDBDataSource streamDataSource;
+	private RioDBDataSource streamInput;
 
 	// Container of user-defined windows. is FINAL for performance
 	private final WindowManager streamWindowMgr = new WindowManager();
@@ -80,9 +80,13 @@ public class Stream implements Runnable {
 	// private int counter;
 
 	// Constructor
-	public Stream(int streamId, String name, RioDBStreamEventDef def, String dataSourceType, String dataSourceParams)
+	public Stream(int streamId, String name, RioDBStreamEventDef def, String inputType, String inputParams)
 			throws ExceptionSQLStatement, RioDBPluginException {
-		RioDB.rio.getSystemSettings().getLogger().info("Creating stream[" + streamId + "]" + name);
+		
+		RioDB.rio.getSystemSettings().getLogger().debug("Creating stream[" + streamId + "]" + name + " while system online = " + RioDB.rio.getEngine().isOnline());
+		
+		
+		this.interrupt = true; //!RioDB.rio.getEngine().isOnline();
 		this.streamId = streamId;
 		this.streamName = name;
 		this.streamEventDef = def;
@@ -96,12 +100,12 @@ public class Stream implements Runnable {
 		streamQueryMgr.setStreamId(streamId);
 
 		// load the data source class (aka "input plugin")
-		if (dataSourceType != null) {
-			streamDataSource = DataSourceClassLoader.getInputPlugin(dataSourceType);
-			streamDataSource.init(dataSourceParams, def);
+		if (inputType != null) {
+			streamInput = InputClassLoader.getInputPlugin(inputType);
+			streamInput.init(inputParams, def);
 		} else {
 			RioDB.rio.getSystemSettings().getLogger()
-					.error("Failed to create stream because dataSource Type is missing");
+					.error("Failed to create stream because INPUT TYPE is missing");
 		}
 
 	}
@@ -119,7 +123,7 @@ public class Stream implements Runnable {
 	// describe stream in JSON format
 	public String describe() {
 		String s = "{ \"name\":\"" + streamName + "\",\n \"fields\":[" + streamEventDef.getFieldList()
-				+ "],\n \"type\":\"" + streamDataSource.getType() + "\"," + "\n \"timestamp\" : \""
+				+ "],\n \"type\":\"" + streamInput.getType() + "\"," + "\n \"timestamp\" : \""
 				+ (streamEventDef.getTimestampNumericFieldId() == -1 ? "clock" : streamEventDef.getTimestampFieldName())
 				+ "\" }";
 		return s;
@@ -132,7 +136,7 @@ public class Stream implements Runnable {
 		if (interrupt)
 			threadStatus = "stopped";
 
-		String s = "{ \n   \"stream_name\":\"" + streamName + "\"," + "\n   \"_thread\": \"" + streamDataSource.status()
+		String s = "{ \n   \"stream_name\":\"" + streamName + "\"," + "\n   \"_thread\": \"" + streamInput.status()
 				+ "\"," + "\n   \"window_count\": " + streamWindowMgr.getWindowCount() + ","
 				+ "\n   \"handler_thread\": \"" + threadStatus + "\","
 				// + "\n \"event_queue_size\": " + streamPacketInbox.size() + ","
@@ -146,7 +150,7 @@ public class Stream implements Runnable {
 	public String describeWindow(String windowName) {
 		return streamWindowMgr.describeWindow(windowName);
 	}
-	
+
 	// get window count
 	public int getWindowCount() {
 		return streamWindowMgr.getWindowCount();
@@ -156,90 +160,106 @@ public class Stream implements Runnable {
 	public String listAllQueries() {
 		return streamQueryMgr.listAllQueries();
 	}
-	
+
 	// get QueryManager
 	public QueryManager getQueryMgr() {
 		return streamQueryMgr;
 	}
+
 	// get query count
 	public int getQueryCount() {
 		return streamQueryMgr.queryCount();
 	}
-	
+
 	// Check if any query depends on a stream
 	public boolean hasQueryDependantOnStream(int streamId) {
 		return streamQueryMgr.hasQueryDependantOnStream(streamId);
 	}
-	
+
 	// Check if any query depends on a window
 	public boolean hasQueryDependantOnWindow(int streamId, int windowId) {
 		return streamQueryMgr.hasQueryDependantOnWindow(streamId, windowId);
 	}
-	
+
 	// Check if any query depends on a stream
 	public boolean hasWindowDependantOnStream(int streamId) {
 		return streamWindowMgr.hasWindowDependantOnStream(streamId);
 	}
-	
 
 	// drop a query from this stream if it exists. False if not found.
 	public boolean dropWindow(String windowName) {
 		return streamWindowMgr.dropWindow(windowName);
 	}
-	
+
 	// drop a query from this stream if it exists. False if not found.
 	public boolean dropQuery(int queryId) {
 		return streamQueryMgr.dropQuery(queryId);
 	}
 
 	// Start this stream and all its dependencies
-	public void start() {
+	public void start() throws RioDBPluginException {
 
-		// start query
-		streamQueryMgr.start();
-		Clock.quickPause();
+		
+		RioDB.rio.getSystemSettings().getLogger().info("Stream.start: starting "+streamName + " while system online = "+ RioDB.rio.getEngine().isOnline());
+		
+		if (interrupt == true) {
+			
+			// start query
+			streamQueryMgr.start();
+			Clock.quickPause();
 
-		// start stream thread
-		// counter = 0;
-		interrupt = false;
-		streamThread = new Thread(this);
-		streamThread.setName("STREAM_THREAD_" + streamId);
-		streamThread.start();
+			// start stream thread
+			// counter = 0;
+			interrupt = false;
+			streamThread = new Thread(this);
+			streamThread.setName("STREAM_THREAD_" + streamId);
+			streamThread.start();
 
-		Clock.quickPause();
+			Clock.quickPause();
 
-		// start data source
-		try {
-			streamDataSource.start();
-		} catch (RioDBPluginException e) {
-			RioDB.rio.getSystemSettings().getLogger()
-					.info("Error starting input plugin: " + e.getMessage().replace("\n", "").replace("\r", ""));
+			// start data source
+			try {
+				streamInput.start();
+				RioDB.rio.getSystemSettings().getLogger().info("Stream.start: started.");
+			} catch (RioDBPluginException e) {
+				interrupt = true;
+				String s = "Error starting input plugin: " + e.getMessage().replace("\n", "").replace("\r", "");
+				RioDB.rio.getSystemSettings().getLogger().warn(s);
+				RioDBPluginException p = new RioDBPluginException(s);
+				p.setStackTrace(e.getStackTrace());
+				throw p;
+
+			}
 		}
 
 	}
 
 	// Stop this steram and all its dependencies
 	public void stop() {
+		
+		RioDB.rio.getSystemSettings().getLogger().info("Stream.stop: stopping "+streamName);
 
 		// stop data source first
-		try {
-			RioDB.rio.getSystemSettings().getLogger().debug("Stopping DataSource for stream " + streamId);
-			streamDataSource.stop();
-		} catch (RioDBPluginException e) {
-			RioDB.rio.getSystemSettings().getLogger()
-					.info("Error stopping input plugin: " + e.getMessage().replace("\n", "").replace("\r", ""));
+		if (interrupt == false) {
+			try {
+				RioDB.rio.getSystemSettings().getLogger().debug("Stopping INPUT PLUGIN for stream " + streamName);
+				streamInput.stop();
+			} catch (RioDBPluginException e) {
+				RioDB.rio.getSystemSettings().getLogger()
+						.info("Error stopping input plugin: " + e.getMessage().replace("\n", "").replace("\r", ""));
+			}
+			Clock.quickPause();
+			// stop stream
+			RioDB.rio.getSystemSettings().getLogger().debug("Interrupting stream thread for stream " + streamId);
+			interrupt = true;
+			streamThread.interrupt();
+			// counter = 0;
+			Clock.quickPause();
+			// stop queries
+			RioDB.rio.getSystemSettings().getLogger().debug("Stopping Query Mgr for stream " + streamId);
+			streamQueryMgr.stop();
+			Clock.quickPause();
 		}
-		Clock.quickPause();
-		// stop stream
-		RioDB.rio.getSystemSettings().getLogger().debug("Interrupting stream thread for stream " + streamId);
-		interrupt = true;
-		streamThread.interrupt();
-		// counter = 0;
-		Clock.quickPause();
-		// stop queries
-		RioDB.rio.getSystemSettings().getLogger().debug("Stopping Query Mgr for stream " + streamId);
-		streamQueryMgr.stop();
-		Clock.quickPause();
 	}
 
 	// Getter for stream event field definition
@@ -254,7 +274,7 @@ public class Stream implements Runnable {
 
 	// get size of awaiting queue in data source
 	protected int inboxSize() {
-		return streamDataSource.getQueueSize();
+		return streamInput.getQueueSize();
 	}
 
 	// Add window to this stream
@@ -269,7 +289,7 @@ public class Stream implements Runnable {
 
 	// adds a query to the Stream
 	public void addQueryRef(Query query) {
-		streamQueryMgr.addQueryRef(query);
+		streamQueryMgr.addQuery(query);
 	}
 
 	/*
@@ -299,9 +319,10 @@ public class Stream implements Runnable {
 	// The Runnable run() method for executing the thead of this stream.
 	@Override
 	public void run() {
-		RioDB.rio.getSystemSettings().getLogger().info("Starting Event Handler for Stream[" + streamId + "] ...");
+		RioDB.rio.getSystemSettings().getLogger().info("Starting Event Handler for stream "+ streamName + " while 'interrupt' = '" + interrupt );
 		try {
 
+			interrupt = false;
 			while (!interrupt) {
 				// try {
 				// Thread.sleep(100);
@@ -311,7 +332,7 @@ public class Stream implements Runnable {
 				// }
 
 				// get next event from dataSource. non-blocking. Null can be returned.
-				RioDBStreamEvent event = streamDataSource.getNextEvent();
+				RioDBStreamEvent event = streamInput.getNextEvent();
 				if (event != null) {
 
 					/*
@@ -346,18 +367,18 @@ public class Stream implements Runnable {
 					}
 				}
 			}
-			RioDB.rio.getSystemSettings().getLogger().info("EventHandler for stream [" + streamId + "] stopped.");
+			
 
 		} catch (RioDBPluginException e) {
 			RioDB.rio.getSystemSettings().getLogger().debug("plugin returned error: " + e.getMessage());
 			// e.printStackTrace();
 		}
 
-		// if loop was broken by interrupt, log intentional stopping. 
+		// if loop was broken by interrupt, log intentional stopping.
 		if (interrupt) {
 			RioDB.rio.getSystemSettings().getLogger().info("EventHandler for stream [" + streamId + "] stopped.");
 		} else {
-			// log unintentional stopping. 
+			// log unintentional stopping.
 			RioDB.rio.getSystemSettings().getLogger()
 					.info("EventHandler for stream [" + streamId + "] stopped unexpectedly.");
 		}

@@ -33,6 +33,9 @@ import org.riodb.plugin.*;
 
 final public class STDOUT implements RioDBOutput {
 
+	// the delimiter between fields:
+	String delimiter = "\t";
+	
 	@Override
 	public String getType() {
 		return "STDOUT";
@@ -40,7 +43,10 @@ final public class STDOUT implements RioDBOutput {
 
 	@Override
 	public void init(String outputParams, String[] columnHeaders) throws RioDBPluginException {
-		// no init required for STDOUT
+		String params[] = outputParams.split(" ");
+		if(params.length == 2 && params[0].equals("delimiter")) {
+			delimiter = params[1].trim().replace("'", "");
+		}
 	}
 
 	@Override
@@ -49,9 +55,9 @@ final public class STDOUT implements RioDBOutput {
 		// basically, just print each of the columns selected onto console. 
 		String output = "";
 		for (String c : columns) {
-			output = output + c + "\t";
+			output = output + c + delimiter;
 		}
-		System.out.println(output.substring(0, output.length() - 1)); // remove last tab
+		System.out.println(output.substring(0, output.length() - delimiter.length())); // remove last tab
 	}
 
 	@Override
