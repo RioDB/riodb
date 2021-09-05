@@ -49,6 +49,11 @@ public class QueryManager implements Runnable {
 	
 	// ArrayList of queries
 	private final ArrayList<Query> queries = new ArrayList<Query>();
+	// Temp query buffer for inserting new query into arraylist in thread-safe manner. 
+	private Query   tempQuery;
+	private boolean queryWaitingToBeInserted = false;
+	
+	
 	// queue of eventWithSummaries after processed by windows. 
 	private final SpscChunkedArrayQueue<EventWithSummaries> queryInbox = 
 			new SpscChunkedArrayQueue<EventWithSummaries>(QUEUE_INIT_CAPACITY, MAX_CAPACITY);;
@@ -84,10 +89,17 @@ public class QueryManager implements Runnable {
 		sessions.respond(sessionId, reply);
 	}	
 
-	// adds a query (sync in case of concurrent requests)
-	public synchronized void addQueryRef(Query query) {
-		//Race condition possible if 2 users create a query at exactly same time. Unlikely. 
-		queries.add(query);
+	// adds a query (sync in case of simultaneous requests)
+	public synchronized void addQuery(Query query) {
+
+		if(RioDB.rio.getEngine().isOnline()) {
+			tempQuery = query;
+			RioDB.rio.getSystemSettings().getLogger().debug("Query "+ query.getQueryId() +" queued to be added to stream.");
+			queryWaitingToBeInserted = true;
+		} else {
+			queries.add(query);
+		}
+
 	}
 
 	// get query count (of this stream only)
@@ -100,10 +112,11 @@ public class QueryManager implements Runnable {
 		String response = "";
 		for (int i = 0; i < queries.size(); i++) {
 			if(queries.get(i) != null)
-				response = response + "{\"id\":" + queries.get(i).getQueryId() + ", \"stream\":\""+ RioDB.rio.getEngine().getStream(streamId).getName() +"\", \"statement\": \"" +  SQLParser.hidePassword(queries.get(i).getQueryStr().replace("\"","\\\"")) + "\"},";
+				response = response + "{\"id\":" + queries.get(i).getQueryId() + ", \"stream\":\""+ RioDB.rio.getEngine().getStream(streamId).getName() +"\", \"status\": "+ !queries.get(i).isDestroying() +",  \"statement\": \"" +  SQLParser.hidePassword(queries.get(i).getQueryStr().replace("\"","\\\"")) + "\"},";
 		}
-		if (response.length() > 2)
+		if (response.length() > 2) { // remove that last comma
 			response = response.substring(0, response.length() - 1);
+		}
 		return response;
 	}
 	
@@ -111,8 +124,13 @@ public class QueryManager implements Runnable {
 	public synchronized boolean dropQuery(int queryId) {
 		
 		for (int i = 0; i < queries.size(); i++) {
-			if(queryId == queries.get(i).getQueryId()) {
-				queries.remove(i);
+			if(!queries.get(i).isDestroying() && queryId == queries.get(i).getQueryId()) {
+				if(RioDB.rio.getEngine().isOnline()) {
+					// mark query to be removed thread-safe. 
+					queries.get(i).removeQuery();
+				} else {
+					queries.remove(i);
+				}
 				return true;
 			}
 		}
@@ -192,7 +210,15 @@ public class QueryManager implements Runnable {
 		
 		// loop until interrupted:
 		while (!interrupt) {
-			// poll next eventWithSummaries from query inbox for processing:
+			// poll next eventWithSummaries from query inbox for processing.
+			// this poll is non-blocking. It will return null if there's no messages. 
+			
+			
+			if(queryWaitingToBeInserted) {
+				queries.add(tempQuery);
+				queryWaitingToBeInserted = false;
+			}
+			
 			EventWithSummaries esum = queryInbox.poll();
 			if (esum != null) {
 				
@@ -213,8 +239,11 @@ public class QueryManager implements Runnable {
 						  
 						 */
 						if (q.evalAndGetStatus(esum)) {
+							int queryId = q.getQueryId();
 							qItr.remove();
-							RioDB.rio.getSystemSettings().getLogger().debug("Query removed... ");
+							//dropQuery(queryId);
+							RioDB.rio.getSystemSettings().getPersistedStatements().dropQueryStmt(queryId);
+							RioDB.rio.getSystemSettings().getLogger().debug("Query "+ String.valueOf(queryId) +" removed.");
 						}
 					} catch (ExceptionSQLExecution e) {
 						if (!erroAlreadyCaught) {
@@ -229,8 +258,8 @@ public class QueryManager implements Runnable {
 				// previousEvent = esum.getEventRef();
 
 			} else {
-				// Save CPU cycles.
-				// This implementation is more efficient than any blockingQueue,
+				// When no messages are received, save CPU cycles.
+				// This implementation is more efficient than any blocking queues,
 				// as we're dealing with single producer / single consumer.
 				try {
 					Thread.sleep(1);

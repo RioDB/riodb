@@ -29,6 +29,9 @@
 package org.riodb.sql;
 
 import java.util.HashSet;
+import java.util.Iterator;
+
+import org.riodb.engine.RioDB;
 
 public class SQLStringIN {
 
@@ -71,11 +74,25 @@ public class SQLStringIN {
 			
 			strings.add(list[i]);
 		}
+		
+		
+		RioDB.rio.getSystemSettings().getLogger().debug("SQLStringIN object created with words: "+ getElements());
 
 	}
 
 	public boolean match(String s) {
 		return strings.contains(s);
+	}
+	
+	public String getElements() {
+		String elements = "";
+		Iterator<String> itr = strings.iterator();
+        while (itr.hasNext()) {
+            elements = elements + "'"+ itr.next() + "'";
+            if(itr.hasNext())
+            	elements = elements + ",";
+        }
+        return elements;
 	}
 
 }

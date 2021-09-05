@@ -20,6 +20,8 @@
 
 package org.riodb.sql;
 
+import org.riodb.engine.RioDB;
+
 public class SQLQueryResource {
 
 	private int streamId;
@@ -40,6 +42,7 @@ public class SQLQueryResource {
 		else {
 			this.alias = code;
 		}
+		RioDB.rio.getSystemSettings().getLogger().debug("FROM resource: " + code + " " + alias );
 	}
 
 	public String getCode() {

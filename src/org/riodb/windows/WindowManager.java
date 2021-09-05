@@ -146,8 +146,6 @@ public class WindowManager {
 					+ RioDB.rio.getEngine().getStream(streamId).getName() + "\", \"window_name\":\""
 					+ windowWrapperList.get(i).getName() + "\"},";
 		}
-		if (response.length() > 0)
-			response = response.substring(0, response.length() - 1);
 		return response;
 	}
 

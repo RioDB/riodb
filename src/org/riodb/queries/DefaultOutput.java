@@ -66,6 +66,7 @@ public class DefaultOutput implements RioDBOutput{
 	// post response to the output. 
 	@Override
 	public void post(String[] columns) {
+		
 		String reply = "{";
 		for (int i = 0; i < Math.max(columnHeaders.length, columns.length); i++) {
 			reply = reply + " \""+columnHeaders[i]+"\" : \""+ columns[i] +"\",";

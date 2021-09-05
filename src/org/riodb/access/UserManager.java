@@ -170,7 +170,6 @@ public class UserManager {
 			
 			// check for password requirements
 			if (!newUserPwd.matches(userPwdRegex)) {
-				System.out.println("password: " + newUserPwd);
 				throw new ExceptionAccessMgt(userPwdRequirement);
 			}
 

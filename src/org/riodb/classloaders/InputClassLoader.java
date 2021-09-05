@@ -20,12 +20,12 @@
 
 /*
 
-	A class loader to load custom output plugins. 
-	Just like input plugins, output plugins can be in the form of jar files, 
-	which are loaded when a user submits a query that points to such jar file. 
-	The jar file is loaded by this class loader. 
+	Custom class loader to load JAR files when user creates a stream.
+	The stream loads a datasource, which is typically a jar file. 
+	This class loads such jar files. 
 
 */
+
 
 package org.riodb.classloaders;
 
@@ -38,39 +38,28 @@ import java.net.URLClassLoader;
 import org.riodb.engine.RioDB;
 import org.riodb.sql.ExceptionSQLStatement;
 
-import org.riodb.plugin.RioDBOutput;
+import org.riodb.plugin.RioDBDataSource;
 
-public class OutputClassLoader {
 
-	public static RioDBOutput getOutputPlugin(String pluginName) throws ExceptionSQLStatement {
+public class InputClassLoader {
 
-		// check name of the plugin required.
-		if(pluginName == null || pluginName.length() == 0)
-			throw new ExceptionSQLStatement("OUTPUT name was blank");
-		
-		pluginName = pluginName.toUpperCase().trim();
-		
-		RioDB.rio.getSystemSettings().getLogger().debug("Plugin factory loading '" + pluginName + "'");
-		
-		// STDOUT is an embedded plugin that does not require external jar file. 
-		// it's built-in to RioDB
-		if(pluginName.equals("STDOUT")) {
-			return new STDOUT();
-		}
-		
+	public static RioDBDataSource getInputPlugin(String pluginName) throws ExceptionSQLStatement {
+
+		RioDB.rio.getSystemSettings().getLogger().debug("InputClassLoader.getInputPlugin: loading "+pluginName);
 		// Getting the jar URL which contains target class
 		URL[] classLoaderUrls;
-		
-		URLClassLoader urlClassLoader = null;
-		
-		// Get file location of Output plugin jar. 
+
 		String urlStr = "file:/" + RioDB.rio.getSystemSettings().getPluginDirectory() + pluginName.toLowerCase() + ".jar";
 		urlStr = urlStr.replace("file://","file:/");
-		RioDB.rio.getSystemSettings().getLogger().debug("URL:   " + urlStr);
-
 		
-		try {
+		URLClassLoader urlClassLoader = null;
 
+		try {
+			
+			// Get the file location of the plugin to load.
+			RioDB.rio.getSystemSettings().getLogger().debug("URL:   " + urlStr);
+			
+			// url of class to be loaded
 			classLoaderUrls = new URL[] { new URL(urlStr) };
 
 			// Create a new URLClassLoader
@@ -78,14 +67,32 @@ public class OutputClassLoader {
 
 			// Load the target class
 			@SuppressWarnings("unchecked")
-			Class<RioDBOutput> plugin = (Class<RioDBOutput>) urlClassLoader
-					.loadClass("org.riodb.plugin." + pluginName.toUpperCase());
+			Class<RioDBDataSource> plugin = (Class<RioDBDataSource>)  urlClassLoader.loadClass("org.riodb.plugin." + pluginName.toUpperCase());
 
+			
 			// method 1
-			RioDBOutput outputPlugin = (RioDBOutput) plugin.getDeclaredConstructor().newInstance();
-
-			// return the new output plugin class
-			return outputPlugin;
+			RioDBDataSource inputPlugin = (RioDBDataSource) plugin.getDeclaredConstructor().newInstance();
+			
+			
+			/*
+			//  method 2
+			 
+	        Constructor<?> constructor = plugin.getConstructor();
+	        ListenerInterface dataSource = (ListenerInterface) constructor.newInstance();
+	         
+	        
+			dataSource.someInterfaceInit(settings);
+			
+	        
+	        // Getting a method from the loaded class and invoke it
+	        Method method = plugin.getMethod("sayHello");
+	        method.invoke(plugin);
+	        
+			*/
+			
+			
+			// return the loaded datasource object
+			return inputPlugin;
 
 		} catch (MalformedURLException e) {
 			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to MalformedURLException");
@@ -111,7 +118,7 @@ public class OutputClassLoader {
 		} catch (InvocationTargetException e) {
 			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to InvocationTargetException");
 			throw new ExceptionSQLStatement(e.getMessage());
-		} finally{
+		}  finally{
 			if(urlClassLoader != null) {
 				try {
 					urlClassLoader.close();
@@ -120,5 +127,7 @@ public class OutputClassLoader {
 				}
 			}
 		}
+		
 	}
+
 }

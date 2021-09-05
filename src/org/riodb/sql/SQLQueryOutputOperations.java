@@ -37,6 +37,8 @@ public final class SQLQueryOutputOperations {
 		else if(outputStr.indexOf('(') > 0) {
 			pluginName   = outputStr.substring(0,outputStr.indexOf('(')).replace(" ","");
 			outputParams = outputStr.substring(outputStr.indexOf('(')+1, outputStr.lastIndexOf(')'));
+			outputParams = outputParams.trim();
+			outputParams = SQLParser.textDecode(outputParams);
 			//System.out.println("pluginName:"+ pluginName);
 			//System.out.println("outputParams:"+ outputParams);
 		}

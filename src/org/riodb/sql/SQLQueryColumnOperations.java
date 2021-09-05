@@ -85,20 +85,80 @@ final public class SQLQueryColumnOperations {
 				}
 
 				else if (itemStrParts.length == 2) {
+					
 					if (SQLParser.isStreamField(streamId, itemStrParts[0])) {
 						selectItemArr[i] = makeSelectItemFromEvent(streamId, itemStrParts[0], itemStrParts[1]);
 					} else if (SQLParser.isNumber(itemStrParts[0]) || SQLParser.isStringConstant(itemStrParts[0])) {
 						selectItemArr[i] = makeSelectItemConstant(itemStrParts[0], itemStrParts[1]);
+					} else if (SQLParser.isSQLFunction(itemStrParts[0])) {
+						if (queryResources.countWindows() == 1) {
+							selectItemArr[i] = makeSelectItemFromWindow(itemStrParts[0], itemStrParts[1],
+									queryResources);
+						} else {
+							throw new ExceptionSQLStatement("This item does not indicate which window: " + selectItemStr[i]);
+						}
+
+					} else if (itemStrParts[0].contains(".")) {
+						// if selected item starts with a period, we have a problem.
+						if (itemStrParts[0].charAt(0) == '.') {
+							undefined = true;
+						} else {
+							String alias = itemStrParts[0].substring(0, itemStrParts[0].indexOf("."));
+							int windowId = queryResources.getResourceIdByAlias(alias);
+							String item = itemStrParts[0].substring(itemStrParts[0].indexOf(".") + 1);
+							
+							if(windowId >= 0  &&
+									SQLParser.isSQLFunction(item)) {
+								selectItemArr[i] = makeSelectItemFromWindow(itemStrParts[0],itemStrParts[1], queryResources);
+							}
+							else if (windowId == -1 &&
+									SQLParser.isStreamField(streamId, item)	) {
+								selectItemArr[i] = makeSelectItemFromEvent(streamId,item,itemStrParts[1]);
+							}
+							else {
+								undefined = true;
+							}
+						}
 					} else {
 						undefined = true;
 					}
 				}
 
 				else if (itemStrParts.length == 3 && itemStrParts[1].equals("as")) {
+
 					if (SQLParser.isStreamField(streamId, itemStrParts[0])) {
 						selectItemArr[i] = makeSelectItemFromEvent(streamId, itemStrParts[0], itemStrParts[2]);
 					} else if (SQLParser.isNumber(itemStrParts[0]) || SQLParser.isStringConstant(itemStrParts[0])) {
 						selectItemArr[i] = makeSelectItemConstant(itemStrParts[0], itemStrParts[2]);
+					} else if (SQLParser.isSQLFunction(itemStrParts[0])) {
+						if (queryResources.countWindows() == 1) {
+							selectItemArr[i] = makeSelectItemFromWindow(itemStrParts[0], itemStrParts[2],
+									queryResources);
+						} else {
+							throw new ExceptionSQLStatement("This item does not indicate which window: " + selectItemStr[i]);
+						}
+
+					} else if (itemStrParts[0].contains(".")) {
+						// if selected item starts with a period, we have a problem.
+						if (itemStrParts[0].charAt(0) == '.') {
+							undefined = true;
+						} else {
+							String alias = itemStrParts[0].substring(0, itemStrParts[0].indexOf("."));
+							int windowId = queryResources.getResourceIdByAlias(alias);
+							String item = itemStrParts[0].substring(itemStrParts[0].indexOf(".") + 1);
+							
+							if(windowId >= 0  &&
+									SQLParser.isSQLFunction(item)) {
+								selectItemArr[i] = makeSelectItemFromWindow(itemStrParts[0],itemStrParts[2], queryResources);
+							}
+							else if (windowId == -1 &&
+									SQLParser.isStreamField(streamId, item)	) {
+								selectItemArr[i] = makeSelectItemFromEvent(streamId,item,itemStrParts[2]);
+							}
+							else {
+								undefined = true;
+							}
+						}
 					} else {
 						undefined = true;
 					}
@@ -107,14 +167,13 @@ final public class SQLQueryColumnOperations {
 				else if (itemStrParts.length >= 3) {
 					if (itemStrParts[itemStrParts.length - 2].equals("as")) {
 						String expression = selectItemStr[i].substring(0, selectItemStr[i].indexOf(" as "));
-						String heading = "Expression" + i;
+						String heading = itemStrParts[itemStrParts.length - 1]; //"Expression" + i;
 						selectItemArr[i] = makeSelectItemExpression(expression, heading, queryResources);
 					} else {
-
-						String heading = "Expression" + i;
+						String heading = "Column" + i;
 						selectItemArr[i] = makeSelectItemExpression(selectItemStr[i], heading, queryResources);
 					}
-				} else {
+				}  else {
 					undefined = true;
 				}
 
@@ -130,6 +189,7 @@ final public class SQLQueryColumnOperations {
 
 	private static final SQLQueryColumn makeSelectItemFromEvent(int streamId, String selectItemStr, String heading)
 			throws ExceptionSQLStatement {
+		
 		int fieldId = RioDB.rio.getEngine().getStream(streamId).getDef().getFieldId(selectItemStr);
 		if (RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId)) {
 			int floatFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getNumericFieldIndex(fieldId);
@@ -206,21 +266,32 @@ final public class SQLQueryColumnOperations {
 
 	private static final SQLQueryColumn makeSelectItemExpression(String expression, String heading,
 			SQLQueryResources queryResources) throws ExceptionSQLStatement {
-		
 		//System.out.println("Expression: "+ expression);
 		
 		int streamId = queryResources.getDrivingStreamId();
 		
 		String words[] = expression.split(" ");
 		for(int i = 0; i < words.length; i++) {
-			if(words[i].contains(".")) {
+			if(words[i].contains(".") && !SQLParser.isNumber(words[i])) {
+
 				String resourceAlias = words[i].substring(0,words[i].indexOf("."));
 				String field = words[i].substring(words[i].indexOf(".")+1);
 				
 				if(resourceAlias != null && resourceAlias.equals(queryResources.getDrivingStreamAlias())) {
 					// it's the stream
 					if(SQLParser.isStreamField(streamId, field)) {
-						words[i] = "event."+field;
+						
+						int fieldId = RioDB.rio.getEngine().getStream(streamId).getDef().getFieldId(field);
+						boolean isNumeric = RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId);
+						if(isNumeric) {
+							int floatFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getNumericFieldIndex(fieldId);
+							words[i] = "event.getDouble("+ floatFieldIndex+")";
+						}
+						else {
+							int stringFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getStringFieldIndex(fieldId);
+							words[i] = "event.getString("+ stringFieldIndex+")";
+						}
+						
 					}
 					else {
 						throw new ExceptionSQLStatement("The stream doesn't have field: "+ field);
@@ -281,7 +352,7 @@ final public class SQLQueryColumnOperations {
 		for(String s : words) {
 			newExpression = newExpression + s + " ";
 		}
-		RioDB.rio.getSystemSettings().getLogger().debug("Statement: "+ newExpression);
+		RioDB.rio.getSystemSettings().getLogger().debug("SELECT expression: "+ newExpression);
 		
 		return new SQLQueryColumnFromExpression(newExpression, heading);
 	}

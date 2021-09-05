@@ -60,16 +60,20 @@ public class Query {
 	private int currentTimeoutTil;
 	// list of resources used by this Query:
 	private SQLQueryResources queryResources;
-	
+
 	// THIS query id
 	private int queryId;
 
 	// The original query statement?
 	private String queryStr;
 
+	// Query status / false = destroying..
+	private boolean destroy = false;
+
 	// constructor
-	public Query(SQLQueryCondition condition, RioDBOutput output, SQLQueryColumn columns[], int limit, boolean limitByTime,
-			int timeout, boolean timeoutByTime, String queryStr, SQLQueryResources queryResources) {
+	public Query(SQLQueryCondition condition, RioDBOutput output, SQLQueryColumn columns[], int limit,
+			boolean limitByTime, int timeout, boolean timeoutByTime, String queryStr,
+			SQLQueryResources queryResources) {
 		this.sqlQueryCondition = condition;
 		this.output = output;
 		this.columns = columns;
@@ -80,7 +84,7 @@ public class Query {
 		this.timeoutByTime = timeoutByTime;
 		this.queryId = RioDB.rio.getEngine().counterNext();
 		this.queryResources = queryResources;
-		
+
 		currentlyInTimeout = false;
 		currentTimeoutTil = 0;
 
@@ -92,31 +96,33 @@ public class Query {
 	}
 
 	// run a query, and get status to see if it can be dropped
+	// if 'true' is returned, the query will be removed.
 	public boolean evalAndGetStatus(EventWithSummaries esum) throws ExceptionSQLExecution {
 
 		// PART 1, take care of expiring queries and queries in timeout
-		
+
 		// If the query is limited by time and the time is up, drop the query
-		if (limitByTime && limit < RioDB.rio.getEngine().getClock().getCurrentSecond()) {
-			RioDB.rio.getSystemSettings().getLogger().debug("query reached age");
+		if (destroy || (limitByTime && limit < RioDB.rio.getEngine().getClock().getCurrentSecond())) {
+			if(!destroy)
+				RioDB.rio.getSystemSettings().getLogger().debug("Query "+ queryId +" reached age.");
 			return true; // this Query is overdue and can be destroyed.
 		}
 
 		// If the query is currently in a timeout
 		if (currentlyInTimeout) {
-			// if it's timeout by time, chech if the time is up
+			// if it's timeout by time, check if the time is up
 			if (timeoutByTime) {
 				if (currentTimeoutTil <= RioDB.rio.getEngine().getClock().getCurrentSecond()) {
-					currentlyInTimeout = false;
+					currentlyInTimeout = false; // timeout ends
 				} else {
 					return false; // cut it short. But don't destroy query.
 				}
-			} 
-			// else, if timeout is event count, check if count is up. 
+			}
+			// else, if timeout is event count, check if count is up.
 			else {
 				currentTimeoutTil--;
 				if (currentTimeoutTil == 0) {
-					currentlyInTimeout = false;
+					currentlyInTimeout = false; // timeout ends
 				} else {
 					return false; // cut it short. but don't destroy query.
 				}
@@ -124,21 +130,25 @@ public class Query {
 		}
 
 		// PART 2: run the query
-		
+
 		// if the query is in timeout, we skip it. Otherwise, run it:
-		if (!currentlyInTimeout) {
-			
-			// if the condition is not null (some queries don't have a condition), check for condition match:
-			if (sqlQueryCondition != null && !sqlQueryCondition.match(esum.getEventRef(), esum.getWindowSummariesRef())) {
+		if (!currentlyInTimeout && !destroy) {
+
+			// if the condition is not null (some queries don't have a condition), check for
+			// condition match:
+			if (sqlQueryCondition != null
+					&& !sqlQueryCondition.match(esum.getEventRef(), esum.getWindowSummariesRef())) {
+				// the query is NOT a match the conditions
 				return false;
 			}
-			
-			// prepare selected values:
+			// Continuing... Either the query condition has been matched, or it has no conditions to test...
+
+			// Make array of SELECTed column values:
 			String columnValues[] = new String[columns.length];
 			for (int i = 0; i < columns.length; i++) {
 				columnValues[i] = columns[i].getValue(esum.getEventRef(), esum.getWindowSummariesRef());
 			}
-			// post selected values. 
+			// post selected values to the query OUTPUT.
 			output.post(columnValues);
 
 			// set timeout if necessary for this query
@@ -157,7 +167,7 @@ public class Query {
 				}
 			}
 		}
-		return false;
+		return destroy;
 	}
 
 	// get query limit
@@ -189,22 +199,30 @@ public class Query {
 	public int getQueryId() {
 		return queryId;
 	}
-	
+
 	// get queryStr
 	public String getQueryStr() {
 		return queryStr;
 	}
-	
+
 	// checks if query depends on a stream:
 	public boolean dependsOnStream(int streamId) {
 		return queryResources.dependsOnStream(streamId);
 	}
-	
+
 	// checks if query depends on a window
 	// checks if query dependes on a stream:
 	public boolean dependsOnWindow(int streamId, int windowId) {
 		return queryResources.dependsOnWindow(streamId, windowId);
 	}
 
-	
+	// mark query for removal
+	public void removeQuery() {
+		destroy = true;
+	}
+
+	// mark query for removal
+	public boolean isDestroying() {
+		return destroy;
+	}
 }
