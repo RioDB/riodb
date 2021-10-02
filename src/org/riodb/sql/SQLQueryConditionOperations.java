@@ -72,7 +72,7 @@ final public class SQLQueryConditionOperations {
 		// get the list of all required Windows for this query condition
 		TreeSet<Integer> requiredWindows = new TreeSet<Integer>();
 
-		/// REPLACE fields with StreamEvent variables and window functions.
+		/// REPLACE fields with StreamMessage variables and window functions.
 		String words[] = expression.split(" ");
 		for (int i = 0; i < words.length; i++) {
 
@@ -98,16 +98,16 @@ final public class SQLQueryConditionOperations {
 				
 				int fieldId = RioDB.rio.getEngine().getStream(drivingStreamId).getDef().getFieldId(words[i]);
 				if (RioDB.rio.getEngine().getStream(drivingStreamId).getDef().isNumeric(fieldId)) {
-					int eventFloatIndex = RioDB.rio.getEngine().getStream(drivingStreamId).getDef().getNumericFieldIndex(fieldId);
-					words[i] = "event.getDouble(" + String.valueOf(eventFloatIndex) + ")";
+					int messageFloatIndex = RioDB.rio.getEngine().getStream(drivingStreamId).getDef().getNumericFieldIndex(fieldId);
+					words[i] = "message.getDouble(" + String.valueOf(messageFloatIndex) + ")";
 					if (words[i + 1].equals("is_null")) {
 						words[i + 1] = "!= Float.NaN";
 					} else if (words[i + 1].equals("is_not_null")) {
 						words[i + 1] = "= Float.NaN";
 					}
 				} else { // the field is string
-					int eventStringIndex = RioDB.rio.getEngine().getStream(drivingStreamId).getDef().getStringFieldIndex(fieldId);
-					words[i] = "event.getString(" + String.valueOf(eventStringIndex) + ")";
+					int messageStringIndex = RioDB.rio.getEngine().getStream(drivingStreamId).getDef().getStringFieldIndex(fieldId);
+					words[i] = "message.getString(" + String.valueOf(messageStringIndex) + ")";
 					if (i < words.length - 2) {
 						if (words[i + 1].equals("=")) {
 							words[i + 1] = ".equals(";
@@ -366,10 +366,10 @@ final public class SQLQueryConditionOperations {
 				int fieldId = RioDB.rio.getEngine().getStream(drivingStreamId).getDef().getFieldId(fieldName);
 				if (RioDB.rio.getEngine().getStream(drivingStreamId).getDef().isNumeric(fieldId)) {
 					int floatFieldIndex = RioDB.rio.getEngine().getStream(drivingStreamId).getDef().getNumericFieldIndex(fieldId);
-					word = "event.getDouble(" + floatFieldIndex + ")";
+					word = "message.getDouble(" + floatFieldIndex + ")";
 				} else {
 					int stringFieldIndex = RioDB.rio.getEngine().getStream(drivingStreamId).getDef().getStringFieldIndex(fieldId);
-					word = "event.getString(" + stringFieldIndex + ")";
+					word = "message.getString(" + stringFieldIndex + ")";
 				}
 
 			} else if (queryResources.containsWindowAlias(alias)) {

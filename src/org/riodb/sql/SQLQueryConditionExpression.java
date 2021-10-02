@@ -24,7 +24,7 @@ import org.mdkt.compiler.InMemoryJavaCompiler;
 import org.riodb.engine.RioDB;
 import org.riodb.windows.WindowSummary;
 
-import org.riodb.plugin.RioDBStreamEvent;
+import org.riodb.plugin.RioDBStreamMessage;
 
 import java.util.Iterator;
 import java.util.TreeSet;
@@ -42,7 +42,7 @@ public class SQLQueryConditionExpression implements SQLQueryCondition {
 		
 		
 		String source = "package org.riodb.sql;\r\n" + 
-				"import org.riodb.plugin.RioDBStreamEvent;\r\n" +
+				"import org.riodb.plugin.RioDBStreamMessage;\r\n" +
 				"import org.riodb.engine.RioDB;\r\n"+
 				"import org.riodb.windows.WindowSummary;\r\n" + 
 				"import org.riodb.sql.SQLStringIN;\r\n" + 
@@ -83,7 +83,7 @@ public class SQLQueryConditionExpression implements SQLQueryCondition {
 				
 				source = source+
 				"	@Override\r\n" + 
-				"	public boolean match(RioDBStreamEvent event, WindowSummary[] windowSummaries) {\r\n";
+				"	public boolean match(RioDBStreamMessage message, WindowSummary[] windowSummaries) {\r\n";
 				
 				Iterator<Integer> iterator = requiredWindows.iterator(); 
 		        while (iterator.hasNext()) {
@@ -128,8 +128,8 @@ public class SQLQueryConditionExpression implements SQLQueryCondition {
 	}
 
 	@Override
-	public boolean match(RioDBStreamEvent event, WindowSummary[] windowSummaries) {
-		return compiledCondition.match(event, windowSummaries);
+	public boolean match(RioDBStreamMessage message, WindowSummary[] windowSummaries) {
+		return compiledCondition.match(message, windowSummaries);
 	}
 
 	@Override

@@ -184,8 +184,8 @@ public final class SQLParser {
 				from = stmt.substring(fromIndex, stmt.indexOf(" output ", fromIndex));
 			} else if (stmt.indexOf(" limit ", fromIndex) > fromIndex) {
 				from = stmt.substring(fromIndex, stmt.indexOf(" limit ", fromIndex));
-			} else if (stmt.indexOf(" timeout ", fromIndex) > fromIndex) {
-				from = stmt.substring(fromIndex, stmt.indexOf(" timeout ", fromIndex));
+			} else if (stmt.indexOf(" sleep ", fromIndex) > fromIndex) {
+				from = stmt.substring(fromIndex, stmt.indexOf(" sleep ", fromIndex));
 			} else {
 				from = stmt.substring(fromIndex, stmt.indexOf(";", fromIndex));
 			}
@@ -201,8 +201,8 @@ public final class SQLParser {
 		String limit = null;
 
 		if (stmt.contains(" limit ")) {
-			if (stmt.contains(" timeout ")) {
-				limit = stmt.substring(stmt.indexOf(" limit ") + 7, stmt.indexOf(" timeout "));
+			if (stmt.contains(" sleep ")) {
+				limit = stmt.substring(stmt.indexOf(" limit ") + 7, stmt.indexOf(" sleep "));
 			} 
 			else {
 				limit = stmt.substring(stmt.indexOf(" limit ") + 7, stmt.indexOf(";"));
@@ -233,8 +233,8 @@ public final class SQLParser {
 			if (stmt.contains(" limit ")) {
 				output = stmt.substring(stmt.indexOf(" output ") + 8, stmt.indexOf(" limit "));
 			}
-			else if (stmt.contains(" timeout ")) {
-				output = stmt.substring(stmt.indexOf(" output ") + 8, stmt.indexOf(" timeout "));
+			else if (stmt.contains(" sleep ")) {
+				output = stmt.substring(stmt.indexOf(" output ") + 8, stmt.indexOf(" sleep "));
 			} 
 			else {
 				output = stmt.substring(stmt.indexOf(" output ") + 8, stmt.indexOf(";"));
@@ -258,10 +258,10 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 		return select;
 	}
 
-	public static final String getQueryTimeoutStr(String stmt) throws ExceptionSQLStatement {
+	public static final String getQuerySleepStr(String stmt) throws ExceptionSQLStatement {
 
-		if (stmt.contains(" timeout ")) 
-			return stmt.substring(stmt.indexOf(" timeout ") + 9, stmt.indexOf(";")).trim();
+		if (stmt.contains(" sleep ")) 
+			return stmt.substring(stmt.indexOf(" sleep ") + 7, stmt.indexOf(";")).trim();
 
 		return null;
 	}
@@ -281,8 +281,8 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 				whenStr = stmt.substring(whenIndex, stmt.indexOf(" output ", whenIndex));
 			} else if (stmt.indexOf(" limit ", whenIndex) > whenIndex) {
 				whenStr = stmt.substring(whenIndex, stmt.indexOf(" limit ", whenIndex));
-			} else if (stmt.indexOf(" timeout ", whenIndex) > whenIndex) {
-				whenStr = stmt.substring(whenIndex, stmt.indexOf(" timeout ", whenIndex));
+			} else if (stmt.indexOf(" sleep ", whenIndex) > whenIndex) {
+				whenStr = stmt.substring(whenIndex, stmt.indexOf(" sleep ", whenIndex));
 			} else {
 				whenStr = stmt.substring(whenIndex, stmt.indexOf(";", whenIndex));
 			}
@@ -521,8 +521,8 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 				where = stmt.substring(whereIndex, stmt.indexOf(" partition by ", whereIndex));
 			} else if (stmt.indexOf(" range ") > whereIndex) {
 				where = stmt.substring(whereIndex, stmt.indexOf(" range ", whereIndex));
-			} else if (stmt.indexOf(" timeout ") > whereIndex) {
-				where = stmt.substring(whereIndex, stmt.indexOf(" timeout ", whereIndex));
+			} else if (stmt.indexOf(" sleep ") > whereIndex) {
+				where = stmt.substring(whereIndex, stmt.indexOf(" sleep ", whereIndex));
 			} else {
 				where = stmt.substring(whereIndex, stmt.indexOf(";", whereIndex));
 			}
@@ -673,7 +673,6 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 				s = s.replace("$op~$", "(");
 			if (s.indexOf("$cp~$") >= 0)
 				s = s.replace("$cp~$", ")");
-
 			if (s.indexOf("$nt~$") >= 0)
 				s = s.replace("$nt~$", "!");
 			if (s.indexOf("$eq~$") >= 0)
@@ -696,6 +695,10 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 				s = s.replace("$ht~$", "#");
 			if (s.indexOf("$qq~$") >= 0)
 				s = s.replace("$qq~$", "''");
+			if (s.indexOf("$fs~$") >= 0)
+				s = s.replace("$fs~$", "/");
+			if (s.indexOf("$bs~$") >= 0)
+				s = s.replace("$bs~$", "\\");
 
 		}
 		return s;
@@ -748,6 +751,10 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 						s = s.substring(0, i) + "$pr~$" + s.substring(i + 1);
 					else if (s.charAt(i) == '#')
 						s = s.substring(0, i) + "$ht~$" + s.substring(i + 1);
+					else if (s.charAt(i) == '/')
+						s = s.substring(0, i) + "$fs~$" + s.substring(i + 1);
+					else if (s.charAt(i) == '\\')
+						s = s.substring(0, i) + "$bs~$" + s.substring(i + 1);
 				} else {
 					String lowerChar = String.valueOf(s.charAt(i)).toLowerCase();
 					s = s.substring(0, i) + lowerChar + s.substring(i + 1);

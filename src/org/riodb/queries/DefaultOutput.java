@@ -24,17 +24,19 @@
 	The default output is for when a Query statement is requested via HTTP API,
 	by default, the response is made to that API requester. 
 	
-	This default output implements RioDBOutput, and is a mechanism to
+	This default output implements RioDBPlugin, and is a mechanism to
 	route query responses to the API request. 
 
  */
 package org.riodb.queries;
 import org.riodb.engine.RioDB;
-import org.riodb.plugin.RioDBOutput;
+import org.riodb.plugin.RioDBPlugin;
 import org.riodb.plugin.RioDBPluginException;
 import org.riodb.plugin.RioDBPluginStatus;
+import org.riodb.plugin.RioDBStreamMessage;
+import org.riodb.plugin.RioDBStreamMessageDef;
 
-public class DefaultOutput implements RioDBOutput{
+public class DefaultOutput implements RioDBPlugin{
 	
 	// Column headers from SELECT ... statement
 	String[] columnHeaders;
@@ -60,12 +62,12 @@ public class DefaultOutput implements RioDBOutput{
 
 	// initializer (Plugins initialize after class loading)
 	@Override
-	public void init(String params, String[] columnHeaders) throws RioDBPluginException {
+	public void initOutput(String params, String[] columnHeaders) throws RioDBPluginException {
 	}
 
 	// post response to the output. 
 	@Override
-	public void post(String[] columns) {
+	public void sendOutput(String[] columns) {
 		
 		String reply = "{";
 		for (int i = 0; i < Math.max(columnHeaders.length, columns.length); i++) {
@@ -82,6 +84,33 @@ public class DefaultOutput implements RioDBOutput{
 	@Override
 	public RioDBPluginStatus status() {
 		return status;
+	}
+
+	@Override
+	public RioDBStreamMessage getNextInputMessage() throws RioDBPluginException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public int getQueueSize() {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	public void initInput(String inputParams, RioDBStreamMessageDef def) throws RioDBPluginException {
+		// not required for Output
+	}
+
+	@Override
+	public void start() throws RioDBPluginException {
+		// not required for Output
+	}
+
+	@Override
+	public void stop() throws RioDBPluginException {
+		// not required for Output
 	}
 
 }

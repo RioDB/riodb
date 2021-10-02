@@ -25,7 +25,7 @@ import org.riodb.sql.ExceptionSQLExecution;
 import org.riodb.sql.SQLFunctionMap;
 import org.riodb.sql.SQLWindowCondition;
 
-import org.riodb.plugin.RioDBStreamEvent;
+import org.riodb.plugin.RioDBStreamMessage;
 
 public class WindowWrapper {
 
@@ -102,15 +102,15 @@ public class WindowWrapper {
 		return defaultWindow.getWindowSummaryCopy();
 	}
 
-	public WindowSummaryInterface putEventRef(RioDBStreamEvent event, int currentSecond) {
+	public WindowSummaryInterface putMessageRef(RioDBStreamMessage message, int currentSecond) {
 		try {
 
 			// if there's a required condition and it doesn't match
-			if (hasCondition && !windowCondition.match(event)) {
+			if (hasCondition && !windowCondition.match(message)) {
 				// then we just read the summary. no updates made.
 				if (rangeByTime && rangeByTimeIsTimestamp) {
 					return defaultWindow.trimAndGetWindowSummaryCopy(
-							(int) (event.getDouble(rangeByTimeFieldNumericIndexId) / 1000d));
+							(int) (message.getDouble(rangeByTimeFieldNumericIndexId) / 1000d));
 				}
 				// else (for window of quantity or range by clock, we pass current second
 				else {
@@ -119,11 +119,11 @@ public class WindowWrapper {
 
 			} else {
 				// there's no condition, or the condition matches. We update and read summary:
-				double d = event.getDouble(numericFieldIndex);
+				double d = message.getDouble(numericFieldIndex);
 				// for range by time using timestamp, we pass in the timestamp
 				if (rangeByTime && rangeByTimeIsTimestamp) {
 					return defaultWindow.trimAddAndGetWindowSummaryCopy(d,
-							(int) (event.getDouble(rangeByTimeFieldNumericIndexId) / 1000d));
+							(int) (message.getDouble(rangeByTimeFieldNumericIndexId) / 1000d));
 				// else (for window of quantity or range by clock, we pass current second
 				} else {
 					return defaultWindow.trimAddAndGetWindowSummaryCopy(d, currentSecond);

@@ -44,51 +44,64 @@ import org.riodb.sql.SQLParser;
 public class SystemSettings {
 	
 	// default config file location
-	static final String DEFAULT_CONFIG_FILE = "riodb.conf";
+	private static final String DEFAULT_CONFIG_FILE = "riodb.conf";
+	
 	// default config file subdirectory
-	static final String DEFAULT_CONFIG_SUBDIR = "conf";
+	private static final String DEFAULT_CONFIG_SUBDIR = "conf";
+	
 	// default plugin jar file subdirectory
-	static final String DEFAULT_PLUGIN_SUBDIR = "plugins";
+	private static final String DEFAULT_PLUGIN_SUBDIR = "plugins";
+	
 	// default sql file subdirectory
-	static final String DEFAULT_SQL_SUBDIR = "sql";
+	private static final String DEFAULT_SQL_SUBDIR = "sql";
+	
 	// default sql file extension
-	static final String RQL_FILE_EXTENSION = "sql";
+	private static final String RQL_FILE_EXTENSION = "sql";
+	
 	// default ssl cert file
-	static final String DEFAULT_SSL_CERT_FILE = ".ssl/keystore.jks";
+	private static final String DEFAULT_SSL_CERT_FILE = ".ssl/keystore.jks";
+	
 	// default password file
 	//static final String DEFAULT_PASSWD_FILE = null; //".access/users.dat";
 	// default persisted statements file
-	static final String DEFAULT_PERSISTED_STMT_FILE_NAME = "apistmt";
+	private static final String DEFAULT_PERSISTED_STMT_FILE_NAME = "apistmt";
+	
 
 	// Directory path of where RioDB is running
 	private static String javaRelativePath;
 
 	// permanent plugin jar file directory path
 	private static String pluginJarDirectory;
+
 	// permanent SQL directory path
 	private static String sqlDirectory;
+	
 	// permanent SQL directory path
 	private static String persistedStatementsFile;
+	
 	// permanent password file path
 	private static String passwdFile = null; //DEFAULT_PASSWD_FILE;
+	
 	// permanent ssl cert file path
 	private static String sslCertFile = DEFAULT_SSL_CERT_FILE;
 	
 	// persist user statements to disk, and recover them on reboot/startup
 	private static PersistedStatements persistedStatements;
 	
+	// default number of Threads allocated for executing output actions:
+	private static int output_worker_threads = 1;
+	
 	public PersistedStatements getPersistedStatements() {
 		return persistedStatements;
 	}
 
-	
 	public String getPluginDirectory() {
 		return pluginJarDirectory;
 	}
 
 	// logger object to be used by ALL RioDB
 	final static Logger logger = LogManager.getLogger(RioDB.class.getName());
-	// logger for getter. 
+	// getter for logger. 
 	public Logger getLogger() {
 		return logger;
 	}
@@ -174,7 +187,7 @@ public class SystemSettings {
 		}
 
 		// quick pause after loading conf, for object to finish initializing
-		Clock.quickPause();
+		Clock.sleep10();
 
 		return success;
 
@@ -214,7 +227,19 @@ public class SystemSettings {
 						// DOMConfigurator.configure(words[1]);
 
 						Thread.currentThread().setName("RIODB");
-						logger.info("RioDB " + RioDB.VERSION + " - Copyright (c) 2021 www.riodb.org");
+						
+						/*
+						 *  Per the license, the terminal must FIRST display an attribution to the copyright of riodb.org
+						 *  If the project is forked, this copyright notice must be preserved and displayed first.
+						 *  If embedded in a GUI application, the copyright notice must appear in an ABOUT page or similar. 
+						 */
+						logger.info("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+						logger.info(" _        _  _   RioDB "+ RioDB.VERSION +" - Copyright (c) 2021 info at www.riodb.org");
+						logger.info("|_) o  _ | \\|_)  This program comes with no warranty.");
+						logger.info("| \\ | (_)|_/|_)  This is free software licensed under GPL-3.0 license.");
+						logger.info("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+
+						//logger.info("RioDB " + RioDB.VERSION + " - Copyright (c) 2021 www.riodb.org");
 						logger.debug("Java VM name: " + System.getProperty("java.vm.name"));
 						logger.debug("Java Version: " + System.getProperty("java.version"));
 						logger.debug("Java Home: " + System.getProperty("java.home"));
@@ -222,18 +247,29 @@ public class SystemSettings {
 						
 						logger.debug("log4j2 config file: " + log4j2XMLfile);
 
-						Clock.quickPause();
+						Clock.sleep10();
 					}
 					if (words[0].equals("http_port")) {
-						if (SQLParser.isNumber(words[1]))
+						if (SQLParser.isNumber(words[1]) && Integer.valueOf(words[1]) > 0) {
 							httpPort = Integer.valueOf(words[1]);
-					} else if (words[0].equals("stmt_timeout")) {
-						if (SQLParser.isNumber(words[1]))
+						} else {
+							logger.fatal("Configuration error: 'http_port' must be a positive integer.");
+							return false;
+						}
+					} else if (words[0].equals("stmt_timeout") && Integer.valueOf(words[1]) > 0) {
+						if (SQLParser.isNumber(words[1])) {
 							httpInterface.setTimeout(Integer.valueOf(words[1]));
-						;
-					} else if (words[0].equals("https_port")) {
-						if (SQLParser.isNumber(words[1]))
+						} else {
+							logger.fatal("Configuration error: 'stmt_timeout' must be a positive integer.");
+							return false;
+						}
+					} else if (words[0].equals("https_port") && Integer.valueOf(words[1]) > 0) {
+						if (SQLParser.isNumber(words[1])) {
 							httpsPort = Integer.valueOf(words[1]);
+						} else {
+							logger.fatal("Configuration error: 'https_port' must be a positive integer.");
+							return false;
+						}
 					} else if (words[0].equals("https_keystore_file")) {
 						sslCertFile = words[1];
 					} else if (words[0].equals("https_keystore_pwd")) {
@@ -244,10 +280,18 @@ public class SystemSettings {
 						sqlDirectory = words[1];
 					} else if (words[0].equals("plugin_dir")) {
 						pluginJarDirectory = words[1];
+					} else if (words[0].equals("output_workers") ) {
+						if(SQLParser.isNumber(words[1]) && Integer.valueOf(words[1]) > 0) {
+							output_worker_threads = Integer.valueOf(words[1]);
+							RioDB.rio.getEngine().setOutputWorkers(output_worker_threads);
+						} else {
+							logger.fatal("Configuration error: 'output_workers' must be a positive integer.");
+							return false;
+						}
 					}
 				}
 			}
-			Clock.quickPause();
+			Clock.sleep10();
 		}
 
 		// format sqlDirectory path
@@ -281,7 +325,7 @@ public class SystemSettings {
 			return false;
 		}
 
-		Clock.quickPause();
+		Clock.sleep10();
 		if (httpPort > 0) {
 			if (passwdFile != null) {
 				logger.error("Security violation. Credentials cannot be used when HTTP API (unencrypted) is enabled.");
@@ -291,7 +335,7 @@ public class SystemSettings {
 			if (!success)
 				return false;
 		}
-		Clock.quickPause();
+		Clock.sleep10();
 		if (httpsPort > 0 && httpsPort != httpPort && sslCertFile.length() > 0 && httpsKeystorePwd.length() > 0) {
 			
 			// load credentials configuration before opening ports.
@@ -324,7 +368,7 @@ public class SystemSettings {
 				return false;
 			}
 		}
-		Clock.quickPause();
+		Clock.sleep10();
 		return success;
 	}
 
@@ -373,12 +417,14 @@ public class SystemSettings {
 						String loadOutput = "";
 						if(persistedStatementsFile.equals(sqlDirectory + file)) {
 							logger.debug("loading persisted statements");
-							loadOutput = SQLExecutor.execute(fileContent, "SYSTEM", true);
-							logger.debug(loadOutput);
+							// true for persistStatement, false for respondWithDetails
+							loadOutput = SQLExecutor.execute(fileContent, "SYSTEM", true, false);
+							logger.info(loadOutput);
 						}
 						// queries from other .sql files can be dropped, but will execute again on reboot.  
 						else {
-							loadOutput = SQLExecutor.execute(fileContent, "SYSTEM", false); // permanent. Will always execute on reboot.
+							// false for persistStatement, false for respondWithDetails
+							loadOutput = SQLExecutor.execute(fileContent, "SYSTEM", false, false); // permanent. Will always execute on reboot.
 							logger.debug(loadOutput);
 						}
 						

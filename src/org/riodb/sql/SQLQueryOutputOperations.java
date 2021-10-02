@@ -21,13 +21,13 @@
 package org.riodb.sql;
 
 import org.riodb.classloaders.OutputClassLoader;
-
-import org.riodb.plugin.RioDBOutput;
+import org.riodb.engine.RioDB;
+import org.riodb.plugin.RioDBPlugin;
 import org.riodb.plugin.RioDBPluginException;
 
 public final class SQLQueryOutputOperations {
 
-	static final RioDBOutput getOutput(String outputStr, String[] columnHeaders) throws ExceptionSQLStatement {
+	static final RioDBPlugin getOutput(String outputStr, String[] columnHeaders) throws ExceptionSQLStatement {
 		
 		String pluginName = "";
 		String outputParams = "";
@@ -46,11 +46,12 @@ public final class SQLQueryOutputOperations {
 			pluginName = outputStr;
 		}
 		
-		RioDBOutput newOutput = OutputClassLoader.getOutputPlugin(pluginName);
+		RioDBPlugin newOutput = OutputClassLoader.getOutputPlugin(pluginName);
 		
 		try {
-			newOutput.init(outputParams, columnHeaders);
+			newOutput.initOutput(outputParams, columnHeaders);
 		} catch (RioDBPluginException e) {
+			RioDB.rio.getSystemSettings().getLogger().error(e.getMessage());
 			ExceptionSQLStatement s = new ExceptionSQLStatement("Error loading output plugin");
 			s.setStackTrace(e.getStackTrace());
 			throw s;

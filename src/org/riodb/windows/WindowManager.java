@@ -29,7 +29,7 @@ import java.util.ArrayList;
 
 import org.riodb.engine.RioDB;
 
-import org.riodb.plugin.RioDBStreamEvent;
+import org.riodb.plugin.RioDBStreamMessage;
 
 public class WindowManager {
 
@@ -161,20 +161,20 @@ public class WindowManager {
 	}
 
 	/*
-	 * 	Method to process an event through all windows. 
-	 *  It loops through all windows, passing the event
+	 * 	Method to process a message through all windows. 
+	 *  It loops through all windows, passing the message
 	 *  to each of them and collecting the windowSummary as response.
 	 *  All windowSummaries are collected into an array
 	 *  and returned. 
 	 * 
 	 */
-	public WindowSummary[] putEventRef(RioDBStreamEvent event) {
+	public WindowSummary[] putMessageRef(RioDBStreamMessage message) {
 
 		WindowSummary results[] = new WindowSummary[windowWrapperList.size()];
 		// guarantee that currentSecond is the same for all windows.
 		int currentSecond = RioDB.rio.getEngine().getClock().getCurrentSecond();
 		for (int i = 0; i < results.length; i++) {
-			results[i] = (WindowSummary) windowWrapperList.get(i).putEventRef(event, currentSecond);
+			results[i] = (WindowSummary) windowWrapperList.get(i).putMessageRef(message, currentSecond);
 		}
 
 		return results;

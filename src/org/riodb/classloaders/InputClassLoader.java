@@ -38,12 +38,12 @@ import java.net.URLClassLoader;
 import org.riodb.engine.RioDB;
 import org.riodb.sql.ExceptionSQLStatement;
 
-import org.riodb.plugin.RioDBDataSource;
+import org.riodb.plugin.RioDBPlugin;
 
 
 public class InputClassLoader {
 
-	public static RioDBDataSource getInputPlugin(String pluginName) throws ExceptionSQLStatement {
+	public static RioDBPlugin getInputPlugin(String pluginName) throws ExceptionSQLStatement {
 
 		RioDB.rio.getSystemSettings().getLogger().debug("InputClassLoader.getInputPlugin: loading "+pluginName);
 		// Getting the jar URL which contains target class
@@ -67,11 +67,11 @@ public class InputClassLoader {
 
 			// Load the target class
 			@SuppressWarnings("unchecked")
-			Class<RioDBDataSource> plugin = (Class<RioDBDataSource>)  urlClassLoader.loadClass("org.riodb.plugin." + pluginName.toUpperCase());
+			Class<RioDBPlugin> plugin = (Class<RioDBPlugin>)  urlClassLoader.loadClass("org.riodb.plugin." + pluginName.toUpperCase());
 
 			
 			// method 1
-			RioDBDataSource inputPlugin = (RioDBDataSource) plugin.getDeclaredConstructor().newInstance();
+			RioDBPlugin inputPlugin = (RioDBPlugin) plugin.getDeclaredConstructor().newInstance();
 			
 			
 			/*
@@ -116,6 +116,9 @@ public class InputClassLoader {
 			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to IllegalArgumentException");
 			throw new ExceptionSQLStatement(e.getMessage());
 		} catch (InvocationTargetException e) {
+			System.out.println(e.getMessage());
+			System.out.println("#############");
+			e.printStackTrace();
 			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to InvocationTargetException");
 			throw new ExceptionSQLStatement(e.getMessage());
 		}  finally{

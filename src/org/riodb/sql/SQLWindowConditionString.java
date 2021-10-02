@@ -22,13 +22,13 @@ package org.riodb.sql;
 
 import org.riodb.engine.RioDB;
 
-import org.riodb.plugin.RioDBStreamEvent;
+import org.riodb.plugin.RioDBStreamMessage;
 
 public class SQLWindowConditionString implements SQLWindowCondition{
 
 	
 	//private int columnId;
-	private int eventStringIndex;
+	private int messageStringIndex;
 	private int operator;
 /*	
  * 0 =
@@ -54,7 +54,7 @@ public class SQLWindowConditionString implements SQLWindowCondition{
 	throws ExceptionSQLStatement {
 		
 		//this.columnId = columnId;
-		this.eventStringIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getStringFieldIndex(columnId); 
+		this.messageStringIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getStringFieldIndex(columnId); 
 		this.pattern = SQLParser.textDecode(patternStr);
 		this.expression = expression;
 		
@@ -122,14 +122,14 @@ public class SQLWindowConditionString implements SQLWindowCondition{
 			if(this.operator >= 6)
 				firstHalf = false;
 			
-			//System.out.println("Stream "+streamId + " comlumn "+this.columnId + " stringIndex "+ this.eventStringIndex + " operator "+ this.operator + " pattern "+ this.pattern);
+			//System.out.println("Stream "+streamId + " comlumn "+this.columnId + " stringIndex "+ this.messageStringIndex + " operator "+ this.operator + " pattern "+ this.pattern);
 		}
 	}
 
 	@Override
-	public boolean match(RioDBStreamEvent event) {
+	public boolean match(RioDBStreamMessage message) {
 		
-		if(event.getString(eventStringIndex) == null || event.getString(eventStringIndex).equals("")) {
+		if(message.getString(messageStringIndex) == null || message.getString(messageStringIndex).equals("")) {
 			if(operator == 4) {
 				return true;
 			}
@@ -142,40 +142,40 @@ public class SQLWindowConditionString implements SQLWindowCondition{
 		}
 		if(firstHalf) {
 			if(operator == 0 ) {
-				return event.getString(eventStringIndex).compareTo(pattern) == 0;
+				return message.getString(messageStringIndex).compareTo(pattern) == 0;
 			}
 			else if(operator == 1 ) {
-				return event.getString(eventStringIndex).compareTo(pattern) != 0;
+				return message.getString(messageStringIndex).compareTo(pattern) != 0;
 			}
 			else if(operator == 2 ) {
 				// like
-				return likeObj.match(event.getString(eventStringIndex));
+				return likeObj.match(message.getString(messageStringIndex));
 			}
 			else if(operator == 3 ) {
 				// not like
-				return !likeObj.match(event.getString(eventStringIndex));
+				return !likeObj.match(message.getString(messageStringIndex));
 			}
 			else {
 				// operator can only be 6
-				return inObj.match(event.getString(eventStringIndex));
+				return inObj.match(message.getString(messageStringIndex));
 			}
 		}
 		else {
 			if(operator == 7 ) {
-				return !inObj.match(event.getString(eventStringIndex));
+				return !inObj.match(message.getString(messageStringIndex));
 			}
 			else if(operator == 8 ) {
-				return event.getString(eventStringIndex).compareTo(pattern) > 0;
+				return message.getString(messageStringIndex).compareTo(pattern) > 0;
 			}
 			else if(operator == 9 ) {
-				return event.getString(eventStringIndex).compareTo(pattern) >= 0;
+				return message.getString(messageStringIndex).compareTo(pattern) >= 0;
 			}
 			else if(operator == 10 ) {
-				return event.getString(eventStringIndex).compareTo(pattern) < 0;
+				return message.getString(messageStringIndex).compareTo(pattern) < 0;
 			}
 			else {
 				// operator can only be 11
-				return event.getString(eventStringIndex).compareTo(pattern) <= 0;
+				return message.getString(messageStringIndex).compareTo(pattern) <= 0;
 			}
 		
 		}

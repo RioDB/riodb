@@ -398,7 +398,7 @@ public class WindowOfQuantity implements Window {
 				// TreeMap or not.
 				if (requiresVariance) {
 
-					// getCount check to prevent division by zero.
+					// getCount check to prmessage division by zero.
 					// TODO: check if still needed. Practically, and empty window should never enter
 					// this code block.
 					if (getCount() > 0) {

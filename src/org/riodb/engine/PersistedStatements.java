@@ -160,13 +160,13 @@ public class PersistedStatements {
 
 			String newFileStr = "";
 			for (Entry<String, String> entry : streamStatements.entrySet()) {
-				newFileStr += entry.getValue() + "\n\r";
+				newFileStr += SQLParser.textDecode(entry.getValue()) + "\n\r";
 			}
 			for (Entry<String, String> entry : windowStatements.entrySet()) {
-				newFileStr += entry.getValue() + "\n\r";
+				newFileStr += SQLParser.textDecode(entry.getValue()) + "\n\r";
 			}
 			for (Entry<Integer, String> entry : queryStatements.entrySet()) {
-				newFileStr += entry.getValue() + "\n\r";
+				newFileStr += SQLParser.textDecode(entry.getValue()) + "\n\r";
 			}
 
 			PrintWriter prw = null;

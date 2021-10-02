@@ -22,7 +22,7 @@ package org.riodb.sql;
 
 import org.riodb.windows.WindowSummary;
 
-import org.riodb.plugin.RioDBStreamEvent;
+import org.riodb.plugin.RioDBStreamMessage;
 
 public class SQLQueryColumnConstant implements SQLQueryColumn {
 
@@ -30,12 +30,12 @@ public class SQLQueryColumnConstant implements SQLQueryColumn {
 	private String heading;
 
 	SQLQueryColumnConstant(String constant, String heading) throws ExceptionSQLStatement {
-		this.constant = constant;
-		this.heading = heading;
+		this.constant = SQLParser.textDecode(constant);
+		this.heading = SQLParser.textDecode(heading);
 	}
 
 	@Override
-	public String getValue(RioDBStreamEvent event, WindowSummary[] windowSummaries) throws ExceptionSQLExecution {
+	public String getValue(RioDBStreamMessage message, WindowSummary[] windowSummaries) throws ExceptionSQLExecution {
 		return constant;
 	}
 

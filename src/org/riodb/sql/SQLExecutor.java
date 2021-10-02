@@ -23,12 +23,17 @@ package org.riodb.sql;
 import java.util.ArrayList;
 
 import org.riodb.access.ExceptionAccessMgt;
+import org.riodb.engine.Clock;
 import org.riodb.engine.RioDB;
 import org.riodb.plugin.RioDBPluginException;
 
 public final class SQLExecutor {
 
-	public final static String execute(String stmt, String actingUser, boolean persistStmt) {
+	public final static String execute(String stmt, String actingUser, boolean persistStmt,
+			boolean respondWithDetails) {
+
+		// time elapsed....
+		long startTime = System.currentTimeMillis();
 
 		ArrayList<String> responseList = new ArrayList<String>();
 		String httpResponseStatus = "200";
@@ -37,84 +42,97 @@ public final class SQLExecutor {
 
 			stmt = SQLParser.formatStripComments(stmt);
 
+			// split statements from stmt (in case there are multiple statements in one
+			// request)
 			String statements[] = stmt.split(";");
-			
-			for (String statement : statements) {
-				
+
+			// iterate through all statements.
+			for (int i = 0; i < statements.length; i++) {
+
+				String statement = statements[i];
+
 				try {
 					String originalStatement = statement;
 					statement = SQLParser.formatStmt(statement + ";");
 
 					if (statement != null && !statement.equals(";")) {
 
-						RioDB.rio.getSystemSettings().getLogger()
-								.debug("Statement: \"" + SQLParser.textDecode( SQLParser.hidePassword(statement)) + "\"");
+						RioDB.rio.getSystemSettings().getLogger().debug(
+								"Statement: \"" + SQLParser.textDecode(SQLParser.hidePassword(statement)) + "\"");
 
 						if (statement.startsWith("select ")) {
 							if (RioDB.rio.getUserMgr() == null
 									|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("QUERY")) {
-								String queryResponse = SQLQueryOperations.createQuery(statement, persistStmt, actingUser); 
-								if(queryResponse == null || queryResponse.length() == 0) {
-									queryResponse = "\"statement not understood.\"";
+								String queryResponse = SQLQueryOperations.createQuery(statement, persistStmt,
+										actingUser);
+								if (queryResponse == null || queryResponse.length() == 0) {
+									queryResponse = "statement not understood.";
 									httpResponseStatus = "400";
-								} else if(queryResponse.contains("Query timed out.")) {
+								} else if (queryResponse.contains("Query timed out.")) {
 									httpResponseStatus = "408";
 								}
 								responseList.add(queryResponse);
-								
+
 							} else {
 								RioDB.rio.getSystemSettings().getLogger().debug("User not authorized to QUERY");
-								responseList.add("\"User not authorized to QUERY.\"");
+								responseList.add("User not authorized to QUERY.");
 								httpResponseStatus = "401";
 							}
 						} else if (statement.startsWith("create ")) {
 							if (statement.contains(" stream ")) {
 								if (RioDB.rio.getUserMgr() == null
 										|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("STREAM")) {
-									if (SQLStreamOperations.createStream(statement, persistStmt, actingUser)) {
-										responseList.add("\"Stream created.\"");
-										RioDB.rio.getSystemSettings().getLogger().info("Stream created.");
+									String response = SQLStreamOperations.createStream(statement, persistStmt,
+											actingUser);
+									if (response != null) {
+										responseList.add(response);
+										RioDB.rio.getSystemSettings().getLogger().info(response);
 									} else {
-										responseList.add("\"Stream creation failed.\"");
+										responseList.add("Stream creation failed.");
 										RioDB.rio.getSystemSettings().getLogger().info("Stream creation failed.");
 									}
 								} else {
 									RioDB.rio.getSystemSettings().getLogger()
 											.debug("User not authorized to manage streams.");
-									responseList.add("\"User not authorized to manage streams\"");
+									responseList.add("User not authorized to manage streams");
 									httpResponseStatus = "401";
 								}
 							} else if (statement.contains(" window ")) {
 								if (RioDB.rio.getUserMgr() == null
 										|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("WINDOW")) {
-									if (SQLWindowOperations.createWindow(statement, persistStmt, actingUser)) {
-										responseList.add("\"Window created.\"");
-										RioDB.rio.getSystemSettings().getLogger().info("Window created.");
+									String response = SQLWindowOperations.createWindow(statement, persistStmt,
+											actingUser);
+									if (response != null) {
+										responseList.add(response);
+										RioDB.rio.getSystemSettings().getLogger().info(response);
+									} else {
+										responseList.add("Window creation failed.");
+										RioDB.rio.getSystemSettings().getLogger().info("Window creation failed.");
 									}
 								} else {
 									RioDB.rio.getSystemSettings().getLogger()
 											.debug("User not authorized to manage windows.");
-									responseList.add("\"User not authorized to manage windows.\"");
+									responseList.add("User not authorized to manage windows.");
 									httpResponseStatus = "401";
 								}
 
 							} else if (statement.contains(" user ")) {
 								if (RioDB.rio.getUserMgr() == null) {
 									RioDB.rio.getSystemSettings().getLogger().debug("User Management is not enabled.");
-									responseList.add("\"User Management is not enabled.\"");
+									responseList.add("User Management is not enabled.");
 									httpResponseStatus = "400";
 								} else if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("ADMIN")) {
 									RioDB.rio.getUserMgr().changeRequest(originalStatement, actingUser);
-									responseList.add("\"User created.\"");
+									responseList.add("User created.");
 									RioDB.rio.getSystemSettings().getLogger().debug("User created.");
 								} else {
 									RioDB.rio.getSystemSettings().getLogger().debug("User not authorized with ADMIN.");
-									responseList.add("\"User not authorized with ADMIN.\"");
+									responseList.add("User not authorized with ADMIN.");
 									httpResponseStatus = "401";
 								}
 							} else {
 								RioDB.rio.getSystemSettings().getLogger().debug("Unknown CREATE command.");
-								responseList.add("\"Unknown CREATE command..\"");
+								responseList.add("Unknown CREATE command..");
 								httpResponseStatus = "400";
 							}
 						} else if (statement.startsWith("drop ")) {
@@ -122,60 +140,60 @@ public final class SQLExecutor {
 								if (RioDB.rio.getUserMgr() == null
 										|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("STREAM")) {
 									SQLStreamOperations.dropStream(statement);
-									responseList.add("\"Stream dropped.\"");
+									responseList.add("Stream dropped.");
 									RioDB.rio.getSystemSettings().getLogger().info("Stream dropped.");
 
 								} else {
 									RioDB.rio.getSystemSettings().getLogger()
 											.debug("User not authorized to manage streams.");
-									responseList.add("\"User not authorized to manage streams.\"");
+									responseList.add("User not authorized to manage streams.");
 									httpResponseStatus = "401";
 								}
 							} else if (statement.contains(" window ")) {
 								if (RioDB.rio.getUserMgr() == null
 										|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("WINDOW")) {
 									SQLWindowOperations.dropWindow(statement);
-									responseList.add("\"Window dropped.\"");
+									responseList.add("Window dropped.");
 									RioDB.rio.getSystemSettings().getLogger().info("window dropped.");
 
 								} else {
 									RioDB.rio.getSystemSettings().getLogger()
 											.debug("User not authorized to manage windows.");
-									responseList.add("\"User not authorized to manage windows.\"");
+									responseList.add("User not authorized to manage windows.");
 									httpResponseStatus = "401";
 								}
 							} else if (statement.contains(" query ")) {
 								if (RioDB.rio.getUserMgr() == null
 										|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("QUERY")) {
 									SQLQueryOperations.dropQuery(statement);
-									responseList.add("\"Query dropped.\"");
+									responseList.add("Query dropped.");
 									RioDB.rio.getSystemSettings().getLogger().info("Query dropped.");
 								} else {
 									RioDB.rio.getSystemSettings().getLogger()
 											.debug("User not authorized to manage queries.");
-									responseList.add("\"User not authorized to manage queries.\"");
+									responseList.add("User not authorized to manage queries.");
 									httpResponseStatus = "401";
 								}
 							} else if (statement.contains(" user ")) {
 								if (RioDB.rio.getUserMgr() == null) {
-									responseList.add("\"User Management is not enabled.\"");
+									responseList.add("User Management is not enabled.");
 									httpResponseStatus = "400";
 								} else if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("ADMIN")) {
 									RioDB.rio.getUserMgr().changeRequest(statement, actingUser);
-									responseList.add("\"User dropped.\"");
+									responseList.add("User dropped.");
 									RioDB.rio.getSystemSettings().getLogger().debug("User dropped.");
 								} else {
-									responseList.add("\"User not authorized to manage queries.\"");
+									responseList.add("User not authorized to manage queries.");
 									httpResponseStatus = "401";
 								}
 							} else {
 								RioDB.rio.getSystemSettings().getLogger().debug("Unknown DROP command.");
-								responseList.add("\"Unknown DROP command.\"");
+								responseList.add("Unknown DROP command.");
 								httpResponseStatus = "400";
 							}
 						} else if (statement.startsWith("list ")) {
 							if (statement.contains(" streams")) {
-								
+
 								if (RioDB.rio.getUserMgr() == null
 										|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("STREAM")) {
 									responseList.add(RioDB.rio.getEngine().listStreams());
@@ -184,13 +202,12 @@ public final class SQLExecutor {
 								} else {
 									RioDB.rio.getSystemSettings().getLogger()
 											.debug("User not authorized to manage streams.");
-									responseList.add("\"User not authorized to manage streams.\"");
+									responseList.add("User not authorized to manage streams.");
 									httpResponseStatus = "401";
 								}
-								
-								
+
 							} else if (statement.contains(" windows")) {
-								
+
 								if (RioDB.rio.getUserMgr() == null
 										|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("WINDOW")) {
 									responseList.add(RioDB.rio.getEngine().listAllWindows());
@@ -198,13 +215,12 @@ public final class SQLExecutor {
 								} else {
 									RioDB.rio.getSystemSettings().getLogger()
 											.debug("User not authorized to manage windows.");
-									responseList.add("\"User not authorized to manage windows.\"");
+									responseList.add("User not authorized to manage windows.");
 									httpResponseStatus = "401";
 								}
-								
-								
+
 							} else if (statement.contains(" queries")) {
-								
+
 								if (RioDB.rio.getUserMgr() == null
 										|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("QUERY")) {
 									responseList.add(RioDB.rio.getEngine().listAllQueries());
@@ -212,24 +228,23 @@ public final class SQLExecutor {
 								} else {
 									RioDB.rio.getSystemSettings().getLogger()
 											.debug("User not authorized to manage queries.");
-									responseList.add("\"User not authorized to manage queries.\"");
+									responseList.add("User not authorized to manage queries.");
 									httpResponseStatus = "401";
 								}
-								
+
 							} else if (statement.contains(" users")) {
-								
+
 								if (RioDB.rio.getUserMgr() == null) {
-									responseList.add("\"User Management is not enabled.\"");
+									responseList.add("User Management is not enabled.");
 									httpResponseStatus = "400";
 								} else if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("ADMIN")) {
 									responseList.add(RioDB.rio.getUserMgr().listUsers());
 									RioDB.rio.getSystemSettings().getLogger().debug("users listed.");
 								} else {
-									responseList.add("\"User not authorized to manage queries.\"");
+									responseList.add("User not authorized to manage queries.");
 									httpResponseStatus = "401";
 								}
-								
-								
+
 							}
 						} else if (statement.startsWith("describe ")) {
 							String[] words = statement.split(" ");
@@ -240,7 +255,7 @@ public final class SQLExecutor {
 											|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("STREAM")) {
 										responseList.add(RioDB.rio.getEngine().describe(words[2]));
 									} else {
-										responseList.add("\"User not authorized to manage streams.\"");
+										responseList.add("User not authorized to manage streams.");
 										httpResponseStatus = "401";
 									}
 								} else if (words[1].equals("window")) {
@@ -251,7 +266,7 @@ public final class SQLExecutor {
 									} else {
 										RioDB.rio.getSystemSettings().getLogger()
 												.debug("User not authorized to manage windows.");
-										responseList.add("\"User not authorized to manage windows.\"");
+										responseList.add("User not authorized to manage windows.");
 										httpResponseStatus = "401";
 									}
 								} else if (words[1].equals("query")) {
@@ -262,20 +277,22 @@ public final class SQLExecutor {
 									} else {
 										RioDB.rio.getSystemSettings().getLogger()
 												.debug("User not authorized to manage windows.");
-										responseList.add("\"User not authorized to manage windows.\"");
+										responseList.add("User not authorized to manage windows.");
 										httpResponseStatus = "401";
 									}
 								} else {
-									RioDB.rio.getSystemSettings().getLogger().debug("Bad describe command: "+ statement);
+									RioDB.rio.getSystemSettings().getLogger()
+											.debug("Bad describe command: " + statement);
 									responseList.add(
-											"\"Describe command should be like... DESCRIBE STREAM stream_name;  or DESCRIBE WINDOW stream_name.window_name; or DESCRIBE QUERY stream_name.0;\"");
+											"Describe command should be like... DESCRIBE STREAM stream_name;  or DESCRIBE WINDOW stream_name.window_name; or DESCRIBE QUERY stream_name.0;");
 									httpResponseStatus = "400";
 								}
 
 							} else {
-								RioDB.rio.getSystemSettings().getLogger().debug("Describe Query command with bad syntax.");
+								RioDB.rio.getSystemSettings().getLogger()
+										.debug("Describe Query command with bad syntax.");
 								responseList.add(
-										"\"Describe command should be like... DESCRIBE STREAM stream_name;  or DESCRIBE WINDOW stream_name.window_name; or DESCRIBE QUERY stream_name.0;\"");
+										"Describe command should be like... DESCRIBE STREAM stream_name;  or DESCRIBE WINDOW stream_name.window_name; or DESCRIBE QUERY stream_name.0;");
 								httpResponseStatus = "400";
 							}
 						} else if (statement.startsWith("reset window ")) {
@@ -289,23 +306,23 @@ public final class SQLExecutor {
 										String windowName = target.substring(target.indexOf(".")).trim();
 										if (windowName.equals("all")) {
 											RioDB.rio.getEngine().getStream(streamName).resetAllWindows();
-											responseList.add("\"Reset all windows for stream " + streamName + "\"");
+											responseList.add("Reset all windows for stream " + streamName + ".");
 										} else if (RioDB.rio.getEngine().getStream(streamName).getWindowMgr()
 												.hasWindow(windowName)) {
 											RioDB.rio.getEngine().getStream(streamName).getWindowMgr()
 													.getWindow(windowName).resetWindow();
-											responseList.add("\"Reset window " + target + "\"");
+											responseList.add("Reset window " + target + ".");
 										} else {
-											responseList.add("\"Window " + target + " was not found.\"");
+											responseList.add("Window " + target + " was not found.");
 											httpResponseStatus = "400";
 										}
 									} else {
-										responseList.add("\"Stream " + streamName + " does not exist.\"");
+										responseList.add("Stream " + streamName + " does not exist.");
 										httpResponseStatus = "400";
 									}
 								} else {
 									responseList.add(
-											"\"Invalid syntax for reset command. Try: reset window streamName.windowName; \"");
+											"Invalid syntax for reset command. Try: reset window streamName.windowName; ");
 									httpResponseStatus = "400";
 
 								}
@@ -313,7 +330,7 @@ public final class SQLExecutor {
 							} else {
 								RioDB.rio.getSystemSettings().getLogger()
 										.debug("User not authorized to manage windows.");
-								responseList.add("\"User not authorized to manage windows.\"");
+								responseList.add("User not authorized to manage windows.");
 								httpResponseStatus = "401";
 							}
 
@@ -328,89 +345,118 @@ public final class SQLExecutor {
 									if (!RioDB.rio.getEngine().isOnline()) {
 										RioDB.rio.getEngine().start();
 									}
-									responseList.add("\"RioDB is online. Streams are running\"");
+									responseList.add("RioDB is online. Streams are running");
 								} else if (verb.equals("stop")) {
 									if (RioDB.rio.getEngine().isOnline()) {
 										RioDB.rio.getEngine().stop();
 									}
-									responseList.add("\"RioDB is offline. Streams are stopped.\"");
+									responseList.add("RioDB is offline. Streams are stopped.");
 								} else {
-									responseList.add("\"System command '" + verb
-											+ "' unknown. Try 'system start;' or 'system stop;'\"");
+									responseList.add("System command '" + verb
+											+ "' unknown. Try 'system start;' or 'system stop;'");
 									httpResponseStatus = "400";
 								}
 
 							} else {
-								responseList.add("\"User not authorized to manage system.\"");
+								responseList.add("User not authorized to manage system.");
 								httpResponseStatus = "401";
 							}
 
 						} else if (statement.startsWith("change user ")) {
 							if (RioDB.rio.getUserMgr() == null) {
-								responseList.add("\"User Management is not enabled.\"");
+								responseList.add("User Management is not enabled.");
 								httpResponseStatus = "400";
 							} else if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("ADMIN")) {
-								String r = RioDB.rio.getUserMgr().changeRequest(originalStatement, actingUser);
-								responseList.add("\"" + r + "\"");
-								RioDB.rio.getSystemSettings().getLogger().debug(r);
+								String response = RioDB.rio.getUserMgr().changeRequest(originalStatement, actingUser);
+								responseList.add(response);
+								RioDB.rio.getSystemSettings().getLogger().debug(response);
 							} else {
-								responseList.add("\"User not authorized to manage queries.\"");
+								responseList.add("User not authorized to manage queries.");
 								httpResponseStatus = "401";
 							}
 						} else if (statement.startsWith("resetpwd ") || statement.startsWith("resetpassword ")) {
 							if (RioDB.rio.getUserMgr() == null) {
-								responseList.add("\"User Management is not enabled.\"");
+								responseList.add("User Management is not enabled.");
 								httpResponseStatus = "400";
 							}
 							String newStmt = originalStatement.replace("resetpwd ",
 									"CHANGE user " + actingUser + " set password ");
 							newStmt = newStmt.replace("resetpassword ", "CHANGE user " + actingUser + " set password ");
 
-							String r = RioDB.rio.getUserMgr().changeRequest(newStmt, actingUser);
-							responseList.add("\"" + r + "\"");
-							RioDB.rio.getSystemSettings().getLogger().debug(r);
+							String response = RioDB.rio.getUserMgr().changeRequest(newStmt, actingUser);
+							responseList.add(response);
+							RioDB.rio.getSystemSettings().getLogger().debug(response);
+
+						} else if (statement.startsWith("sleep ")) {
+							String parts[] = statement.split(" ");
+							if (parts.length == 2 && SQLParser.isNumber(parts[1])) {
+								int ms = Integer.parseInt(parts[1]);
+								if (ms > 0) {
+									Clock.sleep(Integer.parseInt(parts[1]));
+									responseList.add("slept " + parts[1]);
+									break;
+								}
+								responseList.add("invalid syntax for 'sleep' statement. try  'sleep 50;' ");
+								httpResponseStatus = "400";
+							}
 
 						}
 					}
 
 				} catch (ExceptionSQLStatement e) {
-					responseList.add("\"" + e.getMessage().replace("\"", "\\\"") + "\"");
+					responseList.add(e.getMessage().replace("\"", "\\\""));
 					httpResponseStatus = "400";
 				} catch (ExceptionAccessMgt e) {
-					responseList.add("\"" + e.getMessage().replace("\"", "\\\"") + "\"");
+					responseList.add(e.getMessage().replace("\"", "\\\""));
 					httpResponseStatus = "401";
 				} catch (RioDBPluginException e) {
-					responseList.add("\"" + e.getMessage().replace("\"", "\\\"") + "\"");
+					responseList.add(e.getMessage().replace("\"", "\\\""));
 					httpResponseStatus = "500";
 				}
 
 			}
-		} else if(stmt == null || stmt.length() == 0){
-			responseList.add("\"RioDB here. Tell me WHEN.\"");
+		} else if (stmt == null || stmt.length() == 0) {
+			responseList.add("RioDB here. Tell me WHEN.");
 			httpResponseStatus = "200";
 		} else {
-			responseList.add("\"Invalid statement. Make sure you finish each statement with a semicolon ';'\"");
+			responseList.add("Invalid statement. Make sure you finish each statement with a semicolon ';'");
 			httpResponseStatus = "400";
 		}
 
-		String responseJson = "{\"status\": " + httpResponseStatus + ", \"message\": ";
-		if (responseList.size() > 1) {
-			responseJson = responseJson + "[";
-		}
-		for (String s : responseList) {
-			if (s == null || s.length() == 0) {
-				s = "null";
-			}
-			responseJson = responseJson + s.replace("\n", " ").replace("\r"," ").replace("\t", " ") + ",";
-		}
-		// remove last comma and close bracket
-		responseJson = responseJson.substring(0, responseJson.length() - 1);
-		if (responseList.size() > 1) {
-			responseJson = responseJson + "]";
-		}
-		responseJson = responseJson + "}";
+		long finishTime = System.currentTimeMillis();
 
-		return responseJson;
+		StringBuilder responseJson = new StringBuilder("{ \"status\": ");
+		responseJson.append(httpResponseStatus).append(", \"statements\": ").append(responseList.size())
+				.append(", \"milliseconds\": ").append((finishTime - startTime));
+
+		if (respondWithDetails) {
+
+			responseJson.append(",\"details\":[ ");
+
+			for (int i = 0; i < responseList.size(); i++) {
+
+				responseJson.append("\n  { \"statement\": ").append(i).append(",\n  \"response\": ");
+
+				String response = responseList.get(i);
+				if (response == null || response.length() == 0) {
+					response = "null";
+				}
+				if (!response.startsWith("{") && !response.startsWith("[")) {
+					response = "\"" + response + "\"";
+				}
+				responseJson.append(response.replace("\n", " ").replace("\r", " ").replace("\t", " ")).append("},");
+
+			}
+			// remove last comma and close bracket
+			responseJson.deleteCharAt(responseJson.length() - 1);
+
+			responseJson.append(" ]\n}");
+
+		} else {
+			responseJson.append(" }");
+		}
+
+		return responseJson.toString();
 	}
 
 }

@@ -20,11 +20,11 @@
 
 /*
 
-	Wrapper for containing array of windowSummaries and event together.
+	Wrapper for containing array of windowSummaries and message together.
 	
-	Event data and window summary data get wrapped up together into one
+	Message data and window summary data get wrapped up together into one
 	object and sent to the queries. Then, queries can reference values
-	from the event and values from the window. 
+	from the message and values from the window. 
 	
 	The reason they have to be bundled together is because they go into
 	a blocking queue of objects, and the queue of objects accept only one
@@ -36,23 +36,23 @@ package org.riodb.queries;
 
 import org.riodb.windows.WindowSummary;
 
-import org.riodb.plugin.RioDBStreamEvent;
+import org.riodb.plugin.RioDBStreamMessage;
 
-public class EventWithSummaries {
-	// The event object
-	private RioDBStreamEvent event;
+public class MessageWithSummaries {
+	// The message object
+	private RioDBStreamMessage message;
 	// the array of window summaries
 	private WindowSummary windowSummaries[];
 
 	// constructor
-	public EventWithSummaries(RioDBStreamEvent event, WindowSummary[] windowSummaries){
-		this.event = event;
+	public MessageWithSummaries(RioDBStreamMessage message, WindowSummary[] windowSummaries){
+		this.message = message;
 		this.windowSummaries = windowSummaries;
 	}
 
-	// get a reference of the event
-	public RioDBStreamEvent getEventRef() {
-		return event;
+	// get a reference of the message
+	public RioDBStreamMessage getMessageRef() {
+		return message;
 	}
 
 	// get a reference of the windowSummary array

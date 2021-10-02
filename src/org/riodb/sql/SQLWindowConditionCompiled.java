@@ -20,10 +20,10 @@
 
 package org.riodb.sql;
 
-import org.riodb.plugin.RioDBStreamEvent;
+import org.riodb.plugin.RioDBStreamMessage;
 
 public interface SQLWindowConditionCompiled {
-	public boolean match(RioDBStreamEvent event);
+	public boolean match(RioDBStreamMessage message);
 	public void loadIn(SQLStringIN inArr[]);
 	public void loadLike(SQLStringLIKE likeArr[]);
 }

@@ -45,7 +45,7 @@ final public class SQLQueryColumnOperations {
 					undefined = true;
 				} else if (itemStrParts.length == 1) {
 					if (SQLParser.isStreamField(streamId, itemStrParts[0])) {
-						selectItemArr[i] = makeSelectItemFromEvent(streamId, itemStrParts[0], itemStrParts[0]);
+						selectItemArr[i] = makeSelectItemFromMessage(streamId, itemStrParts[0], itemStrParts[0]);
 					} else if (SQLParser.isNumber(itemStrParts[0]) || SQLParser.isStringConstant(itemStrParts[0])) {
 						selectItemArr[i] = makeSelectItemConstant(itemStrParts[0], itemStrParts[0]);
 					} else if (SQLParser.isNumber(itemStrParts[0]) || SQLParser.isStringConstant(itemStrParts[0])) {
@@ -73,7 +73,7 @@ final public class SQLQueryColumnOperations {
 							}
 							else if (windowId == -1 &&
 									SQLParser.isStreamField(streamId, item)	) {
-								selectItemArr[i] = makeSelectItemFromEvent(streamId,item,item);
+								selectItemArr[i] = makeSelectItemFromMessage(streamId,item,item);
 							}
 							else {
 								undefined = true;
@@ -87,7 +87,7 @@ final public class SQLQueryColumnOperations {
 				else if (itemStrParts.length == 2) {
 					
 					if (SQLParser.isStreamField(streamId, itemStrParts[0])) {
-						selectItemArr[i] = makeSelectItemFromEvent(streamId, itemStrParts[0], itemStrParts[1]);
+						selectItemArr[i] = makeSelectItemFromMessage(streamId, itemStrParts[0], itemStrParts[1]);
 					} else if (SQLParser.isNumber(itemStrParts[0]) || SQLParser.isStringConstant(itemStrParts[0])) {
 						selectItemArr[i] = makeSelectItemConstant(itemStrParts[0], itemStrParts[1]);
 					} else if (SQLParser.isSQLFunction(itemStrParts[0])) {
@@ -113,7 +113,7 @@ final public class SQLQueryColumnOperations {
 							}
 							else if (windowId == -1 &&
 									SQLParser.isStreamField(streamId, item)	) {
-								selectItemArr[i] = makeSelectItemFromEvent(streamId,item,itemStrParts[1]);
+								selectItemArr[i] = makeSelectItemFromMessage(streamId,item,itemStrParts[1]);
 							}
 							else {
 								undefined = true;
@@ -127,7 +127,7 @@ final public class SQLQueryColumnOperations {
 				else if (itemStrParts.length == 3 && itemStrParts[1].equals("as")) {
 
 					if (SQLParser.isStreamField(streamId, itemStrParts[0])) {
-						selectItemArr[i] = makeSelectItemFromEvent(streamId, itemStrParts[0], itemStrParts[2]);
+						selectItemArr[i] = makeSelectItemFromMessage(streamId, itemStrParts[0], itemStrParts[2]);
 					} else if (SQLParser.isNumber(itemStrParts[0]) || SQLParser.isStringConstant(itemStrParts[0])) {
 						selectItemArr[i] = makeSelectItemConstant(itemStrParts[0], itemStrParts[2]);
 					} else if (SQLParser.isSQLFunction(itemStrParts[0])) {
@@ -153,7 +153,7 @@ final public class SQLQueryColumnOperations {
 							}
 							else if (windowId == -1 &&
 									SQLParser.isStreamField(streamId, item)	) {
-								selectItemArr[i] = makeSelectItemFromEvent(streamId,item,itemStrParts[2]);
+								selectItemArr[i] = makeSelectItemFromMessage(streamId,item,itemStrParts[2]);
 							}
 							else {
 								undefined = true;
@@ -187,16 +187,16 @@ final public class SQLQueryColumnOperations {
 		}
 	}
 
-	private static final SQLQueryColumn makeSelectItemFromEvent(int streamId, String selectItemStr, String heading)
+	private static final SQLQueryColumn makeSelectItemFromMessage(int streamId, String selectItemStr, String heading)
 			throws ExceptionSQLStatement {
 		
 		int fieldId = RioDB.rio.getEngine().getStream(streamId).getDef().getFieldId(selectItemStr);
 		if (RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId)) {
 			int floatFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getNumericFieldIndex(fieldId);
-			return new SQLQueryColumnDoubleFromEvent(floatFieldIndex, heading);
+			return new SQLQueryColumnDoubleFromMessage(floatFieldIndex, heading);
 		} else {
 			int stringFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getStringFieldIndex(fieldId);
-			return new SQLQueryColumnStringFromEvent(stringFieldIndex, heading);
+			return new SQLQueryColumnStringFromMessage(stringFieldIndex, heading);
 		}
 	}
 
@@ -285,11 +285,11 @@ final public class SQLQueryColumnOperations {
 						boolean isNumeric = RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId);
 						if(isNumeric) {
 							int floatFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getNumericFieldIndex(fieldId);
-							words[i] = "event.getDouble("+ floatFieldIndex+")";
+							words[i] = "message.getDouble("+ floatFieldIndex+")";
 						}
 						else {
 							int stringFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getStringFieldIndex(fieldId);
-							words[i] = "event.getString("+ stringFieldIndex+")";
+							words[i] = "message.getString("+ stringFieldIndex+")";
 						}
 						
 					}
@@ -334,11 +334,11 @@ final public class SQLQueryColumnOperations {
 				boolean isNumeric = RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId);
 				if(isNumeric) {
 					int floatFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getNumericFieldIndex(fieldId);
-					words[i] = "event.getDouble("+ floatFieldIndex+")";
+					words[i] = "message.getDouble("+ floatFieldIndex+")";
 				}
 				else {
 					int stringFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getStringFieldIndex(fieldId);
-					words[i] = "event.getString("+ stringFieldIndex+")";
+					words[i] = "message.getString("+ stringFieldIndex+")";
 				}
 			}
 			else if(SQLParser.isReservedWord(words[i]) || SQLParser.isNumber(words[i])) {

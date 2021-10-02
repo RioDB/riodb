@@ -213,7 +213,7 @@ public class WindowOfTimeSimple implements Window {
 	
 	
 	// TODO need to synchronize so that QUERY calls don't clash with CLOCK calls. 
-	// If sync performance is bad, then maybe have CLOCK pass request as a special event through event process. 
+	// If sync performance is bad, then maybe have CLOCK pass request as a special message through message process. 
 	@Override
 	public int trimExpiredWindowElements(int currentSecond) {
 

@@ -20,15 +20,15 @@
 
 /*
 
-	A Stream object to process stream events end-to-end
+	A Stream object to process stream messages end-to-end
 	
 	It takes data from a dataSource and passes it through all dependent windows and queries	
 	
 	It declares:
 		streamId: 		An identifier
 		streamName: 	The name of the stream (used by queries and api requests)
-		streamEventDef:		A definition of the event fields
-		streamDataSource:	A data source that will be providing new events,
+		streamMessageDef:		A definition of the message fields
+		streamDataSource:	A data source that will be providing new messages,
 		streamWindowMgr:	A container of windows for this stream
 		streamQueryMgr:		A container of queries for this stream
 		streamThread: 		A Runnable thread for processing the stream end-to-end
@@ -38,7 +38,7 @@
 package org.riodb.engine;
 
 import org.riodb.classloaders.InputClassLoader;
-import org.riodb.queries.EventWithSummaries;
+import org.riodb.queries.MessageWithSummaries;
 import org.riodb.queries.Query;
 import org.riodb.queries.QueryManager;
 import org.riodb.sql.ExceptionSQLStatement;
@@ -46,10 +46,10 @@ import org.riodb.windows.WindowManager;
 import org.riodb.windows.WindowSummary;
 import org.riodb.windows.WindowWrapper;
 
-import org.riodb.plugin.RioDBDataSource;
+import org.riodb.plugin.RioDBPlugin;
 import org.riodb.plugin.RioDBPluginException;
-import org.riodb.plugin.RioDBStreamEvent;
-import org.riodb.plugin.RioDBStreamEventDef;
+import org.riodb.plugin.RioDBStreamMessage;
+import org.riodb.plugin.RioDBStreamMessageDef;
 
 public class Stream implements Runnable {
 
@@ -60,10 +60,10 @@ public class Stream implements Runnable {
 	private String streamName;
 
 	// Definition of the fields that the stream provides.
-	private RioDBStreamEventDef streamEventDef;
+	private RioDBStreamMessageDef streamMessageDef;
 
 	// Runnable data source to receive data and put into the Inbox queue;
-	private RioDBDataSource streamInput;
+	private RioDBPlugin streamInput;
 
 	// Container of user-defined windows. is FINAL for performance
 	private final WindowManager streamWindowMgr = new WindowManager();
@@ -80,16 +80,16 @@ public class Stream implements Runnable {
 	// private int counter;
 
 	// Constructor
-	public Stream(int streamId, String name, RioDBStreamEventDef def, String inputType, String inputParams)
+	public Stream(int streamId, String name, RioDBStreamMessageDef def, String inputType, String inputParams)
 			throws ExceptionSQLStatement, RioDBPluginException {
-		
-		RioDB.rio.getSystemSettings().getLogger().debug("Creating stream[" + streamId + "]" + name + " while system online = " + RioDB.rio.getEngine().isOnline());
-		
-		
-		this.interrupt = true; //!RioDB.rio.getEngine().isOnline();
+
+		RioDB.rio.getSystemSettings().getLogger().debug("Creating stream[" + streamId + "]" + name
+				+ " while system online = " + RioDB.rio.getEngine().isOnline());
+
+		this.interrupt = true; // !RioDB.rio.getEngine().isOnline();
 		this.streamId = streamId;
 		this.streamName = name;
-		this.streamEventDef = def;
+		this.streamMessageDef = def;
 
 		// instead of passing StreamID into constructor, it's set afterwards due to
 		// being final (can't construct again)
@@ -102,10 +102,9 @@ public class Stream implements Runnable {
 		// load the data source class (aka "input plugin")
 		if (inputType != null) {
 			streamInput = InputClassLoader.getInputPlugin(inputType);
-			streamInput.init(inputParams, def);
+			streamInput.initInput(inputParams, def);
 		} else {
-			RioDB.rio.getSystemSettings().getLogger()
-					.error("Failed to create stream because INPUT TYPE is missing");
+			RioDB.rio.getSystemSettings().getLogger().error("Failed to create stream because INPUT TYPE is missing");
 		}
 
 	}
@@ -122,9 +121,10 @@ public class Stream implements Runnable {
 
 	// describe stream in JSON format
 	public String describe() {
-		String s = "{ \"name\":\"" + streamName + "\",\n \"fields\":[" + streamEventDef.getFieldList()
+		String s = "{ \"name\":\"" + streamName + "\",\n \"fields\":[" + streamMessageDef.getFieldList()
 				+ "],\n \"type\":\"" + streamInput.getType() + "\"," + "\n \"timestamp\" : \""
-				+ (streamEventDef.getTimestampNumericFieldId() == -1 ? "clock" : streamEventDef.getTimestampFieldName())
+				+ (streamMessageDef.getTimestampNumericFieldId() == -1 ? "clock"
+						: streamMessageDef.getTimestampFieldName())
 				+ "\" }";
 		return s;
 	}
@@ -139,7 +139,7 @@ public class Stream implements Runnable {
 		String s = "{ \n   \"stream_name\":\"" + streamName + "\"," + "\n   \"_thread\": \"" + streamInput.status()
 				+ "\"," + "\n   \"window_count\": " + streamWindowMgr.getWindowCount() + ","
 				+ "\n   \"handler_thread\": \"" + threadStatus + "\","
-				// + "\n \"event_queue_size\": " + streamPacketInbox.size() + ","
+				// + "\n \"message_queue_size\": " + streamPacketInbox.size() + ","
 				+ "\n   \"query_thread\": \"" + streamQueryMgr.status() + "\"," + "\n   \"query_count\": "
 				+ streamQueryMgr.queryCount() + "," + "\n   \"query_queue_size\": " + streamQueryMgr.inboxSize()
 				+ "\n }";
@@ -199,28 +199,28 @@ public class Stream implements Runnable {
 	// Start this stream and all its dependencies
 	public void start() throws RioDBPluginException {
 
-		
-		RioDB.rio.getSystemSettings().getLogger().info("Stream.start: starting "+streamName + " while system online = "+ RioDB.rio.getEngine().isOnline());
-		
+		RioDB.rio.getSystemSettings().getLogger().debug(
+				"Stream.start: starting " + streamName + " while system online = " + RioDB.rio.getEngine().isOnline());
+
 		if (interrupt == true) {
-			
-			// start query
-			streamQueryMgr.start();
-			Clock.quickPause();
 
-			// start stream thread
-			// counter = 0;
-			interrupt = false;
-			streamThread = new Thread(this);
-			streamThread.setName("STREAM_THREAD_" + streamId);
-			streamThread.start();
-
-			Clock.quickPause();
-
-			// start data source
 			try {
+				
+				// start query
+				streamQueryMgr.start();
+				Clock.sleep10();
+
+				// start stream thread
+				// counter = 0;
+				interrupt = false;
+				streamThread = new Thread(this);
+				streamThread.setName("STREAM_THREAD_" + streamId);
+				streamThread.start();
+
+				Clock.sleep10();
+
 				streamInput.start();
-				RioDB.rio.getSystemSettings().getLogger().info("Stream.start: started.");
+				RioDB.rio.getSystemSettings().getLogger().debug("Stream.start: started.");
 			} catch (RioDBPluginException e) {
 				interrupt = true;
 				String s = "Error starting input plugin: " + e.getMessage().replace("\n", "").replace("\r", "");
@@ -236,40 +236,40 @@ public class Stream implements Runnable {
 
 	// Stop this steram and all its dependencies
 	public void stop() {
-		
-		RioDB.rio.getSystemSettings().getLogger().info("Stream.stop: stopping "+streamName);
+
+		RioDB.rio.getSystemSettings().getLogger().debug("Stream.stop: stopping " + streamName);
 
 		// stop data source first
 		if (interrupt == false) {
 			try {
 				RioDB.rio.getSystemSettings().getLogger().debug("Stopping INPUT PLUGIN for stream " + streamName);
 				streamInput.stop();
+				Clock.sleep10();
+				// stop stream
+				RioDB.rio.getSystemSettings().getLogger().debug("Interrupting stream thread for stream " + streamId);
+				interrupt = true;
+				streamThread.interrupt();
+				// counter = 0;
+				Clock.sleep10();
+				// stop queries
+				RioDB.rio.getSystemSettings().getLogger().debug("Stopping Query Mgr for stream " + streamId);
+				streamQueryMgr.stop();
+				Clock.sleep10();
 			} catch (RioDBPluginException e) {
 				RioDB.rio.getSystemSettings().getLogger()
 						.info("Error stopping input plugin: " + e.getMessage().replace("\n", "").replace("\r", ""));
 			}
-			Clock.quickPause();
-			// stop stream
-			RioDB.rio.getSystemSettings().getLogger().debug("Interrupting stream thread for stream " + streamId);
-			interrupt = true;
-			streamThread.interrupt();
-			// counter = 0;
-			Clock.quickPause();
-			// stop queries
-			RioDB.rio.getSystemSettings().getLogger().debug("Stopping Query Mgr for stream " + streamId);
-			streamQueryMgr.stop();
-			Clock.quickPause();
 		}
 	}
 
-	// Getter for stream event field definition
-	public RioDBStreamEventDef getDef() {
-		return streamEventDef;
+	// Getter for stream message field definition
+	public RioDBStreamMessageDef getDef() {
+		return streamMessageDef;
 	}
 
-	// Send an event with window results to the queries
-	public void sendEventResultsRefToQueries(EventWithSummaries ews) {
-		streamQueryMgr.putEventRef(ews);
+	// Send a message with window results to the queries
+	public void sendMessageResultsRefToQueries(MessageWithSummaries ews) {
+		streamQueryMgr.putMessageRef(ews);
 	}
 
 	// get size of awaiting queue in data source
@@ -319,7 +319,8 @@ public class Stream implements Runnable {
 	// The Runnable run() method for executing the thead of this stream.
 	@Override
 	public void run() {
-		RioDB.rio.getSystemSettings().getLogger().info("Starting Event Handler for stream "+ streamName + " while 'interrupt' = '" + interrupt );
+		RioDB.rio.getSystemSettings().getLogger()
+				.debug("Starting Message Handler for stream " + streamName + " while 'interrupt' = '" + interrupt);
 		try {
 
 			interrupt = false;
@@ -331,30 +332,30 @@ public class Stream implements Runnable {
 				// e1.printStackTrace();
 				// }
 
-				// get next event from dataSource. non-blocking. Null can be returned.
-				RioDBStreamEvent event = streamInput.getNextEvent();
-				if (event != null) {
+				// get next message from dataSource. non-blocking. Null can be returned.
+				RioDBStreamMessage message = streamInput.getNextInputMessage();
+				if (message != null) {
 
 					/*
-					 * Tell windowManager to run this event on ALL windows. Collect all windows
+					 * Tell windowManager to run this message on ALL windows. Collect all windows
 					 * responses (windowSummary) into array. This array is filled with the clone of
 					 * each window summary, therefore, the windows can continue to change as they
-					 * receive future events. The queries that will be processing the clones will
-					 * not clash with future events updating the windows since the queries will be
+					 * receive future messages. The queries that will be processing the clones will
+					 * not clash with future messages updating the windows since the queries will be
 					 * operating with a frozen clone.
 					 * 
 					 */
-					final WindowSummary results[] = streamWindowMgr.putEventRef(event);
+					final WindowSummary results[] = streamWindowMgr.putMessageRef(message);
 
-					// make new object that wraps the Event & window summaries together.
-					final EventWithSummaries ews = new EventWithSummaries(event, results);
+					// make new object that wraps the Message & window summaries together.
+					final MessageWithSummaries ews = new MessageWithSummaries(message, results);
 
-					// Send event + window summaries to Queries for processing.
-					sendEventResultsRefToQueries(ews);
+					// Send message + window summaries to Queries for processing.
+					sendMessageResultsRefToQueries(ews);
 
 				} else {
 					/*
-					 * save CPU... There's no guarantee that the input plugin's getNextEvent will
+					 * save CPU... There's no guarantee that the input plugin's getNextMessage will
 					 * "wait" for data. Plugins are not required to provide countdownlatching. This
 					 * was chosen to allow very full throttle streams with minimal overhead. So we
 					 * have to pause the loop. For now, we are doing sleep(1). It responds well to
@@ -367,7 +368,6 @@ public class Stream implements Runnable {
 					}
 				}
 			}
-			
 
 		} catch (RioDBPluginException e) {
 			RioDB.rio.getSystemSettings().getLogger().debug("plugin returned error: " + e.getMessage());
@@ -376,11 +376,11 @@ public class Stream implements Runnable {
 
 		// if loop was broken by interrupt, log intentional stopping.
 		if (interrupt) {
-			RioDB.rio.getSystemSettings().getLogger().info("EventHandler for stream [" + streamId + "] stopped.");
+			RioDB.rio.getSystemSettings().getLogger().info("MessageHandler for stream [" + streamId + "] stopped.");
 		} else {
 			// log unintentional stopping.
 			RioDB.rio.getSystemSettings().getLogger()
-					.info("EventHandler for stream [" + streamId + "] stopped unexpectedly.");
+					.info("MessageHandler for stream [" + streamId + "] stopped unexpectedly.");
 		}
 	}
 
