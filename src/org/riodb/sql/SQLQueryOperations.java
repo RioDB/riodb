@@ -24,7 +24,7 @@ import org.riodb.engine.RioDB;
 import org.riodb.queries.DefaultOutput;
 import org.riodb.queries.Query;
 
-import org.riodb.plugin.RioDBOutput;
+import org.riodb.plugin.RioDBPlugin;
 
 public final class SQLQueryOperations {
 
@@ -96,42 +96,40 @@ public final class SQLQueryOperations {
 
 //		System.out.println("limit " + limit + " unit " + limitUnit);
 
-		String timeoutStr = SQLParser.getQueryTimeoutStr(statement);
-//		System.out.println("\n-------------------------------------------\nTIMEOUT: " + timeoutStr);
-		int timeout = -1;
-		char timeoutUnit = 'q'; // quantity
-		boolean timeoutByTime = false;
-		if (timeoutStr != null && timeoutStr.length() > 0) {
-			if (SQLParser.isNumber(timeoutStr)) {
-				timeout = Integer.valueOf(timeoutStr);
-				timeoutByTime = false;
-			} else if (timeoutStr.length() >= 2) {
-				String timeoutNum = timeoutStr.substring(0, timeoutStr.length() - 1);
-				if (SQLParser.isNumber(timeoutNum)) {
-					timeoutByTime = true;
-					timeout = Integer.valueOf(timeoutNum);
-					timeoutUnit = timeoutStr.toLowerCase().charAt(timeoutStr.length() - 1);
-					if (timeoutUnit == 's') {
+		String sleepStr = SQLParser.getQuerySleepStr(statement);
+//		System.out.println("\n-------------------------------------------\nTIMEOUT: " + sleepStr);
+		int sleep = -1;
+		char sleepUnit = 'q'; // quantity
+		boolean sleepByTime = false;
+		if (sleepStr != null && sleepStr.length() > 0) {
+			if (SQLParser.isNumber(sleepStr)) {
+				sleep = Integer.valueOf(sleepStr);
+				sleepByTime = false;
+			} else if (sleepStr.length() >= 2) {
+				String sleepNum = sleepStr.substring(0, sleepStr.length() - 1);
+				if (SQLParser.isNumber(sleepNum)) {
+					sleepByTime = true;
+					sleep = Integer.valueOf(sleepNum);
+					sleepUnit = sleepStr.toLowerCase().charAt(sleepStr.length() - 1);
+					if (sleepUnit == 's') {
 						;
-					} else if (timeoutUnit == 'm') {
-						timeout = timeout * 60;
-					} else if (timeoutUnit == 'h') {
-						timeout = timeout * 60 * 60;
-					} else if (timeoutUnit == 'd') {
-						timeout = timeout * 60 * 60 * 24;
+					} else if (sleepUnit == 'm') {
+						sleep = sleep * 60;
+					} else if (sleepUnit == 'h') {
+						sleep = sleep * 60 * 60;
+					} else if (sleepUnit == 'd') {
+						sleep = sleep * 60 * 60 * 24;
 					} else {
 						throw new ExceptionSQLStatement(
-								"To set timeout by time, the duration (integer) must be followed by unit, like 15s = fifteen seconds. Units allowed are s, m, h, d. ");
+								"To set 'sleep' by time, the duration (integer) must be followed by unit, like 15s = fifteen seconds. Units allowed are s, m, h, d. ");
 					}
 				} else {
-					throw new ExceptionSQLStatement("timeout could not be parsed to a valid number.");
+					throw new ExceptionSQLStatement("'sleep' could not be parsed to a valid number.");
 				}
 			} else {
-				throw new ExceptionSQLStatement("timeout '" + timeoutStr + "' is invalid.");
+				throw new ExceptionSQLStatement("sleep '" + sleepStr + "' is invalid.");
 			}
 		}
-//		System.out.println("timeout " + timeout + " unit " + timeoutUnit);
-		
 		String outputStr = SQLParser.getQueryOutputStr(statement);
 
 //		System.out.println(
@@ -145,37 +143,37 @@ public final class SQLQueryOperations {
 			limit = 1;
 			limitUnit = 'q';
 			limitByTime = false;
-			timeoutByTime = true;
-			if(timeout == -1 || timeout > RioDB.rio.getSystemSettings().getHttpInterface().getTimeout()) {
-				timeout = RioDB.rio.getSystemSettings().getHttpInterface().getTimeout();
+			sleepByTime = true;
+			if(sleep == -1 || sleep > RioDB.rio.getSystemSettings().getHttpInterface().getTimeout()) {
+				sleep = RioDB.rio.getSystemSettings().getHttpInterface().getTimeout();
 			}
 			
 			//Output output = SQLQueryOutputOperations.getOutput(outputStr, columnHeaders);
 			
 			DefaultOutput output = new DefaultOutput(drivingStreamId, sessionId, columnHeaders);
 
-			Query query = new Query(queryCondition, output, queryColumns, limit, limitByTime, timeout, timeoutByTime,
+			Query query = new Query(queryCondition, output, queryColumns, limit, limitByTime, sleep, sleepByTime,
 					statement, queryResources);
 
 			int queryId = query.getQueryId();
 			RioDB.rio.getEngine().getStream(drivingStreamId).addQueryRef(query);
 			
 			try {
-				String msg = RioDB.rio.getEngine().getStream(drivingStreamId).requestQueryResponse(sessionId, timeout);
+				String msg = RioDB.rio.getEngine().getStream(drivingStreamId).requestQueryResponse(sessionId, sleep);
 				if(msg == null || msg.length() == 0) {
-					msg = "\"Query timed out.\"";
+					msg = "Query timed out.";
 				}
 				return msg;
 			} catch (InterruptedException e) {
-				return "\"Query "+ queryId + " process interrupted.";
+				return "Query "+ queryId + " process interrupted.";
 			}
 			
 			
 		}
 		else {
-			RioDBOutput output = SQLQueryOutputOperations.getOutput(outputStr, columnHeaders);
+			RioDBPlugin output = SQLQueryOutputOperations.getOutput(outputStr, columnHeaders);
 
-			Query query = new Query(queryCondition, output, queryColumns, limit, limitByTime, timeout, timeoutByTime,
+			Query query = new Query(queryCondition, output, queryColumns, limit, limitByTime, sleep, sleepByTime,
 					statement, queryResources);
 
 			int queryId = query.getQueryId(); 
@@ -191,7 +189,7 @@ public final class SQLQueryOperations {
 			}
 			
 			
-			return "\"Created query "+ queryId + "\"";
+			return "Created query "+ queryId ;
 			
 		}
 		

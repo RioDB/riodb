@@ -104,7 +104,7 @@ public class HTTPInterface {
 			httpServer.createContext("/", new RootHandler());
 			httpServer.createContext("/rio", new RioHandler());
 			httpServer.setExecutor(null); // creates a default executor
-			RioDB.rio.getSystemSettings().getLogger().info("Starting HTTPServer on " + port);
+			RioDB.rio.getSystemSettings().getLogger().info("Starting HTTP interface on " + port);
 			httpServer.start();
 			success = true;
 		} catch (IOException e) {
@@ -214,7 +214,8 @@ public class HTTPInterface {
 					}
 
 						// Send the statement and username to the SQLExecutor class
-						response = SQLExecutor.execute(stmt, userName, true) + "\n";
+						// true for persistStament,  true for respondWithDetails
+						response = SQLExecutor.execute(stmt, userName, true, true) + "\n";
 						
 				} 
 			}

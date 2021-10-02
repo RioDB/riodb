@@ -21,15 +21,15 @@
 
 /*
  * Windows don't have string values, only numeric. 
- * So for the HAVING condition on a string field, it must pertain to a field from the event. 
- * we just wrap this and pass to the SQLWhereConditionString (for event string conditions)
+ * So for the HAVING condition on a string field, it must pertain to a field from the message. 
+ * we just wrap this and pass to the SQLWhereConditionString (for message string conditions)
  * 
  */
 
 package org.riodb.sql;
 import org.riodb.windows.WindowSummary;
 
-import org.riodb.plugin.RioDBStreamEvent;
+import org.riodb.plugin.RioDBStreamMessage;
 
 public class SQLQueryConditionString implements SQLQueryCondition{
 
@@ -41,9 +41,9 @@ public class SQLQueryConditionString implements SQLQueryCondition{
 	}
 
 	@Override
-	public boolean match(RioDBStreamEvent event, WindowSummary[] summaries) {
+	public boolean match(RioDBStreamMessage message, WindowSummary[] summaries) {
 		
-		return strCondition.match(event);
+		return strCondition.match(message);
 	}
 
 	@Override

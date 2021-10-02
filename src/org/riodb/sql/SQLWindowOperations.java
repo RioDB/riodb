@@ -32,7 +32,7 @@ import org.riodb.windows.WindowWrapper;
 import org.riodb.windows.WindowWrapperPartitioned;
 
 public final class SQLWindowOperations {
-	public static final boolean createWindow(String stmt, boolean persistStmt, String actingUser)
+	public static final String createWindow(String stmt, boolean persistStmt, String actingUser)
 			throws ExceptionSQLStatement {
 
 		boolean success = true;
@@ -170,7 +170,11 @@ public final class SQLWindowOperations {
 			}
 		}
 
-		return success;
+		if(success) {
+			return "Created window "+ windowName;
+		}
+		
+		return null;
 	}
 
 	public static final void dropWindow(String stmt) throws ExceptionSQLStatement {
@@ -394,7 +398,7 @@ public final class SQLWindowOperations {
 		ArrayList<SQLStringLIKE> likeList = new ArrayList<SQLStringLIKE>();
 		ArrayList<SQLStringIN> inList = new ArrayList<SQLStringIN>();
 
-		/// REPLACE fields with StreamEvent variables...
+		/// REPLACE fields with StreamMessage variables...
 		String words[] = expression.split(" ");
 		for (int i = 0; i < words.length; i++) {
 			int fieldId = RioDB.rio.getEngine().getStream(streamId).getDef().getFieldId(words[i]);
@@ -405,9 +409,9 @@ public final class SQLWindowOperations {
 				if (fieldId >= 0) {
 					if (RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId)) {
 						// the field is numeric
-						int eventNumberFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef()
+						int messageNumberFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef()
 								.getNumericFieldIndex(fieldId);
-						words[i] = "event.getDouble(" + String.valueOf(eventNumberFieldIndex) + ")";
+						words[i] = "message.getDouble(" + String.valueOf(messageNumberFieldIndex) + ")";
 						if (words[i + 1].equals("is_null")) {
 							words[i + 1] = "!= Double.NaN";
 						} else if (words[i + 1].equals("is_not_null")) {
@@ -416,9 +420,9 @@ public final class SQLWindowOperations {
 
 					} else {
 						// the field is string
-						int eventStringIndex = RioDB.rio.getEngine().getStream(streamId).getDef()
+						int messageStringIndex = RioDB.rio.getEngine().getStream(streamId).getDef()
 								.getStringFieldIndex(fieldId);
-						words[i] = "event.getString(" + String.valueOf(eventStringIndex) + ")";
+						words[i] = "message.getString(" + String.valueOf(messageStringIndex) + ")";
 
 						if (i < words.length - 3) {
 							if (words[i + 1].equals("=")) {

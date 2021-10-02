@@ -22,21 +22,21 @@ package org.riodb.sql;
 
 import org.riodb.windows.WindowSummary;
 
-import org.riodb.plugin.RioDBStreamEvent;
+import org.riodb.plugin.RioDBStreamMessage;
 
-public class SQLQueryColumnStringFromEvent implements SQLQueryColumn {
+public class SQLQueryColumnDoubleFromMessage implements SQLQueryColumn {
 
-	private int stringColumnIndex;
+	private int doubleColumnIndex;
 	private String heading;
 
-	SQLQueryColumnStringFromEvent(int stringColumnIndex, String heading) throws ExceptionSQLStatement {
-		this.stringColumnIndex = stringColumnIndex;
+	SQLQueryColumnDoubleFromMessage(int doubleColumnIndex, String heading) throws ExceptionSQLStatement {
+		this.doubleColumnIndex = doubleColumnIndex;
 		this.heading = heading;
 	}
 
 	@Override
-	public String getValue(RioDBStreamEvent event, WindowSummary[] windowSummaries) throws ExceptionSQLExecution {
-		return event.getString(stringColumnIndex);
+	public String getValue(RioDBStreamMessage message, WindowSummary[] windowSummaries) throws ExceptionSQLExecution {
+		return String.valueOf(message.getDouble(doubleColumnIndex));
 	}
 
 	@Override

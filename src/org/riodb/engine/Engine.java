@@ -29,13 +29,15 @@
 
 package org.riodb.engine;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import org.riodb.sql.ExceptionSQLStatement;
-
 import org.riodb.plugin.RioDBPluginException;
 
 public class Engine {
+	
+	private static final int DEFAULT_OUTPUT_WORKERS = 2;
 
 	/*
 	 * Stream array: For performance reasons, we're not using ArrayList. Just a
@@ -76,17 +78,30 @@ public class Engine {
 		return globalCounter.incrementAndGet();
 	}
 
+	// Worker threads for sending OUTPUT operations
+	private static ExecutorService outputWorkers = Executors.newFixedThreadPool(DEFAULT_OUTPUT_WORKERS);
+
+	// outputWorkers getter
+	public ExecutorService getOutputWorkers() {
+		return outputWorkers;
+	}
+
+	// outputWorkers setter
+	public void setOutputWorkers(int output_worker_threads) {
+		outputWorkers = Executors.newFixedThreadPool(output_worker_threads);
+	}
+
 	// Method for adding a new Stream
 	// TODO: Security improvement to check requester permission here since the
 	// method is public
 	public boolean addStream(Stream newStream) throws ExceptionSQLStatement, RioDBPluginException {
-		
+
 		RioDB.rio.getSystemSettings().getLogger().debug("Engine.addStream. Adding.");
 
 		// create a new array that has length + 1 to accommodate new Stream
 		Stream newStreamArray[] = new Stream[streams.length + 1];
 		for (int i = 0; i < streams.length; i++) {
-			if(streams[i] != null) {
+			if (streams[i] != null) {
 
 				if (newStream.getName().equals(streams[i].getName())) {
 					// duplicate name
@@ -137,7 +152,7 @@ public class Engine {
 
 	// get Stream by ID
 	public Stream getStream(int index) {
-		if(index < streams.length) {
+		if (index < streams.length) {
 			return streams[index];
 		}
 		return null;
@@ -185,7 +200,7 @@ public class Engine {
 		}
 		return counter;
 	}
-	
+
 	// count of streams
 	public int getStreamCounter() {
 		return streams.length;
@@ -213,16 +228,15 @@ public class Engine {
 					response = response + ",";
 				}
 				String s = streams[i].listAllQueries();
-				if(s != null && s.length()>1) {
+				if (s != null && s.length() > 1) {
 					response = response + s;
 					previousStreamHadQueryes = true;
-				}
-				else {
+				} else {
 					previousStreamHadQueryes = false;
 				}
 			}
 		}
-		if(response.endsWith(",")) {
+		if (response.endsWith(",")) {
 			response = response.substring(0, response.length() - 1);
 		}
 		response = response + "\n]";
@@ -237,7 +251,7 @@ public class Engine {
 				response = response + streams[i].getWindowMgr().listAllWindows();
 			}
 		}
-		response = response.substring(0,response.length()-1) + "]";
+		response = response.substring(0, response.length() - 1) + "]";
 		return response;
 	}
 
@@ -274,10 +288,10 @@ public class Engine {
 		if (streamId >= 0 && streamId < streams.length && streams[streamId] != null) {
 			RioDB.rio.getSystemSettings().getLogger().debug("Stopping stream.");
 			streams[streamId].stop();
-			Clock.quickPause();
+			Clock.sleep10();
 			RioDB.rio.getSystemSettings().getLogger().debug("erasing stream.");
 			streams[streamId] = null;
-			Clock.quickPause();
+			Clock.sleep10();
 			return true;
 		}
 		return false;
@@ -285,13 +299,17 @@ public class Engine {
 
 	// start all stream processes
 	public void start() throws RioDBPluginException {
-		online = true;
-		clock.start();
-		Clock.quickPause();
-		for (int i = 0; i < streams.length; i++) {
-			if (streams[i] != null) {
-				streams[i].start();
+		if (!online) {
+			RioDB.rio.getSystemSettings().getLogger().info("#############   Starting Engine...  #################");
+			online = true;
+			clock.start();
+			for (int i = 0; i < streams.length; i++) {
+				if (streams[i] != null) {
+					streams[i].start();
+				}
 			}
+			Clock.sleep(50);
+			RioDB.rio.getSystemSettings().getLogger().info("RioDB is ready");
 		}
 	}
 
@@ -332,8 +350,10 @@ public class Engine {
 
 	// stop all stream processes
 	public void stop() {
-
 		if (online) {
+
+			RioDB.rio.getSystemSettings().getLogger().info("#############   Stopping Engine...  #################");
+
 			online = false;
 
 			for (int i = 0; i < streams.length; i++) {
@@ -341,6 +361,9 @@ public class Engine {
 					streams[i].stop();
 				}
 			}
+			
+			Clock.sleep(50);
+
 			RioDB.rio.getSystemSettings().getLogger().debug("RioDB is offline.");
 		}
 	}
@@ -367,7 +390,8 @@ public class Engine {
 
 		int streamId = getStreamIdOfWindow(windowName);
 
-		if (streamId >= 0 && streamId < streams.length && streams[streamId] != null && streams[streamId].dropWindow(windowName)) {
+		if (streamId >= 0 && streamId < streams.length && streams[streamId] != null
+				&& streams[streamId].dropWindow(windowName)) {
 			return true;
 		}
 		return false;

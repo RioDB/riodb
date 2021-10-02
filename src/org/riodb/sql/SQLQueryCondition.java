@@ -22,10 +22,10 @@ package org.riodb.sql;
 
 import org.riodb.windows.WindowSummary;
 
-import org.riodb.plugin.RioDBStreamEvent;
+import org.riodb.plugin.RioDBStreamMessage;
 
 public interface SQLQueryCondition {
 
-	public boolean match(RioDBStreamEvent event, WindowSummary[] summaries) throws ExceptionSQLExecution ;
+	public boolean match(RioDBStreamMessage message, WindowSummary[] summaries) throws ExceptionSQLExecution ;
 	public String  getExpression();
 }

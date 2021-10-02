@@ -29,7 +29,7 @@ import org.riodb.sql.ExceptionSQLExecution;
 import org.riodb.sql.SQLFunctionMap;
 import org.riodb.sql.SQLWindowCondition;
 
-import org.riodb.plugin.RioDBStreamEvent;
+import org.riodb.plugin.RioDBStreamMessage;
 
 public class WindowWrapperPartitioned extends WindowWrapper {
 
@@ -85,40 +85,40 @@ public class WindowWrapperPartitioned extends WindowWrapper {
 		return null;
 	}
 
-	public WindowSummaryInterface putEventRef(RioDBStreamEvent event, int currentSecond) {
+	public WindowSummaryInterface putMessageRef(RioDBStreamMessage message, int currentSecond) {
 		try {
 
 			// if there's a required condition and it doesn't match
-			Window w = windowMap.get(event.getString(partitionByStringFieldId));
+			Window w = windowMap.get(message.getString(partitionByStringFieldId));
 
-			if (hasCondition && !windowCondition.match(event)) {
+			if (hasCondition && !windowCondition.match(message)) {
 				// then we just read the summary. no updates made.
 				if (w == null) {
 					return null;
 				} else if (rangeByTime && rangeByTimeIsTimestamp) {
 					return w.trimAndGetWindowSummaryCopy(
-							(int) (event.getDouble(rangeByTimeFieldNumericIndexId) / 1000d));
+							(int) (message.getDouble(rangeByTimeFieldNumericIndexId) / 1000d));
 					// else (for window of quantity or range by clock, we pass current second
 				} else {
 					return w.trimAndGetWindowSummaryCopy(currentSecond);
 				}
 			} else {
 				// there's no condition, or the condition matches. We update and read summary:
-				double d = event.getDouble(numericFieldIndex);
+				double d = message.getDouble(numericFieldIndex);
 
 				// for range by time using timestamp, we pass in the timestamp
 				if (rangeByTime && rangeByTimeIsTimestamp) {
 					// key exists:
 					if (w != null) {
 						return w.trimAddAndGetWindowSummaryCopy(d,
-								(int) (event.getDouble(rangeByTimeFieldNumericIndexId) / 1000d));
+								(int) (message.getDouble(rangeByTimeFieldNumericIndexId) / 1000d));
 					} else {
 						// key not found. Make new window and put in hashmap.
 						w = defaultWindow.makeFreshClone();
 						WindowSummaryInterface ws = w.trimAddAndGetWindowSummaryCopy(d,
-								(int) (event.getDouble(rangeByTimeFieldNumericIndexId) / 1000d));
+								(int) (message.getDouble(rangeByTimeFieldNumericIndexId) / 1000d));
 
-						windowMap.put(event.getString(partitionByStringFieldId), w);
+						windowMap.put(message.getString(partitionByStringFieldId), w);
 						return ws;
 					}
 				}
@@ -130,7 +130,7 @@ public class WindowWrapperPartitioned extends WindowWrapper {
 					} else {
 						w = defaultWindow.makeFreshClone();
 						WindowSummaryInterface ws = w.trimAddAndGetWindowSummaryCopy(d, currentSecond);
-						windowMap.put(event.getString(partitionByStringFieldId), w);
+						windowMap.put(message.getString(partitionByStringFieldId), w);
 						return ws;
 					}
 

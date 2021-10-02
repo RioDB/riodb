@@ -23,7 +23,7 @@ package org.riodb.sql;
 import org.riodb.engine.RioDB;
 import org.riodb.windows.WindowSummary;
 
-import org.riodb.plugin.RioDBStreamEvent;
+import org.riodb.plugin.RioDBStreamMessage;
 
 public class SQLQueryColumnFromForeignWindow implements SQLQueryColumn {
 	
@@ -39,7 +39,7 @@ public class SQLQueryColumnFromForeignWindow implements SQLQueryColumn {
 		this.heading = heading;
 	}
 	@Override
-	public String getValue(RioDBStreamEvent event, WindowSummary[] windowSummaries) throws ExceptionSQLExecution {
+	public String getValue(RioDBStreamMessage message, WindowSummary[] windowSummaries) throws ExceptionSQLExecution {
 
 		
 		// moved LAST and SUM to top because of popularity

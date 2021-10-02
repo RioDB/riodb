@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import org.jctools.queues.SpscChunkedArrayQueue;
 import org.riodb.engine.RioDB;
+import org.riodb.plugin.RioDBPluginException;
 import org.riodb.sql.ExceptionSQLExecution;
 import org.riodb.sql.SQLParser;
 
@@ -54,9 +55,9 @@ public class QueryManager implements Runnable {
 	private boolean queryWaitingToBeInserted = false;
 	
 	
-	// queue of eventWithSummaries after processed by windows. 
-	private final SpscChunkedArrayQueue<EventWithSummaries> queryInbox = 
-			new SpscChunkedArrayQueue<EventWithSummaries>(QUEUE_INIT_CAPACITY, MAX_CAPACITY);;
+	// queue of messageWithSummaries after processed by windows. 
+	private final SpscChunkedArrayQueue<MessageWithSummaries> queryInbox = 
+			new SpscChunkedArrayQueue<MessageWithSummaries>(QUEUE_INIT_CAPACITY, MAX_CAPACITY);;
 
 	// Thread for running queries
 	private Thread queryMgrThread;
@@ -170,18 +171,26 @@ public class QueryManager implements Runnable {
 		return false;
 	}
 	
-	// This is for Stream to send eventWithSummaries to the Query mgr. 
-	public void putEventRef(EventWithSummaries s) {
+	// This is for Stream to send messageWithSummaries to the Query mgr. 
+	public void putMessageRef(MessageWithSummaries s) {
 		queryInbox.offer(s);
 	}
 	
-	// Get number of awaiting events to be processed by queries
+	// Get number of awaiting messages to be processed by queries
 	public int inboxSize() {
 		return queryInbox.size();
 	}
 
 	// start Runnable thread - queryManager run its own thread.
-	public void start() {
+	public void start() throws RioDBPluginException {
+		
+		for (int i = 0; i < queries.size(); i++) {
+			if(queries.get(i) != null) {
+				queries.get(i).start();
+			}
+				
+		}
+		
 		interrupt = false;
 		queryMgrThread = new Thread(this);
 		queryMgrThread.setName("QUERY_MANAGER_THREAD");
@@ -189,9 +198,16 @@ public class QueryManager implements Runnable {
 	}
 
 	// stop queryManager thread
-	public void stop() {
+	public void stop() throws RioDBPluginException {
 		interrupt = true;
 		queryMgrThread.interrupt();
+		
+		for (int i = 0; i < queries.size(); i++) {
+			if(queries.get(i) != null) {
+				queries.get(i).stop();
+			}
+				
+		}
 	}
 	
 	// get status of QueryManager thread
@@ -205,12 +221,12 @@ public class QueryManager implements Runnable {
 	public void run() {
 		RioDB.rio.getSystemSettings().getLogger().info("Starting query manager for Stream[" + streamId + "] ...");
 		
-		// for future enhancement, queries should be able to reference data from previous event. 
-		//RioDBStreamEvent previousEvent = null;
+		// for future enhancement, queries should be able to reference data from previous message. 
+		//RioDBStreamMessage previousMessage = null;
 		
 		// loop until interrupted:
 		while (!interrupt) {
-			// poll next eventWithSummaries from query inbox for processing.
+			// poll next messageWithSummaries from query inbox for processing.
 			// this poll is non-blocking. It will return null if there's no messages. 
 			
 			
@@ -219,7 +235,7 @@ public class QueryManager implements Runnable {
 				queryWaitingToBeInserted = false;
 			}
 			
-			EventWithSummaries esum = queryInbox.poll();
+			MessageWithSummaries esum = queryInbox.poll();
 			if (esum != null) {
 				
 				// Iterator to loop through queries
@@ -254,12 +270,12 @@ public class QueryManager implements Runnable {
 					}
 				}
 
-				// for future enhancement, queries should be able to reference data from previous event. 
-				// previousEvent = esum.getEventRef();
+				// for future enhancement, queries should be able to reference data from previous message. 
+				// previousMessage = esum.getMessageRef();
 
 			} else {
 				// When no messages are received, save CPU cycles.
-				// This implementation is more efficient than any blocking queues,
+				// This yields higher throughput than any blocking queue implementation,
 				// as we're dealing with single producer / single consumer.
 				try {
 					Thread.sleep(1);

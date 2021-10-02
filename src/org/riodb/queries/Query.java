@@ -20,8 +20,8 @@
 
 /*
 
-	A query object that will process EventWithSummaries and,
-	if there's a match, invoke the RioDBOutput.
+	A query object that will process MessageWithSummaries and,
+	if there's a match, invoke the RioDBPlugin.
   
  */
 
@@ -32,7 +32,8 @@ import org.riodb.sql.ExceptionSQLExecution;
 import org.riodb.sql.SQLQueryColumn;
 import org.riodb.sql.SQLQueryCondition;
 import org.riodb.sql.SQLQueryResources;
-import org.riodb.plugin.RioDBOutput;
+import org.riodb.plugin.RioDBPlugin;
+import org.riodb.plugin.RioDBPluginException;
 
 public class Query {
 
@@ -40,8 +41,8 @@ public class Query {
 	private SQLQueryCondition sqlQueryCondition;
 	// The columns to be processed when a condition matches.
 	private SQLQueryColumn columns[];
-	// The output that will handle selected events (that match condition)
-	private RioDBOutput output;
+	// The output that will handle selected messages (that match condition)
+	private RioDBPlugin output;
 
 	// Does this query expired by time?
 	private boolean limitByTime;
@@ -71,7 +72,7 @@ public class Query {
 	private boolean destroy = false;
 
 	// constructor
-	public Query(SQLQueryCondition condition, RioDBOutput output, SQLQueryColumn columns[], int limit,
+	public Query(SQLQueryCondition condition, RioDBPlugin output, SQLQueryColumn columns[], int limit,
 			boolean limitByTime, int timeout, boolean timeoutByTime, String queryStr,
 			SQLQueryResources queryResources) {
 		this.sqlQueryCondition = condition;
@@ -97,7 +98,7 @@ public class Query {
 
 	// run a query, and get status to see if it can be dropped
 	// if 'true' is returned, the query will be removed.
-	public boolean evalAndGetStatus(EventWithSummaries esum) throws ExceptionSQLExecution {
+	public boolean evalAndGetStatus(MessageWithSummaries esum) throws ExceptionSQLExecution {
 
 		// PART 1, take care of expiring queries and queries in timeout
 
@@ -118,7 +119,7 @@ public class Query {
 					return false; // cut it short. But don't destroy query.
 				}
 			}
-			// else, if timeout is event count, check if count is up.
+			// else, if timeout is message count, check if count is up.
 			else {
 				currentTimeoutTil--;
 				if (currentTimeoutTil == 0) {
@@ -137,7 +138,7 @@ public class Query {
 			// if the condition is not null (some queries don't have a condition), check for
 			// condition match:
 			if (sqlQueryCondition != null
-					&& !sqlQueryCondition.match(esum.getEventRef(), esum.getWindowSummariesRef())) {
+					&& !sqlQueryCondition.match(esum.getMessageRef(), esum.getWindowSummariesRef())) {
 				// the query is NOT a match the conditions
 				return false;
 			}
@@ -146,10 +147,17 @@ public class Query {
 			// Make array of SELECTed column values:
 			String columnValues[] = new String[columns.length];
 			for (int i = 0; i < columns.length; i++) {
-				columnValues[i] = columns[i].getValue(esum.getEventRef(), esum.getWindowSummariesRef());
+				columnValues[i] = columns[i].getValue(esum.getMessageRef(), esum.getWindowSummariesRef());
 			}
-			// post selected values to the query OUTPUT.
-			output.post(columnValues);
+
+			// execute output action using reusable threads provided by an ExecutorService.
+			RioDB.rio.getEngine().getOutputWorkers().execute(new Runnable() {
+			    @Override
+			    public void run() {
+			    	output.sendOutput(columnValues);
+			    }
+			});
+			
 
 			// set timeout if necessary for this query
 			if (!limitByTime) {
@@ -224,5 +232,15 @@ public class Query {
 	// mark query for removal
 	public boolean isDestroying() {
 		return destroy;
+	}
+	
+	// start plugin (in case it has a startup procedure)
+	public void start() throws RioDBPluginException {
+		output.start();
+	}
+	
+	// stop plugin (in case it has stop steps)
+	public void stop() throws RioDBPluginException {
+		output.stop();
 	}
 }

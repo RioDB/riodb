@@ -23,7 +23,7 @@ package org.riodb.sql;
 import org.mdkt.compiler.InMemoryJavaCompiler;
 import org.riodb.engine.RioDB;
 
-import org.riodb.plugin.RioDBStreamEvent;
+import org.riodb.plugin.RioDBStreamMessage;
 
 public class SQLWindowConditionExpression implements SQLWindowCondition {
 
@@ -37,7 +37,7 @@ public class SQLWindowConditionExpression implements SQLWindowCondition {
 		String className = "CompiledWindowCondition"+ RioDB.rio.getEngine().counterNext();
 		
 		String source = "package org.riodb.sql;\r\n" + 
-				"import org.riodb.plugin.RioDBStreamEvent;\r\n" + 
+				"import org.riodb.plugin.RioDBStreamMessage;\r\n" + 
 				"import org.riodb.sql.SQLStringIN;\r\n" + 
 				"import org.riodb.sql.SQLStringLIKE;\r\n";
 		
@@ -62,7 +62,7 @@ public class SQLWindowConditionExpression implements SQLWindowCondition {
 				
 				source = source+
 				"	@Override\r\n" + 
-				"	public boolean match(RioDBStreamEvent event) {\r\n" + 
+				"	public boolean match(RioDBStreamMessage message) {\r\n" + 
 				"		return "+ expression +";\r\n" + 
 				"	}\r\n" + 
 				"}\r\n" + 
@@ -92,8 +92,8 @@ public class SQLWindowConditionExpression implements SQLWindowCondition {
 	}
 
 	@Override
-	public boolean match(RioDBStreamEvent event) {
-		return compiledCondition.match(event);
+	public boolean match(RioDBStreamMessage message) {
+		return compiledCondition.match(message);
 	}
 
 	@Override

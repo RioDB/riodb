@@ -26,16 +26,14 @@ import org.riodb.engine.RioDB;
 import org.riodb.engine.Stream;
 
 import org.riodb.plugin.RioDBPluginException;
-import org.riodb.plugin.RioDBStreamEventDef;
-import org.riodb.plugin.RioDBStreamEventField;
+import org.riodb.plugin.RioDBStreamMessageDef;
+import org.riodb.plugin.RioDBStreamMessageField;
 
 public final class SQLStreamOperations {
 
-	public static final boolean createStream(String stmt, boolean persistStmt, String actingUser)
+	public static final String createStream(String stmt, boolean persistStmt, String actingUser)
 			throws ExceptionSQLStatement, RioDBPluginException {
 		
-		RioDB.rio.getSystemSettings().getLogger().debug("SQLStreamOperations.createStream.");
-
 		boolean success = true;
 
 		//String newStmt = SQLParser.formatStmt(stmt);
@@ -56,7 +54,7 @@ public final class SQLStreamOperations {
 
 		if (map.size() > 0) {
 
-			RioDBStreamEventDef def = new RioDBStreamEventDef();
+			RioDBStreamMessageDef def = new RioDBStreamMessageDef();
 
 			int timestampNumericFieldId = -1;
 
@@ -75,7 +73,7 @@ public final class SQLStreamOperations {
 					}
 					numericFieldCounter++;
 				}
-				RioDBStreamEventField f = new RioDBStreamEventField(key, isNumber);
+				RioDBStreamMessageField f = new RioDBStreamMessageField(key, isNumber);
 				def.addField(f);
 			}
 
@@ -108,7 +106,11 @@ public final class SQLStreamOperations {
 			throw new ExceptionSQLStatement("SQL ERROR: CREATE STREAM . needs field declaration.");
 		}
 
-		return success;
+		if(success) {
+			return "Created stream " + streamName;
+		}
+		
+		return null;
 
 	}
 
@@ -288,8 +290,8 @@ public final class SQLStreamOperations {
 				where = stmt.substring(whereIndex, stmt.indexOf(" partition by ", whereIndex));
 			} else if (stmt.indexOf(" limit ") > whereIndex) {
 				where = stmt.substring(whereIndex, stmt.indexOf(" limit ", whereIndex));
-			} else if (stmt.indexOf(" timeout ") > whereIndex) {
-				where = stmt.substring(whereIndex, stmt.indexOf(" timeout ", whereIndex));
+			} else if (stmt.indexOf(" sleep ") > whereIndex) {
+				where = stmt.substring(whereIndex, stmt.indexOf(" sleep ", whereIndex));
 			} else {
 				where = stmt.substring(whereIndex, stmt.indexOf(";", whereIndex));
 			}

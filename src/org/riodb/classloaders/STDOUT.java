@@ -31,7 +31,7 @@ package org.riodb.classloaders;
 
 import org.riodb.plugin.*;
 
-final public class STDOUT implements RioDBOutput {
+final public class STDOUT implements RioDBPlugin {
 
 	// the delimiter between fields:
 	String delimiter = "\t";
@@ -42,7 +42,7 @@ final public class STDOUT implements RioDBOutput {
 	}
 
 	@Override
-	public void init(String outputParams, String[] columnHeaders) throws RioDBPluginException {
+	public void initOutput(String outputParams, String[] columnHeaders) throws RioDBPluginException {
 		String params[] = outputParams.split(" ");
 		if(params.length == 2 && params[0].equals("delimiter")) {
 			delimiter = params[1].trim().replace("'", "");
@@ -50,7 +50,7 @@ final public class STDOUT implements RioDBOutput {
 	}
 
 	@Override
-	final public void post(String[] columns) {
+	final public void sendOutput(String[] columns) {
 
 		// basically, just print each of the columns selected onto console. 
 		String output = "";
@@ -63,6 +63,29 @@ final public class STDOUT implements RioDBOutput {
 	@Override
 	public RioDBPluginStatus status() {
 		return new RioDBPluginStatus(1);
+	}
+
+	@Override
+	public RioDBStreamMessage getNextInputMessage() throws RioDBPluginException {
+		return null;
+	}
+
+	@Override
+	public int getQueueSize() {
+		return 0;
+	}
+
+	@Override
+	public void initInput(String inputParams, RioDBStreamMessageDef def) throws RioDBPluginException {
+		throw new RioDBPluginException("STDOUT cannot be used as INPUT.");
+	}
+
+	@Override
+	public void start() throws RioDBPluginException {
+	}
+
+	@Override
+	public void stop() throws RioDBPluginException {
 	}
 
 }

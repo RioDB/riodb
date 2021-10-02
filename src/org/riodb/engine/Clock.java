@@ -30,12 +30,12 @@ public class Clock implements Runnable {
 	 * All processes that use the clock for time
 	 * rounded to the nearest second can point to this clock.
 	 * 
-	 * Ideally, events received by RioDB data source already contain a timestamp field
+	 * Ideally, messages received by RioDB data source already contain a timestamp field
 	 * that is organized by the dataSource class. If there's no timestamp, the app Clock
 	 * can be used to get the current second. The precision of about 1ms is totally fine
 	 * in this use case because network packets received by the data source class
 	 * usually experience variable network lag anyway.  So it's always best to obtain
-	 * event data that already comes with timestamp.  
+	 * message data that already comes with timestamp.  
 	 */
 
 	private static volatile int currentSecond;
@@ -85,8 +85,8 @@ public class Clock implements Runnable {
 		}
 	}
 
-	// just a handy quickPause function to be used between start-up sequence steps.
-	public static final void quickPause() {
+	// just a handy sleep function to reduce try/catch code everywhere.
+	public static final void sleep10() {
 		try {
 			Thread.sleep(10);
 		} catch (InterruptedException e) {
@@ -94,4 +94,12 @@ public class Clock implements Runnable {
 		}
 	}
 	
+	// just a handy sleep function to reduce try/catch code everywhere.
+	public static final void sleep(int ms) {
+		try {
+			Thread.sleep(ms);
+		} catch (InterruptedException e) {
+			;
+		}
+	}
 }

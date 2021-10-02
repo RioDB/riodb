@@ -22,11 +22,11 @@ package org.riodb.sql;
 
 import org.riodb.engine.RioDB;
 
-import org.riodb.plugin.RioDBStreamEvent;
+import org.riodb.plugin.RioDBStreamMessage;
 
 public class SQLWindowConditionNumber implements SQLWindowCondition{
 
-	private int eventDoubleIndex;
+	private int messageDoubleIndex;
 	private int operator;
 	// 0 >
 	// 1 >=
@@ -77,38 +77,38 @@ public class SQLWindowConditionNumber implements SQLWindowCondition{
 		}
 		
 		this.threshhold = threshhold;
-		this.eventDoubleIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getNumericFieldIndex(columnId); 
+		this.messageDoubleIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getNumericFieldIndex(columnId); 
 		this.expression = expression;
 
 	}
 	
 	@Override
-	public boolean match(RioDBStreamEvent event) throws ExceptionSQLExecution {
+	public boolean match(RioDBStreamMessage message) throws ExceptionSQLExecution {
 		if(operator == 0) {
-			return event.getDouble(eventDoubleIndex) > threshhold;
+			return message.getDouble(messageDoubleIndex) > threshhold;
 		}
 		else if(operator == 1) {
-			return event.getDouble(eventDoubleIndex) >= threshhold;
+			return message.getDouble(messageDoubleIndex) >= threshhold;
 		}
 		else if(operator == 2) {
-			return event.getDouble(eventDoubleIndex) < threshhold;
+			return message.getDouble(messageDoubleIndex) < threshhold;
 		}
 		else if(operator == 3) {
-			return event.getDouble(eventDoubleIndex) <= threshhold;
+			return message.getDouble(messageDoubleIndex) <= threshhold;
 		}
 		else if(operator == 4) {
-			return event.getDouble(eventDoubleIndex) == threshhold;
+			return message.getDouble(messageDoubleIndex) == threshhold;
 		}
 		else if(operator == 5) {
-			return event.getDouble(eventDoubleIndex) != threshhold;
+			return message.getDouble(messageDoubleIndex) != threshhold;
 		}
 		else if(operator == 6) {
 			// NaN comparisons are inverted.. != means ==, and == means !=. 
-			return event.getDouble(eventDoubleIndex) != Double.NaN;
+			return message.getDouble(messageDoubleIndex) != Double.NaN;
 		}
 		else if(operator == 7) {
 			// NaN comparisons are inverted.. != means ==, and == means !=. 
-			return event.getDouble(eventDoubleIndex) == Float.NaN;
+			return message.getDouble(messageDoubleIndex) == Float.NaN;
 		}
 		return false;
 	}

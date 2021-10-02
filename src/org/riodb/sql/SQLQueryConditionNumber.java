@@ -22,7 +22,7 @@ package org.riodb.sql;
 
 import org.riodb.windows.WindowSummary;
 
-import org.riodb.plugin.RioDBStreamEvent;
+import org.riodb.plugin.RioDBStreamMessage;
 
 public class SQLQueryConditionNumber implements SQLQueryCondition {
 
@@ -77,7 +77,7 @@ public class SQLQueryConditionNumber implements SQLQueryCondition {
 	}
 
 	@Override
-	public boolean match(RioDBStreamEvent event, WindowSummary[] summaries) throws ExceptionSQLExecution {
+	public boolean match(RioDBStreamMessage message, WindowSummary[] summaries) throws ExceptionSQLExecution {
 		if (summaries[windowId] != null) {
 			if (functionId == 0)
 				return matchFunction(summaries[windowId].getAvg());

@@ -38,11 +38,11 @@ import java.net.URLClassLoader;
 import org.riodb.engine.RioDB;
 import org.riodb.sql.ExceptionSQLStatement;
 
-import org.riodb.plugin.RioDBOutput;
+import org.riodb.plugin.RioDBPlugin;
 
 public class OutputClassLoader {
 
-	public static RioDBOutput getOutputPlugin(String pluginName) throws ExceptionSQLStatement {
+	public static RioDBPlugin getOutputPlugin(String pluginName) throws ExceptionSQLStatement {
 
 		// check name of the plugin required.
 		if(pluginName == null || pluginName.length() == 0)
@@ -78,11 +78,11 @@ public class OutputClassLoader {
 
 			// Load the target class
 			@SuppressWarnings("unchecked")
-			Class<RioDBOutput> plugin = (Class<RioDBOutput>) urlClassLoader
+			Class<RioDBPlugin> plugin = (Class<RioDBPlugin>) urlClassLoader
 					.loadClass("org.riodb.plugin." + pluginName.toUpperCase());
 
 			// method 1
-			RioDBOutput outputPlugin = (RioDBOutput) plugin.getDeclaredConstructor().newInstance();
+			RioDBPlugin outputPlugin = (RioDBPlugin) plugin.getDeclaredConstructor().newInstance();
 
 			// return the new output plugin class
 			return outputPlugin;

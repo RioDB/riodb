@@ -457,7 +457,7 @@ public class WindowOfTimeComplex implements Window {
 
 	// TODO need to synchronize so that QUERY calls don't clash with CLOCK calls.
 	// If sync performance is bad, then maybe have CLOCK pass request as a special
-	// event through event process.
+	// message through message process.
 	@Override
 	public int trimExpiredWindowElements(int currentSecond) {
 
@@ -563,7 +563,7 @@ public class WindowOfTimeComplex implements Window {
 
 						// if variance is required
 						if (requiresVariance) {
-							// count check to prevent division by zero.
+							// count check to prmessage division by zero.
 							if (windowSummary.getCount() > 0) {
 								windowSummary.varRunningSumRemove(
 										computeVarianceSubtrahand(evictingElement.doubleValue(), windowSummary.getAvg(),
