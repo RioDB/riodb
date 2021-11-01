@@ -116,9 +116,9 @@ public class InputClassLoader {
 			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to IllegalArgumentException");
 			throw new ExceptionSQLStatement(e.getMessage());
 		} catch (InvocationTargetException e) {
-			System.out.println(e.getMessage());
-			System.out.println("#############");
-			e.printStackTrace();
+			//System.out.println(e.getMessage());
+			//System.out.println("#############");
+			//e.printStackTrace();
 			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to InvocationTargetException");
 			throw new ExceptionSQLStatement(e.getMessage());
 		}  finally{

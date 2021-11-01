@@ -65,7 +65,6 @@ public class PersistedStatements {
 
 	// load stream statement from persisted file during boot
 	public void loadStreamStmt(String name, String statement) {
-		RioDB.rio.getSystemSettings().getLogger().debug("Tracking statement for " + name);
 		streamStatements.put(name, statement);
 	}
 
@@ -80,22 +79,21 @@ public class PersistedStatements {
 	}
 
 	// load newly created stream statement
-	public void addNewStreamStmt(String name, String statement) {
-		RioDB.rio.getSystemSettings().getLogger().debug("Tracking statement for " + name);
-		streamStatements.put(name, SQLParser.textDecode(statement));
-		RioDB.rio.getSystemSettings().getLogger().debug("Adding statement to sql file for " + name);
+	public void saveNewStreamStmt(String name, String statement) {
+		streamStatements.put(name, SQLParser.decodeQuotedText(statement));
+		RioDB.rio.getSystemSettings().getLogger().debug("Saving statement to sql file for " + name);
 		updatePersistedStmtFile();
 	}
 
 	// load newly created window statement
-	public void addNewWindowStmt(String name, String statement) {
-		windowStatements.put(name, SQLParser.textDecode(statement));
+	public void saveNewWindowStmt(String name, String statement) {
+		windowStatements.put(name, SQLParser.decodeQuotedText(statement));
 		updatePersistedStmtFile();
 	}
 
 	// load newly created select statement
-	public void addNewQueryStmt(Integer queryId, String statement) {
-		queryStatements.put(queryId, SQLParser.textDecode(statement));
+	public void saveNewQueryStmt(Integer queryId, String statement) {
+		queryStatements.put(queryId, SQLParser.decodeQuotedText(statement));
 		updatePersistedStmtFile();
 	}
 
@@ -160,13 +158,13 @@ public class PersistedStatements {
 
 			String newFileStr = "";
 			for (Entry<String, String> entry : streamStatements.entrySet()) {
-				newFileStr += SQLParser.textDecode(entry.getValue()) + "\n\r";
+				newFileStr += entry.getValue() + "\n\r";
 			}
 			for (Entry<String, String> entry : windowStatements.entrySet()) {
-				newFileStr += SQLParser.textDecode(entry.getValue()) + "\n\r";
+				newFileStr += entry.getValue() + "\n\r";
 			}
 			for (Entry<Integer, String> entry : queryStatements.entrySet()) {
-				newFileStr += SQLParser.textDecode(entry.getValue()) + "\n\r";
+				newFileStr += entry.getValue() + "\n\r";
 			}
 
 			PrintWriter prw = null;

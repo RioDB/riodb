@@ -40,7 +40,12 @@ public final class SQLExecutor {
 
 		if (stmt != null && stmt.contains(";")) {
 
-			stmt = SQLParser.formatStripComments(stmt);
+			RioDB.rio.getSystemSettings().getLogger().trace("SQLExecutor received statement.");
+			RioDB.rio.getSystemSettings().getLogger().trace("Removing comments...");
+			stmt = SQLParser.removeComments(stmt);
+			RioDB.rio.getSystemSettings().getLogger().trace("Encoding quoted text...");
+			stmt = SQLParser.encodeQuotedText(stmt);
+			// System.out.println(stmt);
 
 			// split statements from stmt (in case there are multiple statements in one
 			// request)
@@ -57,8 +62,8 @@ public final class SQLExecutor {
 
 					if (statement != null && !statement.equals(";")) {
 
-						RioDB.rio.getSystemSettings().getLogger().debug(
-								"Statement: \"" + SQLParser.textDecode(SQLParser.hidePassword(statement)) + "\"");
+						RioDB.rio.getSystemSettings().getLogger().debug("Statement " + (i + 1) + ": \""
+								+ SQLParser.hidePassword(SQLParser.decodeQuotedText(statement)) + "\"");
 
 						if (statement.startsWith("select ")) {
 							if (RioDB.rio.getUserMgr() == null
@@ -122,9 +127,10 @@ public final class SQLExecutor {
 									responseList.add("User Management is not enabled.");
 									httpResponseStatus = "400";
 								} else if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("ADMIN")) {
-									RioDB.rio.getUserMgr().changeRequest(originalStatement, actingUser);
-									responseList.add("User created.");
-									RioDB.rio.getSystemSettings().getLogger().debug("User created.");
+									String response = RioDB.rio.getUserMgr().changeRequest(originalStatement,
+											actingUser);
+									responseList.add(response);
+									RioDB.rio.getSystemSettings().getLogger().info(response);
 								} else {
 									RioDB.rio.getSystemSettings().getLogger().debug("User not authorized with ADMIN.");
 									responseList.add("User not authorized with ADMIN.");
@@ -139,9 +145,9 @@ public final class SQLExecutor {
 							if (statement.contains(" stream ")) {
 								if (RioDB.rio.getUserMgr() == null
 										|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("STREAM")) {
-									SQLStreamOperations.dropStream(statement);
-									responseList.add("Stream dropped.");
-									RioDB.rio.getSystemSettings().getLogger().info("Stream dropped.");
+									String response = SQLStreamOperations.dropStream(statement);
+									responseList.add(response);
+									RioDB.rio.getSystemSettings().getLogger().info(response);
 
 								} else {
 									RioDB.rio.getSystemSettings().getLogger()
@@ -152,9 +158,9 @@ public final class SQLExecutor {
 							} else if (statement.contains(" window ")) {
 								if (RioDB.rio.getUserMgr() == null
 										|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("WINDOW")) {
-									SQLWindowOperations.dropWindow(statement);
-									responseList.add("Window dropped.");
-									RioDB.rio.getSystemSettings().getLogger().info("window dropped.");
+									String response = SQLWindowOperations.dropWindow(statement);
+									responseList.add(response);
+									RioDB.rio.getSystemSettings().getLogger().info(response);
 
 								} else {
 									RioDB.rio.getSystemSettings().getLogger()
@@ -165,9 +171,9 @@ public final class SQLExecutor {
 							} else if (statement.contains(" query ")) {
 								if (RioDB.rio.getUserMgr() == null
 										|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("QUERY")) {
-									SQLQueryOperations.dropQuery(statement);
-									responseList.add("Query dropped.");
-									RioDB.rio.getSystemSettings().getLogger().info("Query dropped.");
+									String response = SQLQueryOperations.dropQuery(statement);
+									responseList.add(response);
+									RioDB.rio.getSystemSettings().getLogger().info(response);
 								} else {
 									RioDB.rio.getSystemSettings().getLogger()
 											.debug("User not authorized to manage queries.");
@@ -179,9 +185,9 @@ public final class SQLExecutor {
 									responseList.add("User Management is not enabled.");
 									httpResponseStatus = "400";
 								} else if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("ADMIN")) {
-									RioDB.rio.getUserMgr().changeRequest(statement, actingUser);
-									responseList.add("User dropped.");
-									RioDB.rio.getSystemSettings().getLogger().debug("User dropped.");
+									String response = RioDB.rio.getUserMgr().changeRequest(statement, actingUser);
+									responseList.add(response);
+									RioDB.rio.getSystemSettings().getLogger().info(response);
 								} else {
 									responseList.add("User not authorized to manage queries.");
 									httpResponseStatus = "401";
@@ -369,7 +375,7 @@ public final class SQLExecutor {
 							} else if (RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("ADMIN")) {
 								String response = RioDB.rio.getUserMgr().changeRequest(originalStatement, actingUser);
 								responseList.add(response);
-								RioDB.rio.getSystemSettings().getLogger().debug(response);
+								RioDB.rio.getSystemSettings().getLogger().info(response);
 							} else {
 								responseList.add("User not authorized to manage queries.");
 								httpResponseStatus = "401";
@@ -385,17 +391,21 @@ public final class SQLExecutor {
 
 							String response = RioDB.rio.getUserMgr().changeRequest(newStmt, actingUser);
 							responseList.add(response);
-							RioDB.rio.getSystemSettings().getLogger().debug(response);
+							RioDB.rio.getSystemSettings().getLogger().info(response);
 
 						} else if (statement.startsWith("sleep ")) {
+							statement = statement.replace(";", "").trim();
 							String parts[] = statement.split(" ");
 							if (parts.length == 2 && SQLParser.isNumber(parts[1])) {
 								int ms = Integer.parseInt(parts[1]);
 								if (ms > 0) {
 									Clock.sleep(Integer.parseInt(parts[1]));
 									responseList.add("slept " + parts[1]);
-									break;
+								} else {
+									responseList.add("invalid syntax for 'sleep' statement. try  'sleep 50;' ");
+									httpResponseStatus = "400";
 								}
+							} else {
 								responseList.add("invalid syntax for 'sleep' statement. try  'sleep 50;' ");
 								httpResponseStatus = "400";
 							}
@@ -435,7 +445,7 @@ public final class SQLExecutor {
 
 			for (int i = 0; i < responseList.size(); i++) {
 
-				responseJson.append("\n  { \"statement\": ").append(i).append(",\n  \"response\": ");
+				responseJson.append("\n  { \"statement\": ").append((i + 1)).append(",\n  \"response\": ");
 
 				String response = responseList.get(i);
 				if (response == null || response.length() == 0) {

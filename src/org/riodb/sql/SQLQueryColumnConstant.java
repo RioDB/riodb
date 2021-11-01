@@ -30,8 +30,9 @@ public class SQLQueryColumnConstant implements SQLQueryColumn {
 	private String heading;
 
 	SQLQueryColumnConstant(String constant, String heading) throws ExceptionSQLStatement {
-		this.constant = SQLParser.textDecode(constant);
-		this.heading = SQLParser.textDecode(heading);
+		this.constant = SQLParser.decodeQuotedText(constant);
+		this.heading = SQLParser.decodeQuotedText(heading);
+		//TODO: use decodeText()
 	}
 
 	@Override

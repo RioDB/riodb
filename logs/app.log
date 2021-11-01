@@ -1,0 +1,24 @@
+2021-10-31 23:44:35,730 INFO o.r.e.RioDB [RIODB] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2021-10-31 23:44:35,732 INFO o.r.e.RioDB [RIODB]  _        _  _   RioDB 0.0.1 - Copyright (c) 2021 info at www.riodb.org
+2021-10-31 23:44:35,733 INFO o.r.e.RioDB [RIODB] |_) o  _ | \|_)  This program comes with no warranty.
+2021-10-31 23:44:35,733 INFO o.r.e.RioDB [RIODB] | \ | (_)|_/|_)  This is free software licensed under GPL-3.0 license.
+2021-10-31 23:44:35,734 INFO o.r.e.RioDB [RIODB] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2021-10-31 23:44:35,735 DEBUG o.r.e.RioDB [RIODB] Java VM name: OpenJDK 64-Bit Server VM
+2021-10-31 23:44:35,735 DEBUG o.r.e.RioDB [RIODB] Java Version: 14.0.2
+2021-10-31 23:44:35,735 DEBUG o.r.e.RioDB [RIODB] Java Home: /usr/lib/jvm/java-14-openjdk-amd64
+2021-10-31 23:44:35,736 DEBUG o.r.e.RioDB [RIODB] log4j2 config file: /home/lmatos/git/riodb/conf/log4j2.xml
+2021-10-31 23:44:35,746 TRACE o.r.e.RioDB [RIODB] Slept 10ms
+2021-10-31 23:44:35,748 INFO o.r.e.RioDB [RIODB] Plugin dir: /home/lmatos/git/riodb/plugins/
+2021-10-31 23:44:35,748 INFO o.r.e.RioDB [RIODB] SQL file dir: /home/lmatos/git/riodb/sql/
+2021-10-31 23:44:35,748 DEBUG o.r.e.RioDB [RIODB] Persistant stmt file: /home/lmatos/git/riodb/sql/.apistmt.sql
+2021-10-31 23:44:35,749 INFO o.r.e.RioDB [RIODB] Loading /home/lmatos/git/riodb/sql/.apistmt.sql ...
+2021-10-31 23:44:35,759 TRACE o.r.e.RioDB [RIODB] Slept 10ms
+2021-10-31 23:44:35,784 INFO o.r.e.RioDB [RIODB] Starting HTTP interface on 2333
+2021-10-31 23:44:35,795 TRACE o.r.e.RioDB [RIODB] Slept 10ms
+2021-10-31 23:44:35,806 TRACE o.r.e.RioDB [RIODB] Slept 10ms
+2021-10-31 23:44:35,806 INFO o.r.e.RioDB [RIODB] Loaded config file: /home/lmatos/git/riodb/conf/riodb.conf
+2021-10-31 23:44:35,816 TRACE o.r.e.RioDB [RIODB] Slept 10ms
+2021-10-31 23:44:35,816 INFO o.r.e.RioDB [RIODB] #############   Starting Engine...  #################
+2021-10-31 23:44:35,817 INFO o.r.e.RioDB [RIODB] RioDB is ready
+2021-10-31 23:44:35,817 DEBUG o.r.e.RioDB [RIO_CLOCK_THREAD] Starting clock...
+2021-10-31 23:45:01,914 INFO o.r.e.RioDB [SHUTDOWN_HOOK] #############   Stopping Engine...  #################

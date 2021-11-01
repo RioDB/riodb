@@ -50,8 +50,6 @@ public class OutputClassLoader {
 		
 		pluginName = pluginName.toUpperCase().trim();
 		
-		RioDB.rio.getSystemSettings().getLogger().debug("Plugin factory loading '" + pluginName + "'");
-		
 		// STDOUT is an embedded plugin that does not require external jar file. 
 		// it's built-in to RioDB
 		if(pluginName.equals("STDOUT")) {
@@ -66,8 +64,6 @@ public class OutputClassLoader {
 		// Get file location of Output plugin jar. 
 		String urlStr = "file:/" + RioDB.rio.getSystemSettings().getPluginDirectory() + pluginName.toLowerCase() + ".jar";
 		urlStr = urlStr.replace("file://","file:/");
-		RioDB.rio.getSystemSettings().getLogger().debug("URL:   " + urlStr);
-
 		
 		try {
 
@@ -88,29 +84,21 @@ public class OutputClassLoader {
 			return outputPlugin;
 
 		} catch (MalformedURLException e) {
-			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to MalformedURLException");
-			throw new ExceptionSQLStatement(e.getMessage());
+			throw new ExceptionSQLStatement("Unable to load plugin '"+ pluginName +"' due to MalformedURLException");
 		} catch (ClassNotFoundException e) {
-			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to ClassNotFoundException");
-			throw new ExceptionSQLStatement(e.getMessage());
+			throw new ExceptionSQLStatement("Unable to load plugin '"+ pluginName +"' due to ClassNotFoundException");
 		} catch (NoSuchMethodException e) {
-			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to NoSuchMethodException");
-			throw new ExceptionSQLStatement(e.getMessage());
+			throw new ExceptionSQLStatement("Unable to load plugin '"+ pluginName +"' due to NoSuchMethodException");
 		} catch (SecurityException e) {
-			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to SecurityException");
-			throw new ExceptionSQLStatement(e.getMessage());
+			throw new ExceptionSQLStatement("Unable to load plugin '"+ pluginName +"' due to SecurityException");
 		} catch (InstantiationException e) {
-			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to InstantiationException");
-			throw new ExceptionSQLStatement(e.getMessage());
+			throw new ExceptionSQLStatement("Unable to load plugin '"+ pluginName +"' due to InstantiationException");
 		} catch (IllegalAccessException e) {
-			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to IllegalAccessException");
-			throw new ExceptionSQLStatement(e.getMessage());
+			throw new ExceptionSQLStatement("Unable to load plugin '"+ pluginName +"' due to IllegalAccessException");
 		} catch (IllegalArgumentException e) {
-			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to IllegalArgumentException");
-			throw new ExceptionSQLStatement(e.getMessage());
+			throw new ExceptionSQLStatement("Unable to load plugin '"+ pluginName +"' due to IllegalArgumentException");
 		} catch (InvocationTargetException e) {
-			RioDB.rio.getSystemSettings().getLogger().error("Unable to load plugin '"+ pluginName +"' due to InvocationTargetException");
-			throw new ExceptionSQLStatement(e.getMessage());
+			throw new ExceptionSQLStatement("Unable to load plugin '"+ pluginName +"' due to InvocationTargetException");
 		} finally{
 			if(urlClassLoader != null) {
 				try {

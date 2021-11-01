@@ -42,7 +42,7 @@ import org.riodb.plugin.RioDBPluginException;
 
 public class RioDB {
 	
-	static final String VERSION = "v0.1";
+	public static final String VERSION = "0.0.1";
 	
 	private final static SystemSettings settings = new SystemSettings();
 	public SystemSettings getSystemSettings() {
@@ -73,7 +73,7 @@ public class RioDB {
 	// shutdown
 	private void shutdown() {
 		rio.getEngine().stop();
-		Clock.sleep10();
+		Clock.sleep(10);
 		HTTPInterface.stop();
 	}
 
@@ -82,7 +82,6 @@ public class RioDB {
 	/// MAIN
 	public static void main(String[] args) throws InterruptedException {
 		
-
 		// Load initial configuration.
 		if (!settings.loadConfig(args))
 			System.exit(0);
@@ -100,8 +99,7 @@ public class RioDB {
 
 	}
 	
-	
-	
+		
 	// shutdown hook to catch kill request. 
 	private static void shutdownHook() throws InterruptedException {
 		Runtime.getRuntime().addShutdownHook(new Thread("SHUTDOWN_HOOK") {

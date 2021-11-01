@@ -28,36 +28,36 @@ import org.riodb.plugin.RioDBPlugin;
 
 public final class SQLQueryOperations {
 
-	public static final String createQuery(String stmt, boolean persistStmt, String actingUser) throws ExceptionSQLStatement {
+	public static final String createQuery(String originalStmt, boolean persistStmt, String actingUser)
+			throws ExceptionSQLStatement {
 
-		String statement = SQLParser.formatStmt(stmt);
-//		System.out.println("new:" + statement);
+		RioDB.rio.getSystemSettings().getLogger().trace("SQLQueryOperations.createQuery.");
+
+		String statement = originalStmt;
 
 		String fromStr = SQLParser.getQueryFromStr(statement);
-//		System.out.println(
-//				"\n-------------------------------------------\n" + "SELECT FROM: " + SQLParser.textDecode(fromStr));
+		RioDB.rio.getSystemSettings().getLogger().trace("QUERY_FROM: " + fromStr);
+
 		SQLQueryResources queryResources = new SQLQueryResources(fromStr);
 
 		String selectStr = SQLParser.getQuerySelectList(statement);
-//		System.out.println("\n-------------------------------------------\nSELECT COLUMN: ");
-//		System.out.println(selectStr);
+		RioDB.rio.getSystemSettings().getLogger().trace("QUERY_SELECT: " + selectStr);
 		SQLQueryColumn queryColumns[] = SQLQueryColumnOperations.getSelectItems(selectStr, queryResources);
 		String columnHeaders[] = new String[queryColumns.length];
-		for(int i = 0; i < columnHeaders.length; i++) {
+		for (int i = 0; i < columnHeaders.length; i++) {
 			columnHeaders[i] = queryColumns[i].getHeading();
 		}
 
 		String whenStr = SQLParser.getQueryWhenStr(statement);
-//		System.out.println(
-//				"\n-------------------------------------------\nSELECT WHEN: " + SQLParser.textDecode(whenStr));
+		RioDB.rio.getSystemSettings().getLogger().trace("QUERY_WHEN: " + whenStr);
 		SQLQueryCondition queryCondition = null;
 		if (whenStr != null && !whenStr.equals("-")) {
 			queryCondition = SQLQueryConditionOperations.getQueryConditions(whenStr, queryResources);
 		}
 
 		String limitStr = SQLParser.getQueryLimitStr(statement);
-		limitStr = SQLParser.getQueryLimitStr(stmt);
-//		System.out.println("\n-------------------------------------------\nSELECT LIMIT: " + limitStr);
+		limitStr = SQLParser.getQueryLimitStr(originalStmt);
+		RioDB.rio.getSystemSettings().getLogger().trace("QUERY_LIMIT: " + limitStr);
 		int limit = -1;
 		char limitUnit = 'q'; // quantity
 		boolean limitByTime = false;
@@ -94,10 +94,8 @@ public final class SQLQueryOperations {
 			}
 		}
 
-//		System.out.println("limit " + limit + " unit " + limitUnit);
-
 		String sleepStr = SQLParser.getQuerySleepStr(statement);
-//		System.out.println("\n-------------------------------------------\nTIMEOUT: " + sleepStr);
+		RioDB.rio.getSystemSettings().getLogger().trace("QUERY_SLEEP: " + sleepStr);
 		int sleep = -1;
 		char sleepUnit = 'q'; // quantity
 		boolean sleepByTime = false;
@@ -130,26 +128,24 @@ public final class SQLQueryOperations {
 				throw new ExceptionSQLStatement("sleep '" + sleepStr + "' is invalid.");
 			}
 		}
-		String outputStr = SQLParser.getQueryOutputStr(statement);
 
-//		System.out.println(
-//				"\n-------------------------------------------\nSELECT OUTPUT: " + SQLParser.textDecode(outputStr));
-		
+		String outputStr = SQLParser.getQueryOutputStr(statement);
+		RioDB.rio.getSystemSettings().getLogger().trace("QUERY_OUTPUT: " + outputStr);
 		int drivingStreamId = queryResources.getDrivingStreamId();
-		
-		if(outputStr == null || outputStr.length() == 0) {
+
+		if (outputStr == null || outputStr.length() == 0) {
 			int sessionId = RioDB.rio.getEngine().counterNext();
 			outputStr = String.valueOf(drivingStreamId) + "," + String.valueOf(sessionId);
 			limit = 1;
 			limitUnit = 'q';
 			limitByTime = false;
 			sleepByTime = true;
-			if(sleep == -1 || sleep > RioDB.rio.getSystemSettings().getHttpInterface().getTimeout()) {
+			if (sleep == -1 || sleep > RioDB.rio.getSystemSettings().getHttpInterface().getTimeout()) {
 				sleep = RioDB.rio.getSystemSettings().getHttpInterface().getTimeout();
 			}
-			
-			//Output output = SQLQueryOutputOperations.getOutput(outputStr, columnHeaders);
-			
+
+			// Output output = SQLQueryOutputOperations.getOutput(outputStr, columnHeaders);
+
 			DefaultOutput output = new DefaultOutput(drivingStreamId, sessionId, columnHeaders);
 
 			Query query = new Query(queryCondition, output, queryColumns, limit, limitByTime, sleep, sleepByTime,
@@ -157,106 +153,101 @@ public final class SQLQueryOperations {
 
 			int queryId = query.getQueryId();
 			RioDB.rio.getEngine().getStream(drivingStreamId).addQueryRef(query);
-			
+
 			try {
 				String msg = RioDB.rio.getEngine().getStream(drivingStreamId).requestQueryResponse(sessionId, sleep);
-				if(msg == null || msg.length() == 0) {
+				if (msg == null || msg.length() == 0) {
 					msg = "Query timed out.";
 				}
 				return msg;
 			} catch (InterruptedException e) {
-				return "Query "+ queryId + " process interrupted.";
+				return "Query " + queryId + " process interrupted.";
 			}
-			
-			
-		}
-		else {
+
+		} else {
 			RioDBPlugin output = SQLQueryOutputOperations.getOutput(outputStr, columnHeaders);
 
 			Query query = new Query(queryCondition, output, queryColumns, limit, limitByTime, sleep, sleepByTime,
 					statement, queryResources);
 
-			int queryId = query.getQueryId(); 
+			int queryId = query.getQueryId();
 			RioDB.rio.getEngine().getStream(drivingStreamId).addQueryRef(query);
-			
-			
-			if(persistStmt && limit == -1) {
-				if(actingUser != null && actingUser.equals("SYSTEM")) {
+
+			if (persistStmt && limit == -1) {
+				if (actingUser != null && actingUser.equals("SYSTEM")) {
 					RioDB.rio.getSystemSettings().getPersistedStatements().loadQueryStmt(queryId, statement);
 				} else {
-					RioDB.rio.getSystemSettings().getPersistedStatements().addNewQueryStmt(queryId, statement);
+					RioDB.rio.getSystemSettings().getPersistedStatements().saveNewQueryStmt(queryId, statement);
 				}
 			}
-			
-			
-			return "Created query "+ queryId ;
-			
+
+			return "Created query " + queryId;
+
 		}
-		
+
 	}
-	
-	public static final void dropQuery(String stmt) throws ExceptionSQLStatement {
+
+	public static final String dropQuery(String stmt) throws ExceptionSQLStatement {
 
 		String newStmt = SQLStreamOperations.formatSQL(stmt);
-		//System.out.println(newStmt);
+		// System.out.println(newStmt);
 
 		String words[] = newStmt.split(" ");
-		if(words.length >=3 &&
-				words[0] != null && words[0].equals("drop") &&
-				words[1] != null && words[1].equals("query") &&
-				words[2] != null && words[2].length()>0 ) {
-			
-			
-				// if window ID was provided, remove window by ID
-				if(SQLParser.isNumber(words[2])) {
-					
-					int queryId = Integer.valueOf(words[2]);
+		if (words.length >= 3 && words[0] != null && words[0].equals("drop") && words[1] != null
+				&& words[1].equals("query") && words[2] != null && words[2].length() > 0) {
 
-					
-					if(RioDB.rio.getEngine().dropQuery(queryId)) {
-						// persist removal of window (so it doesn't get recreated after reboot)
-						//String windowName = RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindowName(windowId);
-						RioDB.rio.getSystemSettings().getPersistedStatements().dropQueryStmt(queryId);
-						return;
-					} else {
-						throw new ExceptionSQLStatement("Query not found.");
-					}
+			words[2] = words[2].replace(";", "").trim();
+
+			// if window ID was provided, remove window by ID
+			if (SQLParser.isNumber(words[2])) {
+
+				int queryId = Integer.valueOf(words[2]);
+
+				if (RioDB.rio.getEngine().dropQuery(queryId)) {
+					// persist removal of window (so it doesn't get recreated after reboot)
+					// String windowName =
+					// RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindowName(windowId);
+					RioDB.rio.getSystemSettings().getPersistedStatements().dropQueryStmt(queryId);
+					return "Query "+ words[2] + " dropped.";
+				} else {
+					throw new ExceptionSQLStatement("Query not found.");
 				}
 			}
-		
-		throw new ExceptionSQLStatement("Statement error. Try 'DROP QUERY stream_name.query_id;' where query_id is a number.");
-		
+		}
+
+		throw new ExceptionSQLStatement(
+				"Statement error. Try 'DROP QUERY stream_name.query_id;' where query_id is a number.");
+
 	}
-	
+
 	public static final String describeQuery(String stmt) throws ExceptionSQLStatement {
 
 		String newStmt = SQLStreamOperations.formatSQL(stmt);
-		
+
 		String words[] = newStmt.split(" ");
-		if(words.length >=3 &&
-				words[0] != null && words[0].equals("describe") &&
-				words[1] != null && words[1].equals("query") &&
-				words[2] != null && words[2].length()>0 ) {
-			
+		if (words.length >= 3 && words[0] != null && words[0].equals("describe") && words[1] != null
+				&& words[1].equals("query") && words[2] != null && words[2].length() > 0) {
+
 			words[2] = words[2].replace(".", ",");
 			String id[] = words[2].split(",");
-			
-			if(id.length == 2) {
+
+			if (id.length == 2) {
 				int streamId = RioDB.rio.getEngine().getStreamId(id[0]);
 				if (streamId == -1) {
 					throw new ExceptionSQLStatement("Stream not found.");
 				}
-				
+
 				// if window ID was provided, remove window by ID
-				if(SQLParser.isNumber(id[1])) {
-					
+				if (SQLParser.isNumber(id[1])) {
+
 					int queryId = Integer.valueOf(id[1]);
 					return RioDB.rio.getEngine().getStream(streamId).getQueryMgr().describeQuery(queryId);
 
 				}
 			}
-		} 
-		throw new ExceptionSQLStatement("Statement error. Try 'DESCRIBE QUERY stream_name.query_id;' where query_id is a number.");
-	
+		}
+		throw new ExceptionSQLStatement(
+				"Statement error. Try 'DESCRIBE QUERY stream_name.query_id;' where query_id is a number.");
+
 	}
 }

@@ -42,7 +42,7 @@ public class SQLQueryResource {
 		else {
 			this.alias = code;
 		}
-		RioDB.rio.getSystemSettings().getLogger().debug("FROM resource: " + code + " " + alias );
+		RioDB.rio.getSystemSettings().getLogger().debug("FROM resource: " + code + ", alias: " + alias );
 	}
 
 	public String getCode() {
