@@ -99,6 +99,9 @@ public class Query {
 	// run a query, and get status to see if it can be dropped
 	// if 'true' is returned, the query will be removed.
 	public boolean evalAndGetStatus(MessageWithSummaries esum) throws ExceptionSQLExecution {
+		
+		// print function for troubleshooting...
+		//esum.printMessage();
 
 		// PART 1, take care of expiring queries and queries in timeout
 

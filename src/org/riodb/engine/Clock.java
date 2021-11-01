@@ -84,22 +84,14 @@ public class Clock implements Runnable {
 			RioDB.rio.getSystemSettings().getLogger().debug("Clock stopped.");
 		}
 	}
-
-	// just a handy sleep function to reduce try/catch code everywhere.
-	public static final void sleep10() {
-		try {
-			Thread.sleep(10);
-		} catch (InterruptedException e) {
-			;
-		}
-	}
 	
-	// just a handy sleep function to reduce try/catch code everywhere.
+	// A handy function to reduce code everywhere
 	public static final void sleep(int ms) {
 		try {
 			Thread.sleep(ms);
 		} catch (InterruptedException e) {
 			;
 		}
+		RioDB.rio.getSystemSettings().getLogger().trace("Slept "+ ms+ "ms");
 	}
 }

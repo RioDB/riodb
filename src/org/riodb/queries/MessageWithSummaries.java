@@ -37,6 +37,7 @@ package org.riodb.queries;
 import org.riodb.windows.WindowSummary;
 
 import org.riodb.plugin.RioDBStreamMessage;
+import org.riodb.sql.SQLParser;
 
 public class MessageWithSummaries {
 	// The message object
@@ -58,5 +59,18 @@ public class MessageWithSummaries {
 	// get a reference of the windowSummary array
 	public WindowSummary[] getWindowSummariesRef() {
 		return windowSummaries;
+	}
+	
+	// a print function for troubleshooting
+	public void printMessage() {
+		
+		String s = "--- message:";
+		for(int i = 0; i < message.getDoubleFieldsCount(); i++) {
+			s = s + "  "+ message.getDouble(i) + ",";
+		}
+		for(int i = 0; i < message.getStringFieldsCount(); i++) {
+			s = s + "  "+ SQLParser.decodeText(message.getString(i)) + ",";
+		}
+		System.out.println(s);
 	}
 }

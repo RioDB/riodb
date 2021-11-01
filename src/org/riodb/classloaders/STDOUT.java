@@ -29,6 +29,7 @@
 
 package org.riodb.classloaders;
 
+import org.riodb.engine.RioDB;
 import org.riodb.plugin.*;
 
 final public class STDOUT implements RioDBPlugin {
@@ -86,6 +87,11 @@ final public class STDOUT implements RioDBPlugin {
 
 	@Override
 	public void stop() throws RioDBPluginException {
+	}
+
+	@Override
+	public String version() {
+		return RioDB.VERSION;
 	}
 
 }

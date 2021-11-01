@@ -112,5 +112,9 @@ public class DefaultOutput implements RioDBPlugin{
 	public void stop() throws RioDBPluginException {
 		// not required for Output
 	}
-
+	
+	@Override
+	public String version() {
+		return RioDB.VERSION;
+	}
 }

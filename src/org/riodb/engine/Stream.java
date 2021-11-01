@@ -208,8 +208,8 @@ public class Stream implements Runnable {
 				
 				// start query
 				streamQueryMgr.start();
-				Clock.sleep10();
-
+				Clock.sleep(40);
+				
 				// start stream thread
 				// counter = 0;
 				interrupt = false;
@@ -217,9 +217,12 @@ public class Stream implements Runnable {
 				streamThread.setName("STREAM_THREAD_" + streamId);
 				streamThread.start();
 
-				Clock.sleep10();
+				Clock.sleep(40);
 
 				streamInput.start();
+				
+				Clock.sleep(40);
+				
 				RioDB.rio.getSystemSettings().getLogger().debug("Stream.start: started.");
 			} catch (RioDBPluginException e) {
 				interrupt = true;
@@ -244,17 +247,17 @@ public class Stream implements Runnable {
 			try {
 				RioDB.rio.getSystemSettings().getLogger().debug("Stopping INPUT PLUGIN for stream " + streamName);
 				streamInput.stop();
-				Clock.sleep10();
+				Clock.sleep(10);
 				// stop stream
 				RioDB.rio.getSystemSettings().getLogger().debug("Interrupting stream thread for stream " + streamId);
 				interrupt = true;
 				streamThread.interrupt();
 				// counter = 0;
-				Clock.sleep10();
+				Clock.sleep(10);
 				// stop queries
 				RioDB.rio.getSystemSettings().getLogger().debug("Stopping Query Mgr for stream " + streamId);
 				streamQueryMgr.stop();
-				Clock.sleep10();
+				Clock.sleep(10);
 			} catch (RioDBPluginException e) {
 				RioDB.rio.getSystemSettings().getLogger()
 						.info("Error stopping input plugin: " + e.getMessage().replace("\n", "").replace("\r", ""));
@@ -355,11 +358,12 @@ public class Stream implements Runnable {
 
 				} else {
 					/*
-					 * save CPU... There's no guarantee that the input plugin's getNextMessage will
-					 * "wait" for data. Plugins are not required to provide countdownlatching. This
-					 * was chosen to allow very full throttle streams with minimal overhead. So we
-					 * have to pause the loop. For now, we are doing sleep(1). It responds well to
-					 * busy streams and keeps CPU near 0% when there's no traffic.
+					 * UPDATE: This sleep block should be removed. It should be a responsibility of the 
+					 * plugin to implement a blocking queue or busy-waiting on the plugin side. Then
+					 * plugins can be made to prioritize either throughput, or latency, or CPU efficiency
+					 * based on the plugin's purpose.  
+					 * Once this is removed, RioDB will not have any performance safety net!
+					 * it will be up to the plugin.
 					 */
 					try {
 						Thread.sleep(1);

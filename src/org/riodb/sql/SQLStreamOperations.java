@@ -27,20 +27,19 @@ import org.riodb.engine.Stream;
 
 import org.riodb.plugin.RioDBPluginException;
 import org.riodb.plugin.RioDBStreamMessageDef;
-import org.riodb.plugin.RioDBStreamMessageField;
+import org.riodb.plugin.RioDBStreamFieldDef;
 
 public final class SQLStreamOperations {
 
-	public static final String createStream(String stmt, boolean persistStmt, String actingUser)
+	public static final String createStream(String statement, boolean persistStmt, String actingUser)
 			throws ExceptionSQLStatement, RioDBPluginException {
+		
+		RioDB.rio.getSystemSettings().getLogger().trace("SQLStreamOperations.createStream.");
 		
 		boolean success = true;
 
-		//String newStmt = SQLParser.formatStmt(stmt);
-		String newStmt = stmt;
-		
-		String streamName = SQLStreamOperations.getStreamName(newStmt);
-
+		String streamName = SQLStreamOperations.getStreamName(statement);
+		RioDB.rio.getSystemSettings().getLogger().trace("STREAM_NAME: "+ streamName);
 		if (streamName == null || streamName.length() == 0) {
 			RioDB.rio.getSystemSettings().getLogger().error("ERROR: Stream must have a name and at least one field.");
 			throw new ExceptionSQLStatement("ERROR: a stream name is required.");
@@ -50,50 +49,84 @@ public final class SQLStreamOperations {
 			throw new ExceptionSQLStatement("ERROR: a stream with this name already exists.");
 		}
 
-		LinkedHashMap<String, String> map = SQLStreamOperations.getFields(newStmt);
-
+		// get field definition
+		LinkedHashMap<String, String> map = SQLStreamOperations.getFields(statement);
+		RioDB.rio.getSystemSettings().getLogger().trace("STREAM_FIELDS: "+ map.size());
+		
 		if (map.size() > 0) {
 
 			RioDBStreamMessageDef def = new RioDBStreamMessageDef();
 
+			// field that will be the timestamp, if there is one.
 			int timestampNumericFieldId = -1;
+			// string format of the incoming timestamp field
+			String timestampFormat = null;
+			// if timestamp field is coming as epoch, is it milliseconds or seconds since 1970?
+			boolean timestampMillis = false;
 
-			int numericFieldCounter = 0;
-
+			int fieldCounter = 0;
 			for (String key : map.keySet()) {
 				boolean isNumber = false;
-				if (map.get(key) != null && (map.get(key).equals("number") || map.get(key).equals("timestamp"))) {
+				if (map.get(key) != null && (map.get(key).equals("number") || map.get(key).startsWith("timestamp"))) {
 					isNumber = true;
-					if (map.get(key).equals("timestamp")) {
+					if (map.get(key).startsWith("timestamp")) {
 						if (timestampNumericFieldId >= 0) {
+							RioDB.rio.getSystemSettings().getLogger().error("The stream can only have one 'timestamp' field. Others can be put in as 'number'.");
 							throw new ExceptionSQLStatement(
 									"The stream can only have one 'timestamp' field. Others can be put in as 'number'.");
 						}
-						timestampNumericFieldId = numericFieldCounter;
+
+						timestampNumericFieldId = fieldCounter;
+						String parts[] = map.get(key).split(" ");
+						if(parts.length > 1) {
+							if(parts[1].startsWith("'") && parts[1].endsWith("'")) {
+								parts[1] = SQLParser.decodeQuotedText(parts[1]);
+								timestampFormat = parts[1].substring(1,parts[1].length()-1);
+								timestampFormat = timestampFormat.replace("''", "'");
+								RioDB.rio.getSystemSettings().getLogger().trace("STREAM_TIMESTAMP_FORMAT: "+ timestampFormat);
+							} else if(parts[1].equals("millis")){
+								timestampMillis = true;
+							} else {
+								RioDB.rio.getSystemSettings().getLogger().error("Timestamp argument unknown: "+ parts[1]);
+								throw new ExceptionSQLStatement(
+										"Timestamp argument unknown: "+ parts[1]);
+							}
+							
+						}
 					}
-					numericFieldCounter++;
+
 				}
-				RioDBStreamMessageField f = new RioDBStreamMessageField(key, isNumber);
+				RioDBStreamFieldDef f = new RioDBStreamFieldDef(key, isNumber);
 				def.addField(f);
+				fieldCounter++;
 			}
 
-			def.setTimestampNumericFieldId(timestampNumericFieldId);
+			def.setTimestampNumericFieldId(timestampNumericFieldId, timestampFormat, timestampMillis);
 
-			String inputType = SQLStreamOperations.getListenerType(newStmt);
-			String inputParams = SQLStreamOperations.getListenerParams(newStmt);
-			if(inputParams != null)
-				inputParams = SQLParser.textDecode(inputParams);
-			
+			String inputType = SQLStreamOperations.getListenerType(statement);
+			RioDB.rio.getSystemSettings().getLogger().trace("STREAM_LISTENER_TYPE: "+ inputType);
+			String inputParams = SQLStreamOperations.getListenerParams(statement);
+			RioDB.rio.getSystemSettings().getLogger().trace("STREAM_PARAMS: "+ inputParams);
+			if(inputParams != null) {
+				inputParams = SQLParser.decodeQuotedText(inputParams);
+				RioDB.rio.getSystemSettings().getLogger().trace("STREAM_DECODED_INPUT_PARAMS: "+ inputParams);
+			}
 			Stream newStream = new Stream(RioDB.rio.getEngine().getStreamCounter(), streamName, def, inputType,
 					inputParams);
-
+			RioDB.rio.getSystemSettings().getLogger().trace("Adding stream to engine...");
 			RioDB.rio.getEngine().addStream(newStream);
+			RioDB.rio.getSystemSettings().getLogger().debug("New stream timestamp: "+ newStream.getDef().getTimestampFieldName() +" "+ newStream.getDef().getTimestampFormat());
 
 			if (persistStmt) {
 				if (actingUser != null && actingUser.equals("SYSTEM")) {
-					RioDB.rio.getSystemSettings().getPersistedStatements().loadStreamStmt(streamName, newStmt);
+					// statement was run during boot. No need to save statement to file.
+					RioDB.rio.getSystemSettings().getLogger().trace("Loading statement for tracking...");
+					RioDB.rio.getSystemSettings().getPersistedStatements().loadStreamStmt(streamName, statement);
+					
 				} else {
-					RioDB.rio.getSystemSettings().getPersistedStatements().addNewStreamStmt(streamName, newStmt);
+					// new statement. Save to file. 
+					RioDB.rio.getSystemSettings().getLogger().trace("Saving statement to SQL files...");
+					RioDB.rio.getSystemSettings().getPersistedStatements().saveNewStreamStmt(streamName, statement);
 				}
 			}
 			
@@ -114,7 +147,7 @@ public final class SQLStreamOperations {
 
 	}
 
-	public static final void dropStream(String stmt) throws ExceptionSQLStatement {
+	public static final String dropStream(String stmt) throws ExceptionSQLStatement {
 		
 		RioDB.rio.getSystemSettings().getLogger().debug("SQLStreamOperations.dropStream.");
 
@@ -124,6 +157,7 @@ public final class SQLStreamOperations {
 		if (words.length >= 3 && words[0] != null && words[0].equals("drop") && words[1] != null
 				&& words[1].equals("stream") && words[2] != null && words[2].length() > 0) {
 
+			words[2] = words[2].replace(";", "").trim();
 			int streamId = RioDB.rio.getEngine().getStreamId(words[2]);
 
 			if (streamId == -1) {
@@ -150,11 +184,13 @@ public final class SQLStreamOperations {
 			if (RioDB.rio.getEngine().removeStream(streamId)) {
 				RioDB.rio.getSystemSettings().getLogger().debug("Removing stream creation statememt from startup sql.");
 				RioDB.rio.getSystemSettings().getPersistedStatements().dropStreamStmt(words[2]);
+				return "Stream "+words[2]+ " dropped." ;
 			}
 
-		} else {
-			throw new ExceptionSQLStatement("Statement error. Try 'DROP STREAM stream_name;");
-		}
+		} 
+		
+		throw new ExceptionSQLStatement("Statement error. Try 'DROP STREAM stream_name;");
+		
 	}
 
 	/*
@@ -163,6 +199,9 @@ public final class SQLStreamOperations {
 
 	public static final String formatSQL(String stmt) throws ExceptionSQLStatement {
 
+		//TODO: Remove this function. 
+		return stmt;
+		/*
 		if (stmt == null) {
 			throw new ExceptionSQLStatement(SQLStmtErrorMsg.write(1, stmt));
 		}
@@ -200,6 +239,7 @@ public final class SQLStreamOperations {
 			throw new ExceptionSQLStatement(SQLStmtErrorMsg.write(6, stmt));
 		}
 		return newStmt;
+		*/
 	}
 
 	public static final String getStreamName(String stmt) throws ExceptionSQLStatement {
@@ -231,6 +271,9 @@ public final class SQLStreamOperations {
 					fields[i] = fields[i].trim();
 					if (fields[i].contains(" ")) {
 						String parts[] = fields[i].split(" ");
+						if(parts.length > 2) {
+							parts[1] = parts[1] + " " + parts[2];
+						}
 						map.put(parts[0], parts[1]);
 					}
 				}
@@ -260,7 +303,11 @@ public final class SQLStreamOperations {
 	public static final String getListenerParams(String stmt) throws ExceptionSQLStatement {
 		
 		//String newStmt = formatSQL(stmt);
-		String newStmt = SQLParser.formatStmt(stmt);	
+		//String newStmt = SQLParser.formatStmt(stmt);	
+		
+		String newStmt = stmt;
+//		System.out.println("getListenerParams: "+ newStmt);
+		
 		if (newStmt == null || !newStmt.contains(" input ")) {
 			throw new ExceptionSQLStatement("SQL ERROR: Create Stream missing 'input' keyword.");
 		}

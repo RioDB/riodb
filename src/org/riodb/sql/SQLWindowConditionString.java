@@ -55,7 +55,7 @@ public class SQLWindowConditionString implements SQLWindowCondition{
 		
 		//this.columnId = columnId;
 		this.messageStringIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getStringFieldIndex(columnId); 
-		this.pattern = SQLParser.textDecode(patternStr);
+		this.pattern = SQLParser.decodeQuotedText(patternStr);
 		this.expression = expression;
 		
 		if(pattern!=null)

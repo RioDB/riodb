@@ -29,30 +29,6 @@ final public class SQLQueryConditionOperations {
 
 	public static SQLQueryCondition getQueryConditions(String whenStr, SQLQueryResources queryResources)
 			throws ExceptionSQLStatement {
-		/*
-		 * int drivingStreamId = queryResources.getDrivingStreamId();
-		 * 
-		 * if (whenStr == null || whenStr.contentEquals("-")) { return null; } if
-		 * (whenStr.contains(" and ") || whenStr.contains(" or ")) { return
-		 * getQueryConditionExpression(whenStr, queryResources); } else {
-		 * if(SQLParser.containsOperator(whenStr)) { String operator =
-		 * SQLParser.getOperator(whenStr); String part1 = whenStr.substring(0,
-		 * whenStr.indexOf(operator)); String part2 =
-		 * whenStr.substring(whenStr.indexOf(operator)+operator.length());
-		 * 
-		 * if(queryResources.containsStreamAlias(part1)) {
-		 * if(SQLParser.isStreamField(drivingStreamId, part2)) {
-		 * 
-		 * } else { throw new ExceptionSQLStatement("stream "+ part1 +
-		 * " does not have field "+part2); } } else
-		 * if(queryResources.containsWindowAlias(part1)) {
-		 * 
-		 * }
-		 * 
-		 * 
-		 * } }
-		 * 
-		 */
 		return getQueryConditionExpression(whenStr, queryResources);
 	}
 
@@ -62,8 +38,6 @@ final public class SQLQueryConditionOperations {
 		int drivingStreamId = queryResources.getDrivingStreamId();
 
 		String expression = formatExpressionPre(whenStr);
-
-		RioDB.rio.getSystemSettings().getLogger().debug("expression PRE:" + expression);
 
 		// ArrayLists of StringLike and StringIn objects if needed
 		ArrayList<SQLStringLIKE> likeList = new ArrayList<SQLStringLIKE>();
@@ -76,6 +50,7 @@ final public class SQLQueryConditionOperations {
 		String words[] = expression.split(" ");
 		for (int i = 0; i < words.length; i++) {
 
+			//System.out.println("words[i]: "+ words[i]);
 			if (SQLParser.isNumber(words[i])) {
 			//	System.out.println(words[i] + " is number");
 
@@ -85,6 +60,7 @@ final public class SQLQueryConditionOperations {
 			 * 
 			 */
 			else if (SQLParser.isStringConstant(words[i])) {
+				//System.out.println("SQLQueryConditionOperations.stringconstant: "+ words[i]);
 				//String s = words[i] + " is string constant";
 				words[i] = words[i].replace("'", "\"").replace("\" )", "\")");
 				//System.out.println(s + words[i]);
@@ -160,11 +136,20 @@ final public class SQLQueryConditionOperations {
 			 * 
 			 */
 			else if (words[i].equals("like")) {
-				String s = words[i] + " is LIKE, modified to: ";
+				//String s = words[i] + " is LIKE, modified to: ";
 
 				if (i < words.length - 1 && i > 0) {
-					String val = words[i + 1].replace("'", "");
-					val = SQLParser.textDecode(val);
+					//String val = words[i + 1];
+					
+					//System.out.println("next word is "+ words[i + 1]);
+					
+					if(!(words[i + 1].startsWith("'") && words[i + 1].endsWith("'"))){
+						throw new ExceptionSQLStatement("Condition word LIKE must be followed by value in single quotes. Example: symbol LIKE 'tsla%'");
+					}
+					words[i+1] = words[i+1].replace("'", "");
+					
+					words[i + 1] = SQLParser.decodeText(words[i + 1]);
+					//System.out.println("LIKE: decoded val: "+ words[i + 1]);
 					String likeCounter = String.valueOf(likeList.size());
 
 					String source = words[i - 1]; // preceeded by NOT
@@ -175,13 +160,13 @@ final public class SQLQueryConditionOperations {
 					words[i - 1] = "";
 
 					words[i] = "likeList[" + likeCounter + "].match(" + source + ")";
-					SQLStringLIKE sl = new SQLStringLIKE(val);
+					SQLStringLIKE sl = new SQLStringLIKE(words[i + 1]);
 					likeList.add(sl);
 					words[i + 1] = "";
-					s = s + words[i - 1] + " " + words[i] + " " + words[i + 1];
+					//s = s + words[i - 1] + " " + words[i] + " " + words[i + 1];
 					i++;
 				} else {
-					//System.out.println("i = " + i + " words.length = " + words.length);
+					throw new ExceptionSQLStatement("Condition word LIKE must be followed by value in single quotes. Example: symbol LIKE 'tsla%'");
 				}
 
 				// System.out.println("new word: "+ words[i] +" followed by "+ words[i + 1]);
@@ -206,7 +191,7 @@ final public class SQLQueryConditionOperations {
 					}
 					words[j] = "";
 
-					val = "(" + SQLParser.textDecode(val) + ")";
+					val = "(" + SQLParser.decodeQuotedText(val) + ")";
 
 					// System.out.println(val);
 
@@ -226,15 +211,12 @@ final public class SQLQueryConditionOperations {
 					}
 
 					words[i] = "inList[" + inCounter + "].match(" + source + ")"; //
-					//System.out.println(words[i]);
 					SQLStringIN sl = new SQLStringIN(val);
 					inList.add(sl);
 					words[i + 1] = "";
-
 					i = j;
 
 				}
-
 				//System.out.println(s + words[i] + words[i + 1]);
 				//System.out.println("IN list size: " + inList.size());
 
@@ -313,8 +295,9 @@ final public class SQLQueryConditionOperations {
 		SQLStringIN[] inArr = new SQLStringIN[inList.size()];
 		inArr = inList.toArray(inArr);
 
-		expression = SQLParser.textDecode(expression).replace("''", "'");
-		//System.out.println("new expression: " + expression);
+		//System.out.println("encoded expression: " + expression);
+		expression = SQLParser.decodeQuotedText(expression).replace("''", "'");
+		//System.out.println("decoded expression: " + expression);
 		
 		RioDB.rio.getSystemSettings().getLogger().debug("expression POST:" + expression);
 

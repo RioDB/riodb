@@ -18,13 +18,14 @@
  
 */
 
-
-
 /*
  *   SQLParser is a collection of FINAL functions for processing SQL statements. 
  */
 
 package org.riodb.sql;
+
+import java.util.ArrayList;
+import java.util.Base64;
 
 import org.riodb.engine.RioDB;
 
@@ -40,19 +41,19 @@ public final class SQLParser {
 			"negateExact", "nextAfter", "nextDown", "nextUp", "pow", "random", "rint", "round", "scalb", "signum",
 			"sin", "sinh", "sqrt", "subtractExact", "tan", "tanh", "toDegrees", "toIntExactv", "toRadians", "ulp" };
 
-	private static final String operatorWords[] = { ">", ">=", "<", "<=", "=", "!=", "in", "not_in", "like", "not_like", 
+	private static final String operatorWords[] = { ">", ">=", "<", "<=", "=", "!=", "in", "not_in", "like", "not_like",
 			"is_null", "is_not_null", "not", "null", ".equals(", ".equals (", ".equals(\"\")", "!= Float.NaN",
 			"= Float.NaN" };
 
 	public static final boolean containsOperator(String word) {
-		if(word == null || word.length() == 0)
+		if (word == null || word.length() == 0)
 			return false;
-		
-		for(String operator : operatorWords) {
-			if(word.contains(operator))
+
+		for (String operator : operatorWords) {
+			if (word.contains(operator))
 				return true;
 		}
-		
+
 		return false;
 	}
 
@@ -61,11 +62,9 @@ public final class SQLParser {
 		if (stmt == null) {
 			throw new ExceptionSQLStatement(SQLStmtErrorMsg.write(1, stmt));
 		}
-		String newStmt = textEncode(stmt); // .toLowerCase();
-		
-		newStmt = formatStripComments(newStmt); // .toLowerCase();
 
-		
+		String newStmt = lowerCase(stmt);
+
 		newStmt = newStmt.replace("\t", " ");
 		newStmt = newStmt.replace("\n", " ");
 		newStmt = newStmt.replace("\r", " ");
@@ -81,7 +80,7 @@ public final class SQLParser {
 		newStmt = newStmt.replace("=", " = ");
 		newStmt = newStmt.replace(">", " > ");
 		newStmt = newStmt.replace("<", " < ");
-		
+
 		// math symbols
 		newStmt = newStmt.replace("+", " + ");
 		newStmt = newStmt.replace("-", " - ");
@@ -110,7 +109,6 @@ public final class SQLParser {
 			newStmt = newStmt.replace("  ", " ");
 		}
 		newStmt = newStmt.trim();
-		newStmt = newStmt.toLowerCase();
 
 		if (newStmt.charAt(newStmt.length() - 1) != ';') {
 			throw new ExceptionSQLStatement(SQLStmtErrorMsg.write(2, stmt));
@@ -140,14 +138,14 @@ public final class SQLParser {
 		return newStmt;
 	}
 
-	public static final String formatStripComments(String stmt) {
+	public static final String removeComments(String stmt) {
 		String s = stmt;
 		if (s != null) {
 			boolean inComment = false;
 			boolean inStatic = false;
 			for (int i = 0; i < s.length(); i++) {
-				if(s.charAt(i) == '\'' && !inComment) {
-					if(inStatic)
+				if (s.charAt(i) == '\'' && !inComment) {
+					if (inStatic)
 						inStatic = false;
 					else
 						inStatic = true;
@@ -197,14 +195,13 @@ public final class SQLParser {
 	}
 
 	public static String getQueryLimitStr(String stmt) {
-		
+
 		String limit = null;
 
 		if (stmt.contains(" limit ")) {
 			if (stmt.contains(" sleep ")) {
 				limit = stmt.substring(stmt.indexOf(" limit ") + 7, stmt.indexOf(" sleep "));
-			} 
-			else {
+			} else {
 				limit = stmt.substring(stmt.indexOf(" limit ") + 7, stmt.indexOf(";"));
 			}
 			limit = limit.trim();
@@ -212,31 +209,26 @@ public final class SQLParser {
 
 		return limit;
 	}
-	
-	/*	public static String getOperatorStr(String word) {
-		if(word == null || word.length() == 0)
-			return null;
-		
-		for(String operator : operatorWords) {
-			if(word.contains(operator))
-				return operator;
-		}
-		
-		return null;
-	}
-*/	
+
+	/*
+	 * public static String getOperatorStr(String word) { if(word == null ||
+	 * word.length() == 0) return null;
+	 * 
+	 * for(String operator : operatorWords) { if(word.contains(operator)) return
+	 * operator; }
+	 * 
+	 * return null; }
+	 */
 	public static String getQueryOutputStr(String stmt) {
-		
+
 		String output = null;
 
 		if (stmt.contains(" output ")) {
 			if (stmt.contains(" limit ")) {
 				output = stmt.substring(stmt.indexOf(" output ") + 8, stmt.indexOf(" limit "));
-			}
-			else if (stmt.contains(" sleep ")) {
+			} else if (stmt.contains(" sleep ")) {
 				output = stmt.substring(stmt.indexOf(" output ") + 8, stmt.indexOf(" sleep "));
-			} 
-			else {
+			} else {
 				output = stmt.substring(stmt.indexOf(" output ") + 8, stmt.indexOf(";"));
 			}
 		}
@@ -244,7 +236,7 @@ public final class SQLParser {
 		return output;
 	}
 
-public static final String getQuerySelectList(String stmt) throws ExceptionSQLStatement {
+	public static final String getQuerySelectList(String stmt) throws ExceptionSQLStatement {
 		String select = "-";
 		int selectIndex = stmt.indexOf("select ");
 		int fromIndex = stmt.indexOf(" from ");
@@ -260,7 +252,7 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 
 	public static final String getQuerySleepStr(String stmt) throws ExceptionSQLStatement {
 
-		if (stmt.contains(" sleep ")) 
+		if (stmt.contains(" sleep "))
 			return stmt.substring(stmt.indexOf(" sleep ") + 7, stmt.indexOf(";")).trim();
 
 		return null;
@@ -333,11 +325,11 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 
 		return fieldId;
 	}
-	
+
 	public static final int getWindowPartitionExpiration(String stmt) throws ExceptionSQLStatement {
-		
+
 		int expirationSecs = 0;
-		
+
 		if (stmt.contains(" expire ")) {
 			String expirationStr = stmt.substring(stmt.indexOf(" expire ") + 8);
 			if (expirationStr.contains(" ")) {
@@ -347,31 +339,27 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 			}
 			expirationStr.trim();
 
+			if (expirationStr.charAt(expirationStr.length() - 1) == 's'
+					|| expirationStr.charAt(expirationStr.length() - 1) == 'm'
+					|| expirationStr.charAt(expirationStr.length() - 1) == 'h'
+					|| expirationStr.charAt(expirationStr.length() - 1) == 'd') {
 
-			if (expirationStr.charAt(expirationStr.length() - 1) == 's' || expirationStr.charAt(expirationStr.length() - 1) == 'm'
-					|| expirationStr.charAt(expirationStr.length() - 1) == 'h' || expirationStr.charAt(expirationStr.length() - 1) == 'd') {
-				
 				String numberInRangeStr = expirationStr.substring(0, expirationStr.length() - 1);
-				if(SQLParser.isNumber(numberInRangeStr)) {
+				if (SQLParser.isNumber(numberInRangeStr)) {
 					expirationSecs = Integer.valueOf(numberInRangeStr);
+				} else {
+					throw new ExceptionSQLStatement("could not find number in '" + expirationStr + "'");
 				}
-				else {
-					throw new ExceptionSQLStatement("could not find number in '"+ expirationStr +"'");
-				}
-				
-				if(expirationStr.charAt(expirationStr.length() - 1) == 's') {
-				}
-				else if( expirationStr.charAt(expirationStr.length() - 1) == 'm') {
+
+				if (expirationStr.charAt(expirationStr.length() - 1) == 's') {
+				} else if (expirationStr.charAt(expirationStr.length() - 1) == 'm') {
 					expirationSecs = expirationSecs * 60;
-				}
-				else if( expirationStr.charAt(expirationStr.length() - 1) == 'h') {
+				} else if (expirationStr.charAt(expirationStr.length() - 1) == 'h') {
 					expirationSecs = expirationSecs * 60 * 60;
-				}
-				else if( expirationStr.charAt(expirationStr.length() - 1) == 'd') {
+				} else if (expirationStr.charAt(expirationStr.length() - 1) == 'd') {
 					expirationSecs = expirationSecs * 60 * 60 * 24;
 				}
-			}
-			else {
+			} else {
 				throw new ExceptionSQLStatement("Missing range-by-time unit  2s, 2m, 2h, 2d ...");
 			}
 		}
@@ -380,9 +368,9 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 	}
 
 	public static final int getWindowPartitionFieldId(String stmt) throws ExceptionSQLStatement {
-		
+
 		int partitionFieldId = -1;
-		
+
 		if (stmt.contains(" partition by ")) {
 			String partition = stmt.substring(stmt.indexOf(" partition by ") + 14);
 			if (partition.contains(" ")) {
@@ -403,32 +391,34 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 	}
 
 	public static final int getWindowRangeByFieldId(String stmt, int streamId) throws ExceptionSQLStatement {
-		
+
 		if (stmt != null && stmt.contains(" by ") && stmt.indexOf(";") > stmt.indexOf(" by ")) {
 			String dateField = stmt.substring(stmt.indexOf(" by ") + 4, stmt.indexOf(";")).trim().toLowerCase();
-			if(SQLParser.isStreamField(streamId, dateField)) { 
+			if (SQLParser.isStreamField(streamId, dateField)) {
 				int fieldId = RioDB.rio.getEngine().getStream(streamId).getDef().getFieldId(dateField);
-				if(RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId)) {
+				if (RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId)) {
 					return fieldId;
-				}
-				else {
-					throw new ExceptionSQLStatement("Field '"+ dateField +"' is not a 'date' field, and cannot be used for time range.");
+				} else {
+					throw new ExceptionSQLStatement(
+							"Field '" + dateField + "' is not a 'date' field, and cannot be used for time range.");
 				}
 			} else {
-				throw new ExceptionSQLStatement("Field '"+ dateField +"' not found. It and cannot be used for time range.");
+				throw new ExceptionSQLStatement(
+						"Field '" + dateField + "' not found. It and cannot be used for time range.");
 			}
 		}
-		
+
 		return -1;
 	}
-	
+
 	public static final String getWindowRangeStr(String stmt) throws ExceptionSQLStatement {
 		if (stmt != null && stmt.contains(" range ") && stmt.indexOf(";") > stmt.indexOf(" range ")) {
-			
+
 			String rangeStr = stmt.substring(stmt.indexOf(" range ") + 6, stmt.indexOf(";")).toLowerCase().trim();
-			
-			if(rangeStr == null || rangeStr.length() == 0) {
-				throw new ExceptionSQLStatement("A window needs a RANGE. The range can be either a quantity (integer) or a time length (clock or timestamp)");
+
+			if (rangeStr == null || rangeStr.length() == 0) {
+				throw new ExceptionSQLStatement(
+						"A window needs a RANGE. The range can be either a quantity (integer) or a time length (clock or timestamp)");
 			}
 
 			return rangeStr;
@@ -582,7 +572,7 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 		}
 		return false;
 	}
-	
+
 	public static boolean isReservedWord(String word) {
 
 		if (word == null)
@@ -607,14 +597,14 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 	static boolean isSQLFunction(String word) {
 		return SQLFunctionMap.isFunction(word);
 	}
-	
+
 	public static final boolean isStreamField(int streamId, String word) {
 		if (RioDB.rio.getEngine().getStream(streamId).getDef().getFieldId(word) >= 0) {
 			return true;
 		}
 		return false;
 	}
-	
+
 	public static final boolean isStreamName(String word) {
 		if (RioDB.rio.getEngine().getStreamId(word) >= 0) {
 			return true;
@@ -659,114 +649,137 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 		return word;
 	}
 
-	public static final String textDecode(String s) {
-		if (s != null) {
-			if (s.indexOf("$s~$") >= 0)
-				s = s.replace("$s~$", " ");
-			if (s.indexOf("$t~$") >= 0)
-				s = s.replace("$t~$", "\t");
-			if (s.indexOf("$n~$") >= 0)
-				s = s.replace("$n~$", "\n");
-			if (s.indexOf("$r~$") >= 0)
-				s = s.replace("$r~$", "\r");
-			if (s.indexOf("$op~$") >= 0)
-				s = s.replace("$op~$", "(");
-			if (s.indexOf("$cp~$") >= 0)
-				s = s.replace("$cp~$", ")");
-			if (s.indexOf("$nt~$") >= 0)
-				s = s.replace("$nt~$", "!");
-			if (s.indexOf("$eq~$") >= 0)
-				s = s.replace("$eq~$", "=");
-			if (s.indexOf("$gt~$") >= 0)
-				s = s.replace("$gt~$", ">");
-			if (s.indexOf("$lt~$") >= 0)
-				s = s.replace("$lt~$", "<");
-			if (s.indexOf("$sc~$") >= 0)
-				s = s.replace("$sc~$", ";");
-			if (s.indexOf("$pp~$") >= 0)
-				s = s.replace("$pp~$", "|");
-			if (s.indexOf("$es~$") >= 0)
-				s = s.replace("$es~$", "&");
-			if (s.indexOf("$cm~$") >= 0)
-				s = s.replace("$cm~$", ",");
-			if (s.indexOf("$pr~$") >= 0)
-				s = s.replace("$pr~$", ".");
-			if (s.indexOf("$ht~$") >= 0)
-				s = s.replace("$ht~$", "#");
-			if (s.indexOf("$qq~$") >= 0)
-				s = s.replace("$qq~$", "''");
-			if (s.indexOf("$fs~$") >= 0)
-				s = s.replace("$fs~$", "/");
-			if (s.indexOf("$bs~$") >= 0)
-				s = s.replace("$bs~$", "\\");
-
-		}
-		return s;
-	}
 	
-	private static final String textEncode(String s) {
-		if (s != null) {
-			boolean inQuote = false;
-			for (int i = 0; i < s.length(); i++) {
-				if (s.charAt(i) == '\'') {
-					if (inQuote) {
-						if (i < s.length() - 1 && s.charAt(i + 1) == '\'') {
-							i++;
-						} else {
-							inQuote = false;
-						}
-					} else {
-						inQuote = true;
-					}
-				} else if (inQuote) {
-					if (s.charAt(i) == ' ')
-						s = s.substring(0, i) + "$s~$" + s.substring(i + 1);
-					else if (s.charAt(i) == '\t')
-						s = s.substring(0, i) + "$t~$" + s.substring(i + 1);
-					else if (s.charAt(i) == '\n')
-						s = s.substring(0, i) + "$n~$" + s.substring(i + 1);
-					else if (s.charAt(i) == '\r')
-						s = s.substring(0, i) + "$r~$" + s.substring(i + 1);
-					else if (s.charAt(i) == '(')
-						s = s.substring(0, i) + "$op~$" + s.substring(i + 1);
-					else if (s.charAt(i) == ')')
-						s = s.substring(0, i) + "$cp~$" + s.substring(i + 1);
-					else if (s.charAt(i) == '!')
-						s = s.substring(0, i) + "$nt~$" + s.substring(i + 1);
-					else if (s.charAt(i) == '=')
-						s = s.substring(0, i) + "$eq~$" + s.substring(i + 1);
-					else if (s.charAt(i) == '>')
-						s = s.substring(0, i) + "$gt~$" + s.substring(i + 1);
-					else if (s.charAt(i) == '<')
-						s = s.substring(0, i) + "$lt~$" + s.substring(i + 1);
-					else if (s.charAt(i) == ';')
-						s = s.substring(0, i) + "$sc~$" + s.substring(i + 1);
-					else if (s.charAt(i) == '|')
-						s = s.substring(0, i) + "$pp~$" + s.substring(i + 1);
-					else if (s.charAt(i) == '&')
-						s = s.substring(0, i) + "$ep~$" + s.substring(i + 1);
-					else if (s.charAt(i) == ',')
-						s = s.substring(0, i) + "$cm~$" + s.substring(i + 1);
-					else if (s.charAt(i) == '.')
-						s = s.substring(0, i) + "$pr~$" + s.substring(i + 1);
-					else if (s.charAt(i) == '#')
-						s = s.substring(0, i) + "$ht~$" + s.substring(i + 1);
-					else if (s.charAt(i) == '/')
-						s = s.substring(0, i) + "$fs~$" + s.substring(i + 1);
-					else if (s.charAt(i) == '\\')
-						s = s.substring(0, i) + "$bs~$" + s.substring(i + 1);
-				} else {
-					String lowerChar = String.valueOf(s.charAt(i)).toLowerCase();
-					s = s.substring(0, i) + lowerChar + s.substring(i + 1);
+	// Function to encode any quoted text into base64
+	static final String encodeQuotedText(String s) {
 
+		// System.out.println("Encoding: "+ s);
+		if (s == null) {
+			return null;
+		}
+
+		boolean inQuote = false;
+		ArrayList<Integer> quoteBeginList = new ArrayList<Integer>();
+		ArrayList<Integer> quoteEndList = new ArrayList<Integer>();
+		for (int i = 0; i < s.length(); i++) {
+			if (s.charAt(i) == '\'') {
+				if (inQuote) {
+					if (i < s.length() - 1 && s.charAt(i + 1) == '\'') {
+						i++;
+					} else {
+						inQuote = false;
+						quoteEndList.add(i);
+
+					}
+				} else {
+					inQuote = true;
+					quoteBeginList.add(i);
 				}
 			}
-			s = s.replace("''", "$qq~$");
 		}
-		return s;
+
+		String r = s;
+		for (int i = 0; i < quoteEndList.size(); i++) {
+			if (i < quoteEndList.size()) {
+				String t = s.substring(quoteBeginList.get(i) + 1, quoteEndList.get(i));
+				String e = Base64.getEncoder().encodeToString(t.getBytes());
+				e = e.replace("=", "$");
+				t = "'" + t + "'";
+				e = "'" + e + "'";
+				r = r.replace(t, e);
+				// System.out.println(t + " -> " + e);
+			}
+		}
+
+		// System.out.println("Encoded: "+ r);
+
+		return r;
+
 	}
-	
-	
+
+	// function to decode base64 text in quotes only.
+	public static final String decodeQuotedText(String s) {
+
+		// System.out.println("decoding:"+s);
+
+		if (s == null) {
+			return null;
+		}
+
+		boolean inQuote = false;
+		ArrayList<Integer> quoteBeginList = new ArrayList<Integer>();
+		ArrayList<Integer> quoteEndList = new ArrayList<Integer>();
+		for (int i = 0; i < s.length(); i++) {
+			if (s.charAt(i) == '\'') {
+				if (inQuote) {
+					inQuote = false;
+					quoteEndList.add(i);
+				} else {
+					inQuote = true;
+					quoteBeginList.add(i);
+				}
+			}
+		}
+
+		String r = s;
+		for (int i = 0; i < quoteEndList.size(); i++) {
+
+			if (i < quoteEndList.size()) {
+				String t = s.substring(quoteBeginList.get(i) + 1, quoteEndList.get(i));
+				byte[] decodedBytes = Base64.getDecoder().decode(t.replace("$", "="));
+				String d = new String(decodedBytes);
+				t = "'" + t + "'";
+				d = "'" + d + "'";
+				// System.out.println("replacing... "+ t + " -> " + d);
+				r = r.replace(t, d);
+			}
+		}
+
+		// System.out.println("Decoded: "+ r);
+
+		return r;
+
+	}
+
+	// function to decode base64
+	public static final String decodeText(String s) {
+
+		try {
+			byte[] decodedBytes = Base64.getDecoder().decode(s.replace("$", "="));
+			return new String(decodedBytes);
+		} catch (IllegalArgumentException iae) {
+			System.out.println("SQLParser attempted to decode invalid base64 string: "+ s);
+			return null;
+		}
+	}
+
+	// a function to turn statement all to lowercase, while preserving quoted text
+	private static String lowerCase(String stmt) {
+		if (stmt == null) {
+			return null;
+		}
+
+		StringBuilder sb = new StringBuilder();
+
+		boolean inQuote = false;
+		for (int i = 0; i < stmt.length(); i++) {
+			if (stmt.charAt(i) == '\'') {
+				if (inQuote) {
+					inQuote = false;
+				} else {
+					inQuote = true;
+				}
+				sb.append('\'');
+			} else if (inQuote) {
+				sb.append(stmt.charAt(i));
+			} else {
+				sb.append(Character.toLowerCase(stmt.charAt(i)));
+			}
+		}
+
+		return sb.toString();
+	}
+
 	public static String hidePassword(String stmt) {
 
 		if (stmt != null) {
@@ -774,39 +787,39 @@ public static final String getQuerySelectList(String stmt) throws ExceptionSQLSt
 			if (l.toLowerCase().contains(" password ")) {
 				int p1 = l.indexOf(" password ") + 10;
 				int p2 = l.indexOf(' ', p1);
-				if(p2 == -1) {
+				if (p2 == -1) {
 					p2 = l.length();
 				}
-				String r = stmt.substring(0,p1);
+				String r = stmt.substring(0, p1);
 				r += "******";
-				if(stmt.length() > p2) {
+				if (stmt.length() > p2) {
 					r = r + stmt.substring(p2);
 				}
 				return r;
 			}
 			if (l.toLowerCase().startsWith("resetpwd ") && l.length() > 9) {
-				String r = stmt.substring(0,9);
+				String r = stmt.substring(0, 9);
 				r = r + " ******";
 				String pwd = stmt.substring(9);
-				if(pwd.contains(" ")) {
+				if (pwd.contains(" ")) {
 					String afterPwd = pwd.substring(pwd.indexOf(" "));
-					r = r + " "+ afterPwd;
+					r = r + " " + afterPwd;
 				}
 				return r;
 			}
 			if (l.toLowerCase().startsWith("create user ") && l.length() > 9) {
 
 				String user = stmt.substring(12);
-				if(user.contains(" ")) {
+				if (user.contains(" ")) {
 					int p1 = user.indexOf(" ") + 12;
-					
-					String r = stmt.substring(0,p1) + " ******";
-					
-					String pwd = stmt.substring(p1+1);
+
+					String r = stmt.substring(0, p1) + " ******";
+
+					String pwd = stmt.substring(p1 + 1);
 					if (pwd.contains(" ")) {
-						
+
 						r = r + " " + pwd.substring(pwd.indexOf(" "));
-						
+
 					}
 					return r;
 				}

@@ -288,10 +288,10 @@ public class Engine {
 		if (streamId >= 0 && streamId < streams.length && streams[streamId] != null) {
 			RioDB.rio.getSystemSettings().getLogger().debug("Stopping stream.");
 			streams[streamId].stop();
-			Clock.sleep10();
+			Clock.sleep(10);
 			RioDB.rio.getSystemSettings().getLogger().debug("erasing stream.");
 			streams[streamId] = null;
-			Clock.sleep10();
+			Clock.sleep(10);
 			return true;
 		}
 		return false;
@@ -308,7 +308,6 @@ public class Engine {
 					streams[i].start();
 				}
 			}
-			Clock.sleep(50);
 			RioDB.rio.getSystemSettings().getLogger().info("RioDB is ready");
 		}
 	}

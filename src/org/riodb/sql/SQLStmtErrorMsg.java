@@ -109,10 +109,10 @@ final public class SQLStmtErrorMsg {
 		
 		String e;
 		if(err > 0 && err < SQLStmtErrorMsg.messageList.length) {
-			e = "SQL Error "+ err +": "+ SQLStmtErrorMsg.messageList[err] + ":\n\t"+SQLParser.textDecode(code);
+			e = "SQL Error "+ err +": "+ SQLStmtErrorMsg.messageList[err] + ":\n\t"+SQLParser.decodeQuotedText(code);
 		}
 		else {
-			e = "SQL Error 0: Unhandled:\n\t"+SQLParser.textDecode(code);
+			e = "SQL Error 0: Unhandled:\n\t"+SQLParser.decodeQuotedText(code);
 		}
 		return e;
 		

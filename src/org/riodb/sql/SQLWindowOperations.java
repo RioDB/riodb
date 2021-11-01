@@ -166,7 +166,7 @@ public final class SQLWindowOperations {
 				RioDB.rio.getSystemSettings().getPersistedStatements().loadWindowStmt(windowName, stmt);
 				;
 			} else {
-				RioDB.rio.getSystemSettings().getPersistedStatements().addNewWindowStmt(windowName, stmt);
+				RioDB.rio.getSystemSettings().getPersistedStatements().saveNewWindowStmt(windowName, stmt);
 			}
 		}
 
@@ -177,7 +177,7 @@ public final class SQLWindowOperations {
 		return null;
 	}
 
-	public static final void dropWindow(String stmt) throws ExceptionSQLStatement {
+	public static final String dropWindow(String stmt) throws ExceptionSQLStatement {
 
 		String newStmt = SQLStreamOperations.formatSQL(stmt);
 		// System.out.println(newStmt);
@@ -186,7 +186,7 @@ public final class SQLWindowOperations {
 		if (words.length >= 3 && words[0] != null && words[0].equals("drop") && words[1] != null
 				&& words[1].equals("window")) {
 
-			String windowName = words[2];
+			String windowName = words[2].replace(";","").trim();
 
 			// locate window (it could be under any stream)
 			int streamId = RioDB.rio.getEngine().getStreamIdOfWindow(windowName);
@@ -204,7 +204,7 @@ public final class SQLWindowOperations {
 			// persist removal of window (so it doesn't get recreated after reboot)
 			RioDB.rio.getSystemSettings().getPersistedStatements().dropWindowStmt(windowName);
 			
-			return;
+			return "Window "+ windowName + " dropped.";
 
 		}
 		throw new ExceptionSQLStatement("Statement error. Try 'DROP WINDOW window_name;");
@@ -356,7 +356,7 @@ public final class SQLWindowOperations {
 
 				} else {
 					pattern = pattern.trim();
-					pattern = SQLParser.textDecode(pattern);
+					pattern = SQLParser.decodeQuotedText(pattern);
 					if ((pattern != null && pattern.length() >= 2)) {
 						if (pattern.charAt(0) != '\'' || pattern.charAt(pattern.length() - 1) != '\'') {
 							throw new ExceptionSQLStatement(SQLStmtErrorMsg.write(26, whereStr));
@@ -458,7 +458,7 @@ public final class SQLWindowOperations {
 
 						if (i < words.length - 2 && i > 0) {
 							String val = words[i + 1].replace("'", "");
-							val = SQLParser.textDecode(val);
+							val = SQLParser.decodeQuotedText(val);
 							String likeCounter = String.valueOf(likeList.size());
 
 							String source = words[i - 1];
@@ -493,7 +493,7 @@ public final class SQLWindowOperations {
 							}
 							words[j] = "";
 
-							val = "(" + SQLParser.textDecode(val) + ")";
+							val = "(" + SQLParser.decodeQuotedText(val) + ")";
 
 							// System.out.println(val);
 
@@ -549,7 +549,7 @@ public final class SQLWindowOperations {
 		SQLStringIN[] inArr = new SQLStringIN[inList.size()];
 		inArr = inList.toArray(inArr);
 
-		expression = SQLParser.textDecode(expression).replace("''", "'");
+		expression = SQLParser.decodeQuotedText(expression).replace("''", "'");
 
 		return new SQLWindowConditionExpression(expression, streamId, likeArr, inArr, whereStr);
 	}

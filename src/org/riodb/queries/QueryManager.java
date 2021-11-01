@@ -259,7 +259,7 @@ public class QueryManager implements Runnable {
 							qItr.remove();
 							//dropQuery(queryId);
 							RioDB.rio.getSystemSettings().getPersistedStatements().dropQueryStmt(queryId);
-							RioDB.rio.getSystemSettings().getLogger().debug("Query "+ String.valueOf(queryId) +" removed.");
+							RioDB.rio.getSystemSettings().getLogger().info("Query "+ String.valueOf(queryId) +" removed.");
 						}
 					} catch (ExceptionSQLExecution e) {
 						if (!erroAlreadyCaught) {
