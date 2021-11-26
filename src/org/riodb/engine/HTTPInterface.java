@@ -58,13 +58,13 @@ import javax.net.ssl.TrustManagerFactory;
 import org.riodb.sql.SQLExecutor;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpPrincipal;
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsServer;
 import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsParameters;
-import com.sun.net.httpserver.BasicAuthenticator;
-import com.sun.net.httpserver.HttpContext;
+import com.sun.net.httpserver.Headers;
+
+import java.util.Base64;
 
 @SuppressWarnings("restriction")
 public class HTTPInterface {
@@ -72,6 +72,15 @@ public class HTTPInterface {
 	// http server and https server
 	private static HttpServer httpServer = null;
 	private static HttpsServer httpsServer = null;
+
+	// Source address of hosts allowed to submit requests to RioDB HTTP API:
+	// null means any source.
+	private String sourceAddress = null;
+
+	// setter for sourceAddress
+	public void setSourceAddress(String sourceAddress) {
+		this.sourceAddress = sourceAddress;
+	}
 
 	// max timeout for select statement (could become a .conf parameter passed to
 	// constructor)
@@ -92,17 +101,27 @@ public class HTTPInterface {
 		boolean success = false;
 		try {
 
-			InetAddress localHost = InetAddress.getLoopbackAddress();
-			InetSocketAddress sockAddr = new InetSocketAddress(localHost, port);
+			InetSocketAddress sockAddr;
+			if (sourceAddress == null) {
 
-			// this is restricted to localhost
+				sockAddr = new InetSocketAddress(port);
+
+			} else {
+
+				InetAddress localHost = InetAddress.getByName(sourceAddress);
+				sockAddr = new InetSocketAddress(localHost, port);
+				// this is restricted to localhost
+				RioDB.rio.getSystemSettings().getLogger()
+						.info("HTTP Interface will only accept requests from " + sourceAddress);
+			}
+
 			httpServer = HttpServer.create(sockAddr, 0);
 
 			// this is not restricted to localhost
 			// httpServer = HttpServer.create(new InetSocketAddress(port), 0);
 
-			httpServer.createContext("/", new RootHandler());
-			httpServer.createContext("/rio", new RioHandler());
+			httpServer.createContext("/", new RioHandler());
+			// httpServer.createContext("/rio", new RioHandler());
 			httpServer.setExecutor(null); // creates a default executor
 			RioDB.rio.getSystemSettings().getLogger().info("Starting HTTP interface on " + port);
 			httpServer.start();
@@ -121,7 +140,21 @@ public class HTTPInterface {
 		boolean success = false;
 		try {
 
-			httpsServer = HttpsServer.create(new InetSocketAddress(port), 0);
+			InetSocketAddress sockAddr;
+			if (sourceAddress == null) {
+
+				sockAddr = new InetSocketAddress(port);
+
+			} else {
+
+				InetAddress localHost = InetAddress.getByName(sourceAddress);
+				sockAddr = new InetSocketAddress(localHost, port);
+				// this is restricted to localhost
+				RioDB.rio.getSystemSettings().getLogger()
+						.info("HTTP Interface will only accept requests from " + sourceAddress);
+			}
+
+			httpsServer = HttpsServer.create(sockAddr, 0);
 
 			// SSL Context
 			SSLContext sslContext;
@@ -150,6 +183,9 @@ public class HTTPInterface {
 						SSLContext context = getSSLContext();
 						SSLEngine engine = context.createSSLEngine();
 						params.setNeedClientAuth(false);
+						if (RioDB.rio.getUserMgr() != null) {
+							params.setNeedClientAuth(true);
+						}
 						params.setCipherSuites(engine.getEnabledCipherSuites());
 						params.setProtocols(engine.getEnabledProtocols());
 
@@ -163,22 +199,24 @@ public class HTTPInterface {
 				}
 			});
 
-			httpsServer.createContext("/", new RootHandler());
 			// httpsServer.createContext("/rio", new RioHandler());
 
-			HttpContext hc1 = httpsServer.createContext("/rio", new RioHandler());
-			if (RioDB.rio.getUserMgr() != null) {
-				hc1.setAuthenticator(new BasicAuthenticator("get") {
-					@Override
-					public boolean checkCredentials(String user, String pwd) {
-						// block requests posing as SYSTEM.
-						if (user == null || user.equals("SYSTEM")) {
-							return false;
-						}
-						return RioDB.rio.getUserMgr().authenticate(user, pwd);
-					}
-				});
-			}
+			httpsServer.createContext("/", new RioHandler());
+
+			// final HttpContext hc1 = httpsServer.createContext("/", new RioHandler());
+			/*
+			 * if (RioDB.rio.getUserMgr() != null) {
+			 * 
+			 * RioDB.rio.getSystemSettings().getLogger().
+			 * trace("Configuring HTTPS Context and Auth.");
+			 * 
+			 * hc1.setAuthenticator(new BasicAuthenticator("get") {
+			 * 
+			 * @Override public boolean checkCredentials(String user, String pwd) { // block
+			 * requests posing as SYSTEM. if (user == null ||
+			 * user.toUpperCase().equals("SYSTEM")) { return false; } return
+			 * RioDB.rio.getUserMgr().authenticate(user, pwd); } }); }
+			 */
 			httpsServer.setExecutor(null);
 			RioDB.rio.getSystemSettings().getLogger().info("Starting HTTPsServer on " + port);
 			httpsServer.start();
@@ -199,27 +237,41 @@ public class HTTPInterface {
 		public void handle(HttpExchange t) throws IOException {
 
 			// default response
+			int code = 200;
 			String response = "{\"status\": 200, \"message\": \"RioDB here. Tell me WHEN.\"}\n";
-			if (t.getRequestMethod().equals("POST")) {
+			if (t.getRequestMethod().equals("POST") || t.getRequestMethod().equals("GET")) {
+
 				String stmt = parseRequestBody(t.getRequestBody());
 				if (stmt != null && stmt.length() > 0) {
 
-					String userName = null;
+					// if UserManagement is enabled, we need to authenticate:
 					if (RioDB.rio.getUserMgr() != null) {
-						HttpPrincipal p = t.getPrincipal();
-						userName = p.getUsername();
+
+						// try to authenticate user:
+						String userName = authenticate(t);
+						// authenticate returned null if login failed.
 						if (userName != null) {
-							userName = userName.toUpperCase();
+
+							response = SQLExecutor.execute(stmt, userName, true, true) + "\n";
+
+						} else {
+							response = "{\"status\": 401, \"message\": \"Unauthorized.\"}\n";
+							code = 401;
 						}
+
+					} else {
+						// User Management is not enabled. Any requester can.
+						response = SQLExecutor.execute(stmt, null, true, true) + "\n";
 					}
 
-						// Send the statement and username to the SQLExecutor class
-						// true for persistStament,  true for respondWithDetails
-						response = SQLExecutor.execute(stmt, userName, true, true) + "\n";
-						
-				} 
+				}
+			} else {
+				response = "{\"status\": 405, \"message\": \"Method not allowed. Use POST or GET.\"}\n";
+				code = 405;
 			}
-			t.sendResponseHeaders(200, response.getBytes().length);
+			t.getResponseHeaders().add("Content-Type", "application/json");
+			t.getResponseHeaders().add("Connection", "close");
+			t.sendResponseHeaders(code, response.getBytes().length);
 			OutputStream os = t.getResponseBody();
 			os.write(response.getBytes());
 			os.close();
@@ -237,18 +289,6 @@ public class HTTPInterface {
 				}
 			}
 			return null;
-		}
-	}
-
-	// Default handler for URL root level. (The other handler responds to URL /rio
-	static class RootHandler implements HttpHandler {
-		@Override
-		public void handle(final HttpExchange t) throws IOException {
-			String response = "{\"status\": 200, \"message\":\"RioDB here. Tell me WHEN.\"}\n";
-			t.sendResponseHeaders(200, response.getBytes().length);
-			OutputStream os = t.getResponseBody();
-			os.write(response.getBytes());
-			os.close();
 		}
 	}
 
@@ -288,6 +328,48 @@ public class HTTPInterface {
 			RioDB.rio.getSystemSettings().getLogger().info("Stopped HTTPS interface");
 		}
 
+	}
+
+	// Function to authenticate requester
+	// returns null if login fails.
+	// returns username if login succeeds.
+	private static String authenticate(HttpExchange e) {
+
+		String authStr = ((Headers) e.getRequestHeaders()).getFirst("Authorization");
+
+		// if auth string is missing from request, login fail
+		if (authStr == null) {
+			return null;
+		}
+
+		// auth string should start with "Basic "
+		if (!authStr.startsWith("Basic ")) {
+			return null;
+		}
+
+		try {
+			// decode the Base64-encoded credentials
+			byte[] b = Base64.getDecoder().decode(authStr.substring(6));
+			String creds = new String(b);
+
+			// credentials must have a colon:
+			int colon = creds.indexOf(":");
+			// colon can't be first or last char:
+			if (colon < 1 || colon == creds.length() - 1) {
+				return null;
+			}
+
+			String user = creds.substring(0, colon);
+			String pwd = creds.substring(colon + 1);
+
+			if (RioDB.rio.getUserMgr().authenticate(user, pwd)) {
+				return user;
+			}
+			
+		} catch (Exception ex) {
+			//client passed invalid Base64 string.
+		}
+		return null;
 	}
 
 }
