@@ -12,11 +12,11 @@
     </Appenders>
     <Loggers>
         <Logger name="org.riodb" level="trace" additivity="false">
-            <AppenderRef ref="LogToFile"/>
+            <!-- AppenderRef ref="LogToFile"/  -->
             <AppenderRef ref="LogToConsole"/>
         </Logger>
         <Root level="trace">
-            <AppenderRef ref="LogToFile"/>
+            <!-- AppenderRef ref="LogToFile"/  -->
             <AppenderRef ref="LogToConsole"/>
         </Root>
     </Loggers>

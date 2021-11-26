@@ -748,7 +748,7 @@ public final class SQLParser {
 			byte[] decodedBytes = Base64.getDecoder().decode(s.replace("$", "="));
 			return new String(decodedBytes);
 		} catch (IllegalArgumentException iae) {
-			System.out.println("SQLParser attempted to decode invalid base64 string: "+ s);
+			//System.out.println("SQLParser attempted to decode invalid base64 string: "+ s);
 			return null;
 		}
 	}

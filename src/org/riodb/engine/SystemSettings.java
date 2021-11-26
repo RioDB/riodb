@@ -31,6 +31,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.TreeMap;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
@@ -47,6 +49,9 @@ public class SystemSettings {
 
 	// default config file location
 	private static final String DEFAULT_CONFIG_FILE = "riodb.conf";
+
+	// default log4j.xml file location
+	private static final String DEFAULT_LOG4J2_FILE = "conf/log4j2.xml";
 
 	// default config file subdirectory
 	private static final String DEFAULT_CONFIG_SUBDIR = "conf";
@@ -124,8 +129,6 @@ public class SystemSettings {
 	// Method for loading configuration from .conf file
 	public final boolean loadConfig(String[] args) {
 
-		boolean success = true;
-
 		// if started application with -h for help
 		if (getArgValue(args, "-h") != null) {
 			System.out.println("Welcome to RioDB. More information at www.riodb.org\n" + "\n-h\tPrints help."
@@ -143,7 +146,7 @@ public class SystemSettings {
 //					javaRelativePath = javaRelativePath.substring(0,javaRelativePath.lastIndexOf("\\"));
 //				}
 //			} else {
-			if(javaRelativePath == null ){
+			if (javaRelativePath == null) {
 				System.out.println("Error obtaining directory where riodb.jar is running from: ");
 				return false;
 			}
@@ -160,7 +163,7 @@ public class SystemSettings {
 
 		// config file:
 		String configFile = javaRelativePath + "/" + DEFAULT_CONFIG_SUBDIR + "/" + DEFAULT_CONFIG_FILE;
-		
+
 		configFile = adaptPathSlashes(configFile);
 
 		// if user started application with -f to specify a config file location:
@@ -176,13 +179,18 @@ public class SystemSettings {
 		}
 		configFile = adaptPathSlashes(configFile);
 
+		TreeMap<String, String> confProperties = readConfigFile(configFile);
+
+		if(confProperties == null) {
+			return false;
+		}
 		// if user started application with -v to see version
 		if (getArgValue(args, "-v") != null) {
 			System.out.println("RioDB version " + RioDB.VERSION);
 
 			System.out.println("Reading config file: " + configFile);
 
-			String pluginDir = getConfigFileProperty(configFile, "plugin_dir");
+			String pluginDir = confProperties.get("plugin_dir");
 			if (pluginDir != null) {
 				pluginJarDirectory = pluginDir;
 			}
@@ -196,132 +204,128 @@ public class SystemSettings {
 			return false;
 		}
 
-		// open config file.
-		Path filePath = Path.of(configFile);
-		try {
-			ArrayList<String> fileContent;
-			// read conf file lines and do what's needed:
-			fileContent = (ArrayList<String>) Files.readAllLines(filePath);
-			if (fileContent != null && fileContent.size() > 0) {
-				success = runConfig(fileContent);
-				logger.info("Loaded config file: " + configFile);
-			} else {
-				success = false;
-				System.out.println("Error reading " + configFile);
-			}
-
-		} catch (IOException e) {
-			System.out.println("Error reading " + configFile + " -   " + e.getMessage());
-			success = false;
+		if (runConfig(confProperties)) {
+			Clock.sleep(10);
+			return true;
 		}
 
-		// quick pause after loading conf, for object to finish initializing
-		Clock.sleep(10);
-
-		return success;
+		return false;
 
 	}
 
 	// process config file lines:
-	private static boolean runConfig(ArrayList<String> fileContent) {
+	private static boolean runConfig(TreeMap<String, String> confProperties) {
 
 		boolean success = true;
 		int httpPort = 0;
 		int httpsPort = 0;
 		String httpsKeystorePwd = "";
 
-		for (String line : fileContent) {
-			line = line.replace('\t', ' ');
-			line = line.trim();
-			while (line.contains("  ")) {
-				line = line.replace("  ", " ");
+		///////////////// CONFIG LOGGING /////////////////////
+
+		String log4j2XMLfile = DEFAULT_LOG4J2_FILE;
+		if (confProperties.containsKey("log4j_properties")) {
+
+			log4j2XMLfile = confProperties.get("log4j_properties");
+		}
+
+		if (!log4j2XMLfile.contains(":") && !log4j2XMLfile.startsWith("/") && !log4j2XMLfile.startsWith("\\")) {
+			log4j2XMLfile = javaRelativePath + "/" + log4j2XMLfile;
+		}
+		log4j2XMLfile = adaptPathSlashes(log4j2XMLfile);
+
+		File file = new File(log4j2XMLfile);
+		LoggerContext context = (LoggerContext) LogManager.getContext(false);
+		context.setConfigLocation(file.toURI());
+
+		// DOMConfigurator.configure(words[1]);
+
+		Thread.currentThread().setName("RIODB");
+
+		/*
+		 * Per the license, the terminal must FIRST display an attribution to the
+		 * copyright of riodb.org If the project is forked, this copyright notice must
+		 * be preserved and displayed first. If embedded in a GUI application, the
+		 * copyright notice must appear in an ABOUT page or similar.
+		 */
+		logger.info("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+		logger.info(" _        _  _   RioDB " + RioDB.VERSION + " - Copyright (c) 2021 info at www.riodb.org");
+		logger.info("|_) o  _ | \\|_)  This program comes with no warranty.");
+		logger.info("| \\ | (_)|_/|_)  This is free software licensed under GPL-3.0 license.");
+		logger.info("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+
+		// logger.info("RioDB " + RioDB.VERSION + " - Copyright (c) 2021
+		// www.riodb.org");
+		logger.debug("Java VM name: " + System.getProperty("java.vm.name"));
+		logger.debug("Java Version: " + System.getProperty("java.version"));
+		logger.debug("Java Home: " + System.getProperty("java.home"));
+
+		logger.debug("log4j2 config file: " + log4j2XMLfile);
+
+		//////////// CONFIG OTHER PROPERTIES ////////////////////
+
+		if (confProperties.containsKey("http_port")) {
+			if (SQLParser.isNumber(confProperties.get("http_port"))
+					&& Integer.valueOf(confProperties.get("http_port")) > 0) {
+				httpPort = Integer.valueOf(confProperties.get("http_port"));
+			} else {
+				logger.fatal("Configuration error: 'http_port' must be a positive integer.");
+				return false;
 			}
-			if (line.length() > 0 && line.charAt(0) != '#' && line.contains(" ")) {
-				String words[] = line.split(" ");
-				if (words.length > 1) {
-					if (words[1].contains("#")) {
-						words[1] = words[1].substring(0, words[1].indexOf("#"));
-					} else if (words[0].equals("log4j_properties")) {
+		}
 
-						String log4j2XMLfile = words[1];
-						if (!log4j2XMLfile.contains(":") && !log4j2XMLfile.startsWith("/")
-								&& !log4j2XMLfile.startsWith("\\")) {
-							log4j2XMLfile = javaRelativePath + "/" + log4j2XMLfile;
-						}
-						log4j2XMLfile = adaptPathSlashes(log4j2XMLfile);
-						
-						File file = new File(log4j2XMLfile);
-						LoggerContext context = (LoggerContext) LogManager.getContext(false);
-						context.setConfigLocation(file.toURI());
+		if (confProperties.containsKey("host")) {
 
-						// DOMConfigurator.configure(words[1]);
+			httpInterface.setSourceAddress(confProperties.get("host"));
 
-						Thread.currentThread().setName("RIODB");
+		}
 
-						/*
-						 * Per the license, the terminal must FIRST display an attribution to the
-						 * copyright of riodb.org If the project is forked, this copyright notice must
-						 * be preserved and displayed first. If embedded in a GUI application, the
-						 * copyright notice must appear in an ABOUT page or similar.
-						 */
-						logger.info("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-						logger.info(" _        _  _   RioDB " + RioDB.VERSION
-								+ " - Copyright (c) 2021 info at www.riodb.org");
-						logger.info("|_) o  _ | \\|_)  This program comes with no warranty.");
-						logger.info("| \\ | (_)|_/|_)  This is free software licensed under GPL-3.0 license.");
-						logger.info("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+		if (confProperties.containsKey("stmt_timeout") && Integer.valueOf(confProperties.get("stmt_timeout")) > 0) {
+			if (SQLParser.isNumber(confProperties.get("stmt_timeout"))) {
+				httpInterface.setTimeout(Integer.valueOf(confProperties.get("stmt_timeout")));
+			} else {
+				logger.fatal("Configuration error: 'stmt_timeout' must be a positive integer.");
+				return false;
+			}
+		}
 
-						// logger.info("RioDB " + RioDB.VERSION + " - Copyright (c) 2021
-						// www.riodb.org");
-						logger.debug("Java VM name: " + System.getProperty("java.vm.name"));
-						logger.debug("Java Version: " + System.getProperty("java.version"));
-						logger.debug("Java Home: " + System.getProperty("java.home"));
+		if (confProperties.containsKey("https_port") && Integer.valueOf(confProperties.get("https_port")) > 0) {
+			if (SQLParser.isNumber(confProperties.get("https_port"))) {
+				httpsPort = Integer.valueOf(confProperties.get("https_port"));
+			} else {
+				logger.fatal("Configuration error: 'https_port' must be a positive integer.");
+				return false;
+			}
+		}
 
-						logger.debug("log4j2 config file: " + log4j2XMLfile);
+		if (confProperties.containsKey("https_keystore_file")) {
+			sslCertFile = confProperties.get("https_keystore_file");
+		}
 
-						Clock.sleep(10);
-					}
-					if (words[0].equals("http_port")) {
-						if (SQLParser.isNumber(words[1]) && Integer.valueOf(words[1]) > 0) {
-							httpPort = Integer.valueOf(words[1]);
-						} else {
-							logger.fatal("Configuration error: 'http_port' must be a positive integer.");
-							return false;
-						}
-					} else if (words[0].equals("stmt_timeout") && Integer.valueOf(words[1]) > 0) {
-						if (SQLParser.isNumber(words[1])) {
-							httpInterface.setTimeout(Integer.valueOf(words[1]));
-						} else {
-							logger.fatal("Configuration error: 'stmt_timeout' must be a positive integer.");
-							return false;
-						}
-					} else if (words[0].equals("https_port") && Integer.valueOf(words[1]) > 0) {
-						if (SQLParser.isNumber(words[1])) {
-							httpsPort = Integer.valueOf(words[1]);
-						} else {
-							logger.fatal("Configuration error: 'https_port' must be a positive integer.");
-							return false;
-						}
-					} else if (words[0].equals("https_keystore_file")) {
-						sslCertFile = words[1];
-					} else if (words[0].equals("https_keystore_pwd")) {
-						httpsKeystorePwd = words[1];
-					} else if (words[0].equals("credentials_file")) {
-						passwdFile = words[1];
-					} else if (words[0].equals("sql_dir")) {
-						sqlDirectory = words[1];
-					} else if (words[0].equals("plugin_dir")) {
-						pluginJarDirectory = words[1];
-					} else if (words[0].equals("output_workers")) {
-						if (SQLParser.isNumber(words[1]) && Integer.valueOf(words[1]) > 0) {
-							output_worker_threads = Integer.valueOf(words[1]);
-							RioDB.rio.getEngine().setOutputWorkers(output_worker_threads);
-						} else {
-							logger.fatal("Configuration error: 'output_workers' must be a positive integer.");
-							return false;
-						}
-					}
-				}
+		if (confProperties.containsKey("https_keystore_pwd")) {
+			httpsKeystorePwd = confProperties.get("https_keystore_pwd");
+		}
+
+		if (confProperties.containsKey("credentials_file")) {
+			passwdFile = confProperties.get("credentials_file");
+		}
+
+		if (confProperties.containsKey("sql_dir")) {
+			sqlDirectory = confProperties.get("sql_dir");
+		}
+
+		if (confProperties.containsKey("plugin_dir")) {
+			pluginJarDirectory = confProperties.get("plugin_dir");
+		}
+
+		if (confProperties.containsKey("output_workers")) {
+			if (SQLParser.isNumber(confProperties.get("output_workers"))
+					&& Integer.valueOf(confProperties.get("output_workers")) > 0) {
+				output_worker_threads = Integer.valueOf(confProperties.get("output_workers"));
+				RioDB.rio.getEngine().setOutputWorkers(output_worker_threads);
+			} else {
+				logger.fatal("Configuration error: 'output_workers' must be a positive integer.");
+				return false;
 			}
 		}
 
@@ -343,7 +347,7 @@ public class SystemSettings {
 		logger.info("Plugin dir: " + pluginJarDirectory);
 		logger.info("SQL file dir: " + sqlDirectory);
 		logger.debug("Persistant stmt file: " + persistedStatementsFile);
-		
+
 		// Initialize statement persistance.
 		persistedStatements = new PersistedStatements();
 
@@ -412,7 +416,7 @@ public class SystemSettings {
 
 		// Creates a new File instance by converting the given pathname string
 		// into an abstract pathname
-		
+
 		File f = new File(sqlDirectory);
 
 		// Populates the array with names of files and directories
@@ -420,12 +424,12 @@ public class SystemSettings {
 
 		// For each pathname in the pathnames array
 		for (String file : sqlFiles) {
-			
+
 			// Print the names of files and directories
-			if (true) {//file.toLowerCase().endsWith(("." + RQL_FILE_EXTENSION))) {
+			if (true) {// file.toLowerCase().endsWith(("." + RQL_FILE_EXTENSION))) {
 
 				String fileName = adaptPathSlashes(sqlDirectory + file);
-				
+
 				Path filePath = Path.of(fileName);
 				logger.info("Loading " + fileName + " ...");
 
@@ -494,34 +498,43 @@ public class SystemSettings {
 		return persistedStatementsFile;
 	}
 
-	// Used to get 1 property from the conf file:
-	private static String getConfigFileProperty(String configFile, String propertyName) {
+	// Used to ready the Config file and return it as a string.
+	// returns null if the config-file path is invalid. 
+	private static TreeMap<String, String> readConfigFile(String configFile) {
 
+		if (configFile == null) {
+			return null;
+		}
 		Path filePath = Path.of(configFile);
 		try {
 			ArrayList<String> fileContent;
-			// read conf file lines and do what's needed:
+			// read conf file lines:
 			fileContent = (ArrayList<String>) Files.readAllLines(filePath);
 			if (fileContent == null || fileContent.size() == 0) {
 				return null;
 			}
 
-			for (String line : fileContent) {
-				if (line != null && line.contains("plugin_dir")) {
+			TreeMap<String, String> properties = new TreeMap<String, String>();
 
-					if (!line.contains("#") || line.indexOf("#") > line.indexOf("plugin_dir")) {
-						line = line.trim();
-						String parts[] = line.split(" ");
-						if (parts.length > 1 && parts[0].equals("plugin_dir") && !parts[1].startsWith("#")) {
-							if (parts[1].contains("#")) {
-								parts[1] = parts[1].substring(0, parts[1].indexOf("#"));
-							}
-							System.out.println(parts[1]);
-							return parts[1];
-						}
+			for (String line : fileContent) {
+				if (line != null && (line.contains(" ") || line.contains("\t"))) {
+					line = line.replace("\t", " ");
+					while (line.contains("  ")) {
+						line = line.replace("  ", " ");
+					}
+					line = line.trim();
+					if (line.contains("#")) {
+						line = line.substring(0, line.indexOf("#")).trim();
+					}
+					String parts[] = line.split(" ");
+					if (parts.length > 1 && parts[1].length() > 0) {
+						properties.put(parts[0], parts[1]);
+//						System.out.println("property: " + parts[0] + " value: " + parts[1]);
 					}
 				}
 			}
+
+			return properties;
 
 		} catch (IOException e) {
 			System.out.println("Error reading config file. " + e.getMessage());
@@ -530,6 +543,7 @@ public class SystemSettings {
 
 	}
 
+	/// print plugin versions when arg -v is used.
 	private final static void printPluginVersions() {
 
 		if (pluginJarDirectory == null) {
@@ -546,8 +560,8 @@ public class SystemSettings {
 
 		// Populates the array with names of files and directories
 		jarFiles = f.list();
-		
-		if(jarFiles.length == 0) {
+
+		if (jarFiles.length == 0) {
 			System.out.println("No plugins in '" + pluginJarDirectory);
 			return;
 		} else {
@@ -568,27 +582,27 @@ public class SystemSettings {
 				if (fileName.contains("\\") && fileName.lastIndexOf("\\") < fileName.length()) {
 					fileName = fileName.substring(fileName.lastIndexOf("\\") + 1);
 				}
-					try {
-						RioDBPlugin plugin = OutputClassLoader.getOutputPlugin(fileName);
-						System.out.println(plugin.getType() + " " + plugin.version());
-					} catch (ExceptionSQLStatement | java.lang.NoClassDefFoundError e) {
-						System.out.println("Error checking plugin '" + fileName + "' : " + e.getMessage());
-					} catch (java.lang.AbstractMethodError e) {
-						System.out.println("Error checking plugin '" + fileName + "' : invalid plugin or incompatible version.");
-					}
-				
+				try {
+					RioDBPlugin plugin = OutputClassLoader.getOutputPlugin(fileName);
+					System.out.println(plugin.getType() + " " + plugin.version());
+				} catch (ExceptionSQLStatement | java.lang.NoClassDefFoundError e) {
+					System.out.println("Error checking plugin '" + fileName + "' : " + e.getMessage());
+				} catch (java.lang.AbstractMethodError e) {
+					System.out.println(
+							"Error checking plugin '" + fileName + "' : invalid plugin or incompatible version.");
+				}
 
 			}
 
 		}
 	}
-	
+
 	private String getArgValue(String args[], String key) {
-		
-		for(int i = 0; i < args.length; i++) {
-			if(args[i].equals(key)) {
-				if(i < args.length-1) {
-					return args[i+1];
+
+		for (int i = 0; i < args.length; i++) {
+			if (args[i].equals(key)) {
+				if (i < args.length - 1) {
+					return args[i + 1];
 				}
 				return "true";
 			}
