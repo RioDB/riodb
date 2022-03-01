@@ -150,7 +150,7 @@ public class WindowOfTimeSimple implements Window {
 		this.requiresPrevious = functionsRequired[SQLFunctionMap.getFunctionId("previous")];
 		this.requiresSum = functionsRequired[SQLFunctionMap.getFunctionId("sum")];
 		
-		RioDB.rio.getSystemSettings().getLogger().debug("constructing Window of time, simple");
+		RioDB.rio.getSystemSettings().getLogger().debug("\tconstructing Window of time, simple");
 		// list = new LinkedList<SecondNode>();
 		secondSummaryList = new ArrayDeque<SecondNode>();
 		windowSummary = new WindowSummary();
@@ -185,6 +185,7 @@ public class WindowOfTimeSimple implements Window {
 			// make new Node
 			SecondNode s = new SecondNode(currentSecond, elementInserted);
 			secondSummaryList.add(s);
+			mostRecentSecond = currentSecond;
 		}
 
 		// we only bother with updating max and min if a rule needs them.
@@ -216,17 +217,20 @@ public class WindowOfTimeSimple implements Window {
 	// If sync performance is bad, then maybe have CLOCK pass request as a special message through message process. 
 	@Override
 	public int trimExpiredWindowElements(int currentSecond) {
-
-		// if the oldest record is current, then there's nothing to remove. 
-		if(mostRecentSecond == currentSecond) {
-			return 0;
-		}
 		
 		int expirationTime = currentSecond - range;
 		
+		// if the oldest record is current, then there's nothing to remove. 
+		// or if the window is empty, there's nothing to remove.
+        if(mostRecentSecond == currentSecond || secondSummaryList.isEmpty()) {
+			return 0;
+		}
+
+		
+		
 		// if the newest record is old enough to be evicted, then we might as well 
 		// evict everything by resetting the window. 
-		if(secondSummaryList.peekLast().getSecond() < expirationTime ) {
+		if(secondSummaryList.peekLast().getSecond() <= expirationTime ) {
 			int totalRemoved = windowSummary.getCount();
 			secondSummaryList = new ArrayDeque<SecondNode>();
 			WindowSummary newEmptyWindow = new WindowSummary();
@@ -236,8 +240,8 @@ public class WindowOfTimeSimple implements Window {
 			windowSummary = newEmptyWindow;
 			return totalRemoved;
 		}
-
-		mostRecentSecond = currentSecond;
+		
+		//mostRecentSecond = currentSecond;
 		int count = 0;
 		boolean maxRemoved = false;
 		boolean minRemoved = false;
@@ -245,7 +249,7 @@ public class WindowOfTimeSimple implements Window {
 		
 		// evict expired entries in secondList, starting from oldest to newest. 
 		for (SecondNode sn : secondSummaryList) {
-			if (sn.getSecond() < expirationTime) {
+			if (sn.getSecond() <= expirationTime) {
 				if (requiresSum) {
 					windowSummary.sumSubtract((double) sn.getSum());
 				}
@@ -264,6 +268,7 @@ public class WindowOfTimeSimple implements Window {
 				break;
 			}
 		}
+		
 		// if everything was removed entirely, windowSummary can be reset to brand new WindowSummary:
 		if (secondSummaryList == null || secondSummaryList.size() == 0) {
 			windowSummary = new WindowSummary();
@@ -287,11 +292,11 @@ public class WindowOfTimeSimple implements Window {
 					windowSummary.setMin(min);
 				}
 			}
-
+			
 			if (requiresFirst) {
 				windowSummary.setFirst(secondSummaryList.peek().getFirst());
 			}
-
+			
 			if (!windowSummary.isFull()) {
 				windowSummary.setFull(true);
 			}
@@ -312,7 +317,7 @@ public class WindowOfTimeSimple implements Window {
 
 	@Override
 	public WindowSummary trimAndGetWindowSummaryCopy(int currentSecond) {
-		trimExpiredWindowElements(currentSecond);
+		System.out.println("trimAndGet: "+trimExpiredWindowElements(currentSecond));
 		return getWindowSummaryCopy();
 	}
 	

@@ -649,7 +649,6 @@ public final class SQLParser {
 		return word;
 	}
 
-	
 	// Function to encode any quoted text into base64
 	static final String encodeQuotedText(String s) {
 
@@ -741,6 +740,51 @@ public final class SQLParser {
 
 	}
 
+	// function to decode base64 text in quotes only. Substituting single quotes for double quotes. 
+	public static final String decodeQuotedTextToDoubleQuoted(String s) {
+
+		// System.out.println("decoding:"+s);
+
+		if (s == null) {
+			return null;
+		}
+
+		boolean inQuote = false;
+		ArrayList<Integer> quoteBeginList = new ArrayList<Integer>();
+		ArrayList<Integer> quoteEndList = new ArrayList<Integer>();
+		for (int i = 0; i < s.length(); i++) {
+			if (s.charAt(i) == '\'') {
+				if (inQuote) {
+					inQuote = false;
+					quoteEndList.add(i);
+				} else {
+					inQuote = true;
+					quoteBeginList.add(i);
+				}
+			}
+		}
+
+		String r = s;
+		for (int i = 0; i < quoteEndList.size(); i++) {
+
+			if (i < quoteEndList.size()) {
+				String t = s.substring(quoteBeginList.get(i) + 1, quoteEndList.get(i));
+				byte[] decodedBytes = Base64.getDecoder().decode(t.replace("$", "="));
+				String d = new String(decodedBytes);
+				d.replace("''","'");
+				t = "'" + t + "'";
+				d = "\"" + d + "\"";
+				// System.out.println("replacing... "+ t + " -> " + d);
+				r = r.replace(t, d);
+			}
+		}
+
+		// System.out.println("Decoded: "+ r);
+
+		return r;
+
+	}
+
 	// function to decode base64
 	public static final String decodeText(String s) {
 
@@ -748,8 +792,8 @@ public final class SQLParser {
 			byte[] decodedBytes = Base64.getDecoder().decode(s.replace("$", "="));
 			return new String(decodedBytes);
 		} catch (IllegalArgumentException iae) {
-			//System.out.println("SQLParser attempted to decode invalid base64 string: "+ s);
-			return null;
+			// if s is invalid Base64, return original s
+			return s;
 		}
 	}
 

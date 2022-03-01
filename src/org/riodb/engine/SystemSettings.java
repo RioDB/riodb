@@ -426,7 +426,7 @@ public class SystemSettings {
 		for (String file : sqlFiles) {
 
 			// Print the names of files and directories
-			if (true) {// file.toLowerCase().endsWith(("." + RQL_FILE_EXTENSION))) {
+			if (file.toLowerCase().endsWith(("." + RQL_FILE_EXTENSION))) {
 
 				String fileName = adaptPathSlashes(sqlDirectory + file);
 
