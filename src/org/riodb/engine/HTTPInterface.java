@@ -62,6 +62,11 @@ import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsServer;
 import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsParameters;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
 import com.sun.net.httpserver.Headers;
 
 import java.util.Base64;
@@ -243,6 +248,7 @@ public class HTTPInterface {
 
 				String stmt = parseRequestBody(t.getRequestBody());
 				if (stmt != null && stmt.length() > 0) {
+					
 
 					// if UserManagement is enabled, we need to authenticate:
 					if (RioDB.rio.getUserMgr() != null) {
@@ -269,6 +275,14 @@ public class HTTPInterface {
 				response = "{\"status\": 405, \"message\": \"Method not allowed. Use POST or GET.\"}\n";
 				code = 405;
 			}
+			
+			
+			String query = t.getRequestURI().getQuery();
+			if(query != null && query.contains("pretty=true")) {
+				response = formatJson(response);
+			}
+			
+			
 			t.getResponseHeaders().add("Content-Type", "application/json");
 			t.getResponseHeaders().add("Connection", "close");
 			t.sendResponseHeaders(code, response.getBytes().length);
@@ -290,8 +304,28 @@ public class HTTPInterface {
 			}
 			return null;
 		}
+		
+		
+		// check if http request Content-Type is "application/json"
+		private String formatJson(String response) {
+			if(response == null) {
+				return null;
+			}
+			try {
+			Gson gson = new GsonBuilder().setPrettyPrinting().create();
+			JsonElement je = JsonParser.parseString(response);
+			String prettyJsonString = gson.toJson(je);
+			return prettyJsonString;
+			} catch(JsonParseException e) {
+				return response;
+			}
+		}
+
+
 	}
 
+	
+	
 	// Convert input stream to string
 	private static String inputStreamToString(InputStream inputStream) {
 
@@ -365,9 +399,9 @@ public class HTTPInterface {
 			if (RioDB.rio.getUserMgr().authenticate(user, pwd)) {
 				return user;
 			}
-			
+
 		} catch (Exception ex) {
-			//client passed invalid Base64 string.
+			// client passed invalid Base64 string.
 		}
 		return null;
 	}

@@ -42,114 +42,132 @@ final public class SQLQueryConditionOperations {
 		// ArrayLists of StringLike and StringIn objects if needed
 		ArrayList<SQLStringLIKE> likeList = new ArrayList<SQLStringLIKE>();
 		ArrayList<SQLStringIN> inList = new ArrayList<SQLStringIN>();
-		
+
 		// get the list of all required Windows for this query condition
 		TreeSet<Integer> requiredWindows = new TreeSet<Integer>();
 
-		/// REPLACE fields with StreamMessage variables and window functions.
+		/// REPLACE ENTITIES:
 		String words[] = expression.split(" ");
+
 		for (int i = 0; i < words.length; i++) {
 
-			//System.out.println("words[i]: "+ words[i]);
 			if (SQLParser.isNumber(words[i])) {
-			//	System.out.println(words[i] + " is number");
-
+				// leave it. So it doesn't get picked up by contains(".") later...
 			}
-			/*
-			 * 
-			 * 
-			 */
+
+			// decode constant strings from BASE64
 			else if (SQLParser.isStringConstant(words[i])) {
-				//System.out.println("SQLQueryConditionOperations.stringconstant: "+ words[i]);
-				//String s = words[i] + " is string constant";
-				words[i] = words[i].replace("'", "\"").replace("\" )", "\")");
-				//System.out.println(s + words[i]);
-
+				// words[i] = "\"" +
+				// SQLParser.decodeText(words[i].substring(0,words[i].length()-1)) + "\"";
 			}
-			/*
-			 * 
-			 * 
-			 */
+
 			else if (SQLParser.isStreamField(drivingStreamId, words[i])) {
-				
+
 				int fieldId = RioDB.rio.getEngine().getStream(drivingStreamId).getDef().getFieldId(words[i]);
+				// if the field is numeric...
 				if (RioDB.rio.getEngine().getStream(drivingStreamId).getDef().isNumeric(fieldId)) {
-					int messageFloatIndex = RioDB.rio.getEngine().getStream(drivingStreamId).getDef().getNumericFieldIndex(fieldId);
+					int messageFloatIndex = RioDB.rio.getEngine().getStream(drivingStreamId).getDef()
+							.getNumericFieldIndex(fieldId);
 					words[i] = "message.getDouble(" + String.valueOf(messageFloatIndex) + ")";
-					if (words[i + 1].equals("is_null")) {
-						words[i + 1] = "!= Float.NaN";
-					} else if (words[i + 1].equals("is_not_null")) {
-						words[i + 1] = "= Float.NaN";
-					}
 				} else { // the field is string
-					int messageStringIndex = RioDB.rio.getEngine().getStream(drivingStreamId).getDef().getStringFieldIndex(fieldId);
+					int messageStringIndex = RioDB.rio.getEngine().getStream(drivingStreamId).getDef()
+							.getStringFieldIndex(fieldId);
 					words[i] = "message.getString(" + String.valueOf(messageStringIndex) + ")";
-					if (i < words.length - 2) {
-						if (words[i + 1].equals("=")) {
-							words[i + 1] = ".equals(";
-							words[i + 2] = words[i + 2].replace('\'', '"') + ")";
-							i+=2;
-						} else if (words[i + 1].equals("!=")) {
-							words[i] = "!" + words[i];
-							words[i + 1] = ".equals(";
-							words[i + 2] = words[i + 2].replace('\'','"') + " )";
-							i+=2;
-						} else if (words[i + 1].equals("not")) {
-							words[i] = "!" + words[i];
-							words[i + 1] = "";
-							i++;
-						} else if (words[i + 1].equals("like")) {
-
-						} else if (words[i + 1].equals("is_null")) {
-							words[i + 1] = ".equals(\"\")";
-
-						} else if (words[i + 1].equals("is_not_null")) {
-							words[i] = "!" + words[i];
-							words[i + 1] = ".equals(\"\")";
-						}
-					}
 				}
-				
 			}
-			/*
-			 * 
-			 * 
-			 */
+
 			else if (SQLParser.isMathFunction(words[i])) {
-				//String s = words[i] + " is math function, modified to: ";
 				words[i] = "Math." + SQLParser.mathFunctionRegCase(words[i]);
-				//System.out.println(s + words[i]);
-
 			}
-			/*
-			 * 
-			 * 
-			 */
+
 			else if (words[i].contains(".")) {
-				//String s = words[i] + " is composite, modified to: ";
 				words[i] = modifyCompositeWord(words[i], drivingStreamId, queryResources, requiredWindows);
-				//System.out.println(s + words[i]);
-
 			}
-			/*
-			 * 
-			 * 
-			 */
+
+			else if (queryResources.containsWindowAlias(words[i])) {
+				int windowId = queryResources.getResourceByAlias(words[i]).getWindowId();
+				requiredWindows.add(windowId);
+			}
+
+		}
+
+		// REPLACE OPERATORS
+		for (int i = 1; i < words.length; i++) {
+
+			if (words[i].equals("=")) {
+				if (words[i - 1].contains("getDouble(") || SQLParser.isNumber(words[i - 1])) {
+					words[i] = "==";
+				} else {
+					words[i] = ".equals(";
+					words[i + 1] = words[i + 1] + ")";
+				}
+			}
+
+			if (words[i].equals("!==")) {
+				words[i] = "!=";
+			}
+
+			if (words[i].equals(">==")) {
+				words[i] = ">=";
+			}
+
+			if (words[i].equals("<==")) {
+				words[i] = "<=";
+			}
+
+			if (words[i].equals("===")) {
+				words[i] = "==";
+			}
+
+			else if (words[i].equals("!=")) {
+				if (words[i - 1].contains("getDouble(") || SQLParser.isNumber(words[i - 1])) {
+					;
+				} else {
+					words[i - 1] = "!" + words[i - 1];
+					words[i] = ".equals(";
+					words[i + 1] = words[i + 1] + ")";
+				}
+			}
+
+			else if (words[i].equals("is_null")) {
+				if (words[i - 1].contains("getDouble(") || SQLParser.isNumber(words[i - 1])) {
+					words[i] = "!= Float.NaN";
+				} else {
+					words[i] = ".equals(\"\")";
+				}
+			}
+
+			else if (words[i].equals("is_not_null")) {
+				if (words[i - 1].contains("getDouble(") || SQLParser.isNumber(words[i - 1])) {
+					words[i] = "= Float.NaN";
+				} else {
+					words[i] = ".length() > 0";
+				}
+			}
+
+			else if (SQLParser.isMathFunction(words[i])) {
+				words[i] = "Math." + SQLParser.mathFunctionRegCase(words[i]);
+			}
+
 			else if (words[i].equals("like")) {
-				//String s = words[i] + " is LIKE, modified to: ";
+				// String s = words[i] + " is LIKE, modified to: ";
 
 				if (i < words.length - 1 && i > 0) {
-					//String val = words[i + 1];
-					
-					//System.out.println("next word is "+ words[i + 1]);
-					
-					if(!(words[i + 1].startsWith("'") && words[i + 1].endsWith("'"))){
-						throw new ExceptionSQLStatement("Condition word LIKE must be followed by value in single quotes. Example: symbol LIKE 'tsla%'");
+					// String val = words[i + 1];
+
+					// System.out.println("next word is "+ words[i + 1]);
+
+					if (words[i - 1].contains("getDouble(") || SQLParser.isNumber(words[i - 1])) {
+						throw new ExceptionSQLStatement(
+								"LIKE operator cannot be used for numeric variables.");
 					}
-					words[i+1] = words[i+1].replace("'", "");
 					
+					if (!SQLParser.isStringConstant(words[i + 1])) {
+						throw new ExceptionSQLStatement(
+								"Condition word LIKE must be followed by value in single quotes. Example: symbol LIKE 'tsla%'");
+					}
+					words[i + 1] = words[i + 1].replace("'", "");
 					words[i + 1] = SQLParser.decodeText(words[i + 1]);
-					//System.out.println("LIKE: decoded val: "+ words[i + 1]);
 					String likeCounter = String.valueOf(likeList.size());
 
 					String source = words[i - 1]; // preceeded by NOT
@@ -163,25 +181,25 @@ final public class SQLQueryConditionOperations {
 					SQLStringLIKE sl = new SQLStringLIKE(words[i + 1]);
 					likeList.add(sl);
 					words[i + 1] = "";
-					//s = s + words[i - 1] + " " + words[i] + " " + words[i + 1];
+					// s = s + words[i - 1] + " " + words[i] + " " + words[i + 1];
 					i++;
 				} else {
-					throw new ExceptionSQLStatement("Condition word LIKE must be followed by value in single quotes. Example: symbol LIKE 'tsla%'");
+					throw new ExceptionSQLStatement(
+							"Condition word LIKE must be followed by value in single quotes. Example: symbol LIKE 'tsla%'");
 				}
 
-				// System.out.println("new word: "+ words[i] +" followed by "+ words[i + 1]);
-				//System.out.println(s);
-
 			}
-			/*
-			 * 
-			 * 
-			 */
+
 			else if (words[i].equals("in")) {
-				//String s = words[i] + " is IN, modified to: ";
+				// String s = words[i] + " is IN, modified to: ";
 
 				if (i < words.length - 2 && i > 0) {
 
+					if (words[i - 1].contains("getDouble(") || SQLParser.isNumber(words[i - 1])) {
+						throw new ExceptionSQLStatement(
+								" IN operator cannot be used for numeric variables.");
+					}
+					
 					String val = "";
 					int j = i + 2;
 					while (words[j].indexOf(')') == -1) {
@@ -217,76 +235,16 @@ final public class SQLQueryConditionOperations {
 					i = j;
 
 				}
-				//System.out.println(s + words[i] + words[i + 1]);
-				//System.out.println("IN list size: " + inList.size());
 
 			}
-			/*
-			 * 
-			 * 
-			 */
-			else if (queryResources.containsWindowAlias(words[i])) {
-			//	System.out.println(words[i] + " is window alias");
-				int windowId = queryResources.getResourceByAlias(words[i]).getWindowId();
-				requiredWindows.add(windowId);	
-			}
-			/*
-			 * 
-			 * 
-			 */
-			else if (queryResources.containsStreamAlias(words[i])) {
-				//System.out.println(words[i] + " is stream alias");
 
-			}
-			/*
-			 * 
-			 * 
-			 */
-			else if (SQLParser.isOperator(words[i])) {
-				//String s = words[i] + " is Operator";
-				//System.out.println(s);
-
-			}
-			/*
-			 * 
-			 * 
-			 */
-			else if (SQLParser.isMathOperator(words[i])) {
-				//String s = words[i] + " is Operator";
-				//System.out.println(s);
-
-			}
-			/*
-			 * 
-			 * 
-			 */
-			else if (SQLParser.isDelimiter(words[i])) {
-				//String s = words[i] + " is Delimiter";
-				//System.out.println(s);
-
-			}
-			/*
-			 * 
-			 * 
-			 */
-			else if (!SQLParser.isReservedWord(words[i]) && words[i].charAt(0) != '\'') {
-				throw new ExceptionSQLStatement("unknown identifier: " + words[i]);
-
-			}
-			/*
-			 * 
-			 * 
-			 */
-			else {
-				throw new ExceptionSQLStatement("No clue: " + words[i]);
-
-			}
 		}
 
 		expression = "";
 		for (String word : words) {
 			expression = expression + word + " ";
 		}
+
 		expression = formatExpressionPost(expression);
 
 		SQLStringLIKE[] likeArr = new SQLStringLIKE[likeList.size()];
@@ -295,11 +253,9 @@ final public class SQLQueryConditionOperations {
 		SQLStringIN[] inArr = new SQLStringIN[inList.size()];
 		inArr = inList.toArray(inArr);
 
-		//System.out.println("encoded expression: " + expression);
-		expression = SQLParser.decodeQuotedText(expression).replace("''", "'");
-		//System.out.println("decoded expression: " + expression);
+		expression = SQLParser.decodeQuotedTextToDoubleQuoted(expression).replace("''", "'");
 		
-		RioDB.rio.getSystemSettings().getLogger().debug("expression POST:" + expression);
+		RioDB.rio.getSystemSettings().getLogger().debug("EXPRESSION: " + expression);
 
 		return new SQLQueryConditionExpression(expression, likeArr, inArr, whenStr, requiredWindows);
 	}
@@ -324,12 +280,7 @@ final public class SQLQueryConditionOperations {
 	private static String formatExpressionPost(String expression) {
 
 		expression = expression.trim();
-		expression = expression.replace("=", "==");
 		expression = expression.replace("( \"", "(\"");
-		expression = expression.replace("!==", "!=");
-		expression = expression.replace(">==", ">=");
-		expression = expression.replace("<==", "<=");
-		expression = expression.replace("===", "==");
 		expression = expression.replace(") .equals(", ").equals(");
 		while (expression.contains("  ")) {
 			expression = expression.replace("  ", " ");
@@ -337,8 +288,8 @@ final public class SQLQueryConditionOperations {
 		return expression.trim();
 	}
 
-	private static String modifyCompositeWord(String word, int drivingStreamId, SQLQueryResources queryResources, TreeSet<Integer> requiredWindows)
-			throws ExceptionSQLStatement {
+	private static String modifyCompositeWord(String word, int drivingStreamId, SQLQueryResources queryResources,
+			TreeSet<Integer> requiredWindows) throws ExceptionSQLStatement {
 		if (word.indexOf(".") > 0 && word.indexOf(".") < word.length() - 1) {
 			String alias = word.substring(0, word.indexOf("."));
 			String fieldName = word.substring(word.indexOf(".") + 1);
@@ -348,10 +299,12 @@ final public class SQLQueryConditionOperations {
 				}
 				int fieldId = RioDB.rio.getEngine().getStream(drivingStreamId).getDef().getFieldId(fieldName);
 				if (RioDB.rio.getEngine().getStream(drivingStreamId).getDef().isNumeric(fieldId)) {
-					int floatFieldIndex = RioDB.rio.getEngine().getStream(drivingStreamId).getDef().getNumericFieldIndex(fieldId);
+					int floatFieldIndex = RioDB.rio.getEngine().getStream(drivingStreamId).getDef()
+							.getNumericFieldIndex(fieldId);
 					word = "message.getDouble(" + floatFieldIndex + ")";
 				} else {
-					int stringFieldIndex = RioDB.rio.getEngine().getStream(drivingStreamId).getDef().getStringFieldIndex(fieldId);
+					int stringFieldIndex = RioDB.rio.getEngine().getStream(drivingStreamId).getDef()
+							.getStringFieldIndex(fieldId);
 					word = "message.getString(" + stringFieldIndex + ")";
 				}
 
@@ -374,8 +327,8 @@ final public class SQLQueryConditionOperations {
 					}
 					// else - foreign window from other stream
 					else {
-						word = "RioDB.rio.getStreamMgr().getStream(" + windowStreamId + ").getWindowMgr().getWindow(" + windowId + ")."
-								+ SQLFunctionMap.getFunctionCall(functionId);
+						word = "RioDB.rio.getStreamMgr().getStream(" + windowStreamId + ").getWindowMgr().getWindow("
+								+ windowId + ")." + SQLFunctionMap.getFunctionCall(functionId);
 					}
 				}
 			}
@@ -384,6 +337,5 @@ final public class SQLQueryConditionOperations {
 		}
 		return word;
 	}
-	
 
 }

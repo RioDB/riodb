@@ -51,7 +51,7 @@ public class WindowOfOne implements Window {
 		this.requiresPrevious = requiresPrevious;
 		this.partitionExpiration = partitionExpiration;
 		
-		RioDB.rio.getSystemSettings().getLogger().debug("constructing Window of one slot");
+		RioDB.rio.getSystemSettings().getLogger().debug("\tconstructing Window of one slot");
 		
 	}
 	

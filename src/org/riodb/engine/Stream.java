@@ -338,7 +338,7 @@ public class Stream implements Runnable {
 				// get next message from dataSource. non-blocking. Null can be returned.
 				RioDBStreamMessage message = streamInput.getNextInputMessage();
 				if (message != null) {
-
+					
 					/*
 					 * Tell windowManager to run this message on ALL windows. Collect all windows
 					 * responses (windowSummary) into array. This array is filled with the clone of
@@ -356,7 +356,9 @@ public class Stream implements Runnable {
 					// Send message + window summaries to Queries for processing.
 					sendMessageResultsRefToQueries(ews);
 
-				} else {
+				} 
+				/*
+				else {
 					/*
 					 * UPDATE: This sleep block should be removed. It should be a responsibility of the 
 					 * plugin to implement a blocking queue or busy-waiting on the plugin side. Then
@@ -364,13 +366,14 @@ public class Stream implements Runnable {
 					 * based on the plugin's purpose.  
 					 * Once this is removed, RioDB will not have any performance safety net!
 					 * it will be up to the plugin.
-					 */
+					 * /
 					try {
 						Thread.sleep(1);
 					} catch (InterruptedException e) {
 						;
 					}
 				}
+				*/
 			}
 
 		} catch (RioDBPluginException e) {

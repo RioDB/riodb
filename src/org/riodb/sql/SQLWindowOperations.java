@@ -35,28 +35,43 @@ public final class SQLWindowOperations {
 	public static final String createWindow(String stmt, boolean persistStmt, String actingUser)
 			throws ExceptionSQLStatement {
 
-		boolean success = true;
+		if(!stmt.contains(" when ") && stmt.contains(" where ")) {
+			throw new ExceptionSQLStatement("Did you mean WHEN instead of WHERE?");
+		}
 
+		RioDB.rio.getSystemSettings().getLogger().trace("Creating Window...");
+		
 		// get window name
 		String windowName = SQLParser.getWindowStr(stmt);
-		if (RioDB.rio.getEngine().getStreamIdOfWindow(windowName) >= 0)
+		if (RioDB.rio.getEngine().getStreamIdOfWindow(windowName) >= 0) {
 			throw new ExceptionSQLStatement("A window named '" + windowName + "' already exists.");
+		}
 
+		RioDB.rio.getSystemSettings().getLogger().trace("\tWindow name: "+ windowName);
+		
 		// get window functions
 		String functionStr = SQLParser.getWindowRunningFunctions(stmt);
 		boolean functionsRequired[] = SQLFunctionMap.getFunctionsRequired(functionStr);
+		
+		RioDB.rio.getSystemSettings().getLogger().trace("\tfunctions: "+ functionsRequired.length);
 
 		// get window Stream
 		int streamId = SQLParser.getWindowStreamId(stmt);
+		
+		RioDB.rio.getSystemSettings().getLogger().trace("\tStreamId: "+ streamId);
 
 		// get window field (numeric field from stream)
 		int fieldId = SQLParser.getWindowFieldId(stmt);
+		
+		RioDB.rio.getSystemSettings().getLogger().trace("\tfieldId: "+ fieldId);
 
 		// get window condition (WHERE...)
 		SQLWindowCondition whereClause = null;
 		String whereStr = SQLParser.getWindowWhereStr(stmt);
+				
 		if (whereStr != null) {
 			whereClause = getWhereClause(whereStr, streamId);
+			RioDB.rio.getSystemSettings().getLogger().trace("\tWHERE clause: "+ whereClause.getExpression());
 		}
 
 		// get window RANGE information
@@ -123,6 +138,8 @@ public final class SQLWindowOperations {
 		if (windowRange == 0) {
 			throw new ExceptionSQLStatement("Range is required, and must be a positive intenger.");
 		}
+		
+		RioDB.rio.getSystemSettings().getLogger().trace("  range: "+ windowRange);
 
 		// get window partition (numeric field from stream). -1 for none.
 		int partitionFieldId = SQLParser.getWindowPartitionFieldId(stmt);
@@ -147,6 +164,7 @@ public final class SQLWindowOperations {
 			window = new WindowOfQuantity(windowRange, functionsRequired, partitionExpiration);
 		}
 
+		RioDB.rio.getSystemSettings().getLogger().trace("\twindow object created.");
 		WindowWrapper wrapper;
 		if (partitionFieldId == -1) {
 			wrapper = new WindowWrapper(streamId, windowName, window, fieldId, whereClause, rangeByTime,
@@ -159,7 +177,8 @@ public final class SQLWindowOperations {
 			wrapper = new WindowWrapperPartitioned(streamId, windowName, window, fieldId, whereClause, rangeByTime,
 					rangeByTimeIsTimestamp, partitionFieldId);
 		}
-
+		RioDB.rio.getSystemSettings().getLogger().trace("\tWindow wrapper created.");
+		
 		RioDB.rio.getEngine().getStream(streamId).addWindowRef(wrapper);
 		if (persistStmt) {
 			if (actingUser != null && actingUser.equals("SYSTEM")) {
@@ -169,12 +188,10 @@ public final class SQLWindowOperations {
 				RioDB.rio.getSystemSettings().getPersistedStatements().saveNewWindowStmt(windowName, stmt);
 			}
 		}
-
-		if(success) {
-			return "Created window "+ windowName;
-		}
 		
-		return null;
+		RioDB.rio.getSystemSettings().getLogger().trace("\tWindow creation complete.");
+		
+		return "Created window "+ windowName;
 	}
 
 	public static final String dropWindow(String stmt) throws ExceptionSQLStatement {

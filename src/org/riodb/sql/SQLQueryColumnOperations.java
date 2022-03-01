@@ -40,7 +40,7 @@ final public class SQLQueryColumnOperations {
 
 				String itemStrParts[] = selectItemStr[i].split(" ");
 				boolean undefined = false;
-
+				
 				if (itemStrParts.length == 0 || (itemStrParts.length == 1 && itemStrParts[0].length() == 0)) {
 					undefined = true;
 				} else if (itemStrParts.length == 1) {
@@ -329,6 +329,10 @@ final public class SQLQueryColumnOperations {
 				int functionId = SQLFunctionMap.getFunctionId(words[i]);
 				words[i] = "windowSummaries[0]."+ SQLFunctionMap.getFunctionCall(functionId);
 			}
+			else if(SQLParser.isMathFunction(words[i])) {
+				words[i] = "Math." + words[i];
+			}
+			
 			else if(SQLParser.isStreamField(streamId, words[i]) ) {
 				int fieldId = RioDB.rio.getEngine().getStream(streamId).getDef().getFieldId(words[i]);
 				boolean isNumeric = RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId);

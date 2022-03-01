@@ -3,7 +3,7 @@
 RioDB (www.riodb.org) is a downloadable software for data stream processing.  
 You can build powerful data screening bots through simple SQL-like statements.
 
-## In a nuthshell:
+## In a nutshell:
 
 - You define streams that will receive data using plugins (udp, tcp, http, etc.)
 - You define windows of data (example: messages received in the last 2 hours that contain the word 'free'.)

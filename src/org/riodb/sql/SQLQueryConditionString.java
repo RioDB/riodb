@@ -21,7 +21,7 @@
 
 /*
  * Windows don't have string values, only numeric. 
- * So for the HAVING condition on a string field, it must pertain to a field from the message. 
+ * So for the WHEN condition on a string field, it must pertain to a field from the message. 
  * we just wrap this and pass to the SQLWhereConditionString (for message string conditions)
  * 
  */
