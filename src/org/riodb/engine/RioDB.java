@@ -42,13 +42,14 @@ import org.riodb.plugin.RioDBPluginException;
 
 public class RioDB {
 	
+	// software version
 	public static final String VERSION = "0.0.1";
 	
+	// A class that contains system settings
 	private final static SystemSettings settings = new SystemSettings();
 	public SystemSettings getSystemSettings() {
 		return settings;
 	}
-	
 	
 	// Engine that contains and runs streams, windows, queries, etc.
 	private final Engine rioEngine = new Engine();
@@ -61,6 +62,7 @@ public class RioDB {
 	public void setUserMgr(String credentialsFile) throws ExceptionAccessMgt {
 		userMgr = new UserManager(credentialsFile);
 	}
+	// getter for userMgr
 	public UserManager getUserMgr(){
 		return userMgr;
 	}
@@ -69,15 +71,13 @@ public class RioDB {
 	public static final RioDB rio = new RioDB();
 
 	
-	
-	// shutdown
+	// shutdown procedure
 	private void shutdown() {
 		rio.getEngine().stop();
 		Clock.sleep(10);
 		HTTPInterface.stop();
 	}
 
-	
 	
 	/// MAIN
 	public static void main(String[] args) throws InterruptedException {

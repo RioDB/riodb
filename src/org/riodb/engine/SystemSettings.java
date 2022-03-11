@@ -94,13 +94,12 @@ public class SystemSettings {
 	// persist user statements to disk, and recover them on reboot/startup
 	private static PersistedStatements persistedStatements;
 
-	// default number of Threads allocated for executing output actions:
-	private static int output_worker_threads = 1;
-
+	// get persisted statements
 	public PersistedStatements getPersistedStatements() {
 		return persistedStatements;
 	}
 
+	// get plugin directory
 	public String getPluginDirectory() {
 		return pluginJarDirectory;
 	}
@@ -316,17 +315,6 @@ public class SystemSettings {
 
 		if (confProperties.containsKey("plugin_dir")) {
 			pluginJarDirectory = confProperties.get("plugin_dir");
-		}
-
-		if (confProperties.containsKey("output_workers")) {
-			if (SQLParser.isNumber(confProperties.get("output_workers"))
-					&& Integer.valueOf(confProperties.get("output_workers")) > 0) {
-				output_worker_threads = Integer.valueOf(confProperties.get("output_workers"));
-				RioDB.rio.getEngine().setOutputWorkers(output_worker_threads);
-			} else {
-				logger.fatal("Configuration error: 'output_workers' must be a positive integer.");
-				return false;
-			}
 		}
 
 		// format sqlDirectory path

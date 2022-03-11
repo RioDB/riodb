@@ -140,9 +140,8 @@ public class Stream implements Runnable {
 				+ "\"," + "\n   \"window_count\": " + streamWindowMgr.getWindowCount() + ","
 				+ "\n   \"handler_thread\": \"" + threadStatus + "\","
 				// + "\n \"message_queue_size\": " + streamPacketInbox.size() + ","
-				+ "\n   \"query_thread\": \"" + streamQueryMgr.status() + "\"," + "\n   \"query_count\": "
-				+ streamQueryMgr.queryCount() + "," + "\n   \"query_queue_size\": " + streamQueryMgr.inboxSize()
-				+ "\n }";
+				+ "\n   \"query_count\": "	+ streamQueryMgr.queryCount() 
+				+ "\n}";
 		return s;
 	}
 
@@ -223,7 +222,7 @@ public class Stream implements Runnable {
 				
 				Clock.sleep(40);
 				
-				RioDB.rio.getSystemSettings().getLogger().debug("Stream.start: started.");
+				RioDB.rio.getSystemSettings().getLogger().debug("Stream.start(): started.");
 			} catch (RioDBPluginException e) {
 				interrupt = true;
 				String s = "Error starting input plugin: " + e.getMessage().replace("\n", "").replace("\r", "");
@@ -240,7 +239,7 @@ public class Stream implements Runnable {
 	// Stop this steram and all its dependencies
 	public void stop() {
 
-		RioDB.rio.getSystemSettings().getLogger().debug("Stream.stop: stopping " + streamName);
+		RioDB.rio.getSystemSettings().getLogger().debug("Stream.stop(): stopping " + streamName);
 
 		// stop data source first
 		if (interrupt == false) {
