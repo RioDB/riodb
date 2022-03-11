@@ -29,16 +29,12 @@
 
 package org.riodb.engine;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.riodb.sql.ExceptionSQLStatement;
 import org.riodb.plugin.RioDBPluginException;
 
 public class Engine {
 	
-	private static final int DEFAULT_OUTPUT_WORKERS = 2;
-
 	/*
 	 * Stream array: For performance reasons, we're not using ArrayList. Just a
 	 * simple array of objects. This means that adding/removing require rebuilding
@@ -76,19 +72,6 @@ public class Engine {
 	// getter to increment and get the next counter value
 	public int counterNext() {
 		return globalCounter.incrementAndGet();
-	}
-
-	// Worker threads for sending OUTPUT operations
-	private static ExecutorService outputWorkers = Executors.newFixedThreadPool(DEFAULT_OUTPUT_WORKERS);
-
-	// outputWorkers getter
-	public ExecutorService getOutputWorkers() {
-		return outputWorkers;
-	}
-
-	// outputWorkers setter
-	public void setOutputWorkers(int output_worker_threads) {
-		outputWorkers = Executors.newFixedThreadPool(output_worker_threads);
 	}
 
 	// Method for adding a new Stream

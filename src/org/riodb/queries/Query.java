@@ -153,13 +153,8 @@ public class Query {
 				columnValues[i] = columns[i].getValue(esum.getMessageRef(), esum.getWindowSummariesRef());
 			}
 
-			// execute output action using reusable threads provided by an ExecutorService.
-			RioDB.rio.getEngine().getOutputWorkers().execute(new Runnable() {
-			    @Override
-			    public void run() {
-			    	output.sendOutput(columnValues);
-			    }
-			});
+			// send output to output plugin.
+			output.sendOutput(columnValues);
 			
 
 			// set timeout if necessary for this query
@@ -239,11 +234,13 @@ public class Query {
 	
 	// start plugin (in case it has a startup procedure)
 	public void start() throws RioDBPluginException {
+		RioDB.rio.getSystemSettings().getLogger().debug("Query.start(): starting query " + queryId);
 		output.start();
 	}
 	
 	// stop plugin (in case it has stop steps)
 	public void stop() throws RioDBPluginException {
+		RioDB.rio.getSystemSettings().getLogger().debug("Query.stop(): stopping query" + queryId);
 		output.stop();
 	}
 }

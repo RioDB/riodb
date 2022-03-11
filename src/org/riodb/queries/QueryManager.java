@@ -31,19 +31,14 @@ package org.riodb.queries;
 
 import java.util.ArrayList;
 import java.util.Iterator;
-import org.jctools.queues.SpscChunkedArrayQueue;
+
 import org.riodb.engine.RioDB;
 import org.riodb.plugin.RioDBPluginException;
 import org.riodb.sql.ExceptionSQLExecution;
 import org.riodb.sql.SQLParser;
 
-public class QueryManager implements Runnable {
+public class QueryManager{
 
-	// initial capacity of chunked array queue, and max capacity
-	// if unfamiliar, leave at 244 and 1000000
-	// If you have 1,000,000 queries pending, it's time to review your architecture
-	public static final int QUEUE_INIT_CAPACITY = 244;
-	public static final int MAX_CAPACITY = 1000000;
 
 	// streamId that this query is called from
 	private int streamId;
@@ -55,13 +50,7 @@ public class QueryManager implements Runnable {
 	private boolean queryWaitingToBeInserted = false;
 	
 	
-	// queue of messageWithSummaries after processed by windows. 
-	private final SpscChunkedArrayQueue<MessageWithSummaries> queryInbox = 
-			new SpscChunkedArrayQueue<MessageWithSummaries>(QUEUE_INIT_CAPACITY, MAX_CAPACITY);;
 
-	// Thread for running queries
-	private Thread queryMgrThread;
-	private boolean interrupt;
 	private boolean erroAlreadyCaught;
 	
 	
@@ -172,15 +161,54 @@ public class QueryManager implements Runnable {
 	}
 	
 	// This is for Stream to send messageWithSummaries to the Query mgr. 
-	public void putMessageRef(MessageWithSummaries s) {
-		queryInbox.offer(s);
+	public void putMessageRef(MessageWithSummaries esum) {
+		
+		
+		if(queryWaitingToBeInserted) {
+			queries.add(tempQuery);
+			queryWaitingToBeInserted = false;
+		}
+		
+		if (esum != null) {
+			
+			// Iterator to loop through queries
+			Iterator<Query> qItr = queries.iterator();
+			while (qItr.hasNext()) {
+				Query q = qItr.next();
+
+				try {
+					/*
+					 for each query:
+					 call Query evaluation and get query status.
+					 the query returns TRUE if it reached end-of-life.
+					 When there's a matched record, the query itself handles calling posting the output. 
+					 This process does not need to collect selected values for output. 
+					 
+					 If the query hit end-of-life, remove it.
+					  
+					 */
+					if (q.evalAndGetStatus(esum)) {
+						int queryId = q.getQueryId();
+						qItr.remove();
+						//dropQuery(queryId);
+						RioDB.rio.getSystemSettings().getPersistedStatements().dropQueryStmt(queryId);
+						RioDB.rio.getSystemSettings().getLogger().info("Query "+ String.valueOf(queryId) +" removed.");
+					}
+				} catch (ExceptionSQLExecution e) {
+					if (!erroAlreadyCaught) {
+						RioDB.rio.getSystemSettings().getLogger().debug("Error executing query.");
+						RioDB.rio.getSystemSettings().getLogger().debug(e.getMessage());
+						erroAlreadyCaught = true;
+					}
+				}
+			}
+
+			// for future enhancement, queries should be able to reference data from previous message. 
+			// previousMessage = esum.getMessageRef();
+
+		}
 	}
 	
-	// Get number of awaiting messages to be processed by queries
-	public int inboxSize() {
-		return queryInbox.size();
-	}
-
 	// start Runnable thread - queryManager run its own thread.
 	public void start() throws RioDBPluginException {
 		
@@ -190,17 +218,11 @@ public class QueryManager implements Runnable {
 			}
 				
 		}
-		
-		interrupt = false;
-		queryMgrThread = new Thread(this);
-		queryMgrThread.setName("QUERY_MANAGER_THREAD");
-		queryMgrThread.start();
+
 	}
 
 	// stop queryManager thread
 	public void stop() throws RioDBPluginException {
-		interrupt = true;
-		queryMgrThread.interrupt();
 		
 		for (int i = 0; i < queries.size(); i++) {
 			if(queries.get(i) != null) {
@@ -210,80 +232,4 @@ public class QueryManager implements Runnable {
 		}
 	}
 	
-	// get status of QueryManager thread
-	public String status() {
-		if(interrupt)
-			return "stopped";
-		return "running";
-	}
-
-	// run method
-	public void run() {
-		RioDB.rio.getSystemSettings().getLogger().info("Starting query manager for Stream[" + streamId + "] ...");
-		
-		// for future enhancement, queries should be able to reference data from previous message. 
-		//RioDBStreamMessage previousMessage = null;
-		
-		// loop until interrupted:
-		while (!interrupt) {
-			// poll next messageWithSummaries from query inbox for processing.
-			// this poll is non-blocking. It will return null if there's no messages. 
-			
-			
-			if(queryWaitingToBeInserted) {
-				queries.add(tempQuery);
-				queryWaitingToBeInserted = false;
-			}
-			
-			MessageWithSummaries esum = queryInbox.poll();
-			if (esum != null) {
-				
-				// Iterator to loop through queries
-				Iterator<Query> qItr = queries.iterator();
-				while (qItr.hasNext()) {
-					Query q = qItr.next();
-
-					try {
-						/*
-						 for each query:
-						 call Query evaluation and get query status.
-						 the query returns TRUE if it reached end-of-life.
-						 When there's a matched record, the query itself handles calling posting the output. 
-						 This process does not need to collect selected values for output. 
-						 
-						 If the query hit end-of-life, remove it.
-						  
-						 */
-						if (q.evalAndGetStatus(esum)) {
-							int queryId = q.getQueryId();
-							qItr.remove();
-							//dropQuery(queryId);
-							RioDB.rio.getSystemSettings().getPersistedStatements().dropQueryStmt(queryId);
-							RioDB.rio.getSystemSettings().getLogger().info("Query "+ String.valueOf(queryId) +" removed.");
-						}
-					} catch (ExceptionSQLExecution e) {
-						if (!erroAlreadyCaught) {
-							RioDB.rio.getSystemSettings().getLogger().debug("Error executing query.");
-							RioDB.rio.getSystemSettings().getLogger().debug(e.getMessage());
-							erroAlreadyCaught = true;
-						}
-					}
-				}
-
-				// for future enhancement, queries should be able to reference data from previous message. 
-				// previousMessage = esum.getMessageRef();
-
-			} else {
-				// When no messages are received, save CPU cycles.
-				// This yields higher throughput than any blocking queue implementation,
-				// as we're dealing with single producer / single consumer.
-				try {
-					Thread.sleep(1);
-				} catch (InterruptedException e) {
-					;
-				}
-			}
-		}
-		RioDB.rio.getSystemSettings().getLogger().info("Stopping query manager for Stream[" + streamId + "] ...");
-	}
 }
