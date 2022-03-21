@@ -32,10 +32,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.TreeMap;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.LoggerContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.Marker;
+import org.slf4j.MarkerFactory;
+import ch.qos.logback.classic.util.ContextInitializer;
 import org.riodb.access.ExceptionAccessMgt;
 import org.riodb.classloaders.OutputClassLoader;
 import org.riodb.plugin.RioDBPlugin;
@@ -43,15 +44,14 @@ import org.riodb.sql.ExceptionSQLStatement;
 import org.riodb.sql.SQLExecutor;
 import org.riodb.sql.SQLParser;
 
-//import org.apache.log4j.xml.DOMConfigurator;
 
 public class SystemSettings {
 
 	// default config file location
 	private static final String DEFAULT_CONFIG_FILE = "riodb.conf";
 
-	// default log4j.xml file location
-	private static final String DEFAULT_LOG4J2_FILE = "conf/log4j2.xml";
+	// default logback.xml file location
+	private static final String DEFAULT_LOGBACK_FILE = "conf/logback.xml";
 
 	// default config file subdirectory
 	private static final String DEFAULT_CONFIG_SUBDIR = "conf";
@@ -105,8 +105,8 @@ public class SystemSettings {
 	}
 
 	// logger object to be used by ALL RioDB
-	final static Logger logger = LogManager.getLogger(RioDB.class.getName());
-
+	private static Logger logger ;
+	final static Marker fatal = MarkerFactory.getMarker("FATAL");
 	// getter for logger.
 	public Logger getLogger() {
 		return logger;
@@ -222,20 +222,22 @@ public class SystemSettings {
 
 		///////////////// CONFIG LOGGING /////////////////////
 
-		String log4j2XMLfile = DEFAULT_LOG4J2_FILE;
-		if (confProperties.containsKey("log4j_properties")) {
+		String logbackXMLfile = DEFAULT_LOGBACK_FILE;
+		if (confProperties.containsKey("logback_properties")) {
 
-			log4j2XMLfile = confProperties.get("log4j_properties");
+			logbackXMLfile = confProperties.get("logback_properties");
 		}
 
-		if (!log4j2XMLfile.contains(":") && !log4j2XMLfile.startsWith("/") && !log4j2XMLfile.startsWith("\\")) {
-			log4j2XMLfile = javaRelativePath + "/" + log4j2XMLfile;
+		if (!logbackXMLfile.contains(":") && !logbackXMLfile.startsWith("/") && !logbackXMLfile.startsWith("\\")) {
+			logbackXMLfile = javaRelativePath + "/" + logbackXMLfile;
 		}
-		log4j2XMLfile = adaptPathSlashes(log4j2XMLfile);
+		logbackXMLfile = adaptPathSlashes(logbackXMLfile);
 
-		File file = new File(log4j2XMLfile);
-		LoggerContext context = (LoggerContext) LogManager.getContext(false);
-		context.setConfigLocation(file.toURI());
+		//File file = new File(logbackXMLfile);
+		//LoggerContext context = (LoggerContext) LogManager.getContext(false);
+		//context.setConfigLocation(file.toURI());
+		System.setProperty(ContextInitializer.CONFIG_FILE_PROPERTY, logbackXMLfile);
+		logger = LoggerFactory.getLogger(RioDB.class.getName());
 
 		// DOMConfigurator.configure(words[1]);
 
@@ -259,7 +261,7 @@ public class SystemSettings {
 		logger.debug("Java Version: " + System.getProperty("java.version"));
 		logger.debug("Java Home: " + System.getProperty("java.home"));
 
-		logger.debug("log4j2 config file: " + log4j2XMLfile);
+		logger.debug("logback config file: " + logbackXMLfile);
 
 		//////////// CONFIG OTHER PROPERTIES ////////////////////
 
@@ -268,7 +270,7 @@ public class SystemSettings {
 					&& Integer.valueOf(confProperties.get("http_port")) > 0) {
 				httpPort = Integer.valueOf(confProperties.get("http_port"));
 			} else {
-				logger.fatal("Configuration error: 'http_port' must be a positive integer.");
+				logger.error(fatal,"Configuration error: 'http_port' must be a positive integer.");
 				return false;
 			}
 		}
@@ -283,7 +285,7 @@ public class SystemSettings {
 			if (SQLParser.isNumber(confProperties.get("stmt_timeout"))) {
 				httpInterface.setTimeout(Integer.valueOf(confProperties.get("stmt_timeout")));
 			} else {
-				logger.fatal("Configuration error: 'stmt_timeout' must be a positive integer.");
+				logger.error(fatal,"Configuration error: 'stmt_timeout' must be a positive integer.");
 				return false;
 			}
 		}
@@ -292,7 +294,7 @@ public class SystemSettings {
 			if (SQLParser.isNumber(confProperties.get("https_port"))) {
 				httpsPort = Integer.valueOf(confProperties.get("https_port"));
 			} else {
-				logger.fatal("Configuration error: 'https_port' must be a positive integer.");
+				logger.error(fatal,"Configuration error: 'https_port' must be a positive integer.");
 				return false;
 			}
 		}
