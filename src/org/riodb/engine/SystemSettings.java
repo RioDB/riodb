@@ -430,7 +430,7 @@ public class SystemSettings {
 					if (fileContent != null && fileContent.contains(";")) {
 
 						// queries from .apistmt.sql are supplied by user (API) and can be dropped
-						// permanently.
+						// permanently. Meaning, if dropped, they are removed from .apistmt.sql file.
 
 						String loadOutput = "";
 						if (persistedStatementsFile.equals(sqlDirectory + file)) {
@@ -440,7 +440,9 @@ public class SystemSettings {
 							logger.info(loadOutput);
 						}
 						// queries from other .sql files can be dropped, but will execute again on
-						// reboot.
+						// reboot. Meaning, other .sql files are never modified by RioDB. So if 
+						// a query comes from other sql file and is dropped, that query remains in 
+						// the file, and will be run again on next reboot. 
 						else {
 							// false for persistStatement, false for respondWithDetails
 							loadOutput = SQLExecutor.execute(fileContent, "SYSTEM", false, false); // permanent. Will

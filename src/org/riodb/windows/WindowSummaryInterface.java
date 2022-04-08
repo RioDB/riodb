@@ -41,6 +41,7 @@ public interface WindowSummaryInterface {
 	public double getSampleVariance();
 	public double getPopulationVariance();
 	public void incrementCount();
+	public void incrementCount(int addend);
 	public boolean isEmpty();
 	public boolean isFull();
 	public void setCount(int count);

@@ -151,6 +151,9 @@ public class Query {
 			String columnValues[] = new String[columns.length];
 			for (int i = 0; i < columns.length; i++) {
 				columnValues[i] = columns[i].getValue(esum.getMessageRef(), esum.getWindowSummariesRef());
+				if(columnValues[i] != null && columnValues[i].equals("NaN")) {
+					columnValues[i] = "null";
+				}
 			}
 
 			// send output to output plugin.

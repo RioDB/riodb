@@ -18,7 +18,6 @@
  
 */
 
-
 /*
  *   Window of Quantity
  *   
@@ -55,16 +54,36 @@ public class WindowOfQuantity implements Window {
 	private int partitionExpiration;
 	private int lastEntryTime;
 
-	// A collection to stack initial elements
-	private ArrayDeque<Double> initialQueue;
+	// A collection to stack initial elements, before window is full
+	private ArrayDeque<Double> initialWindow;
 
 	// First-in-First-out circular array to store elements after window is full
-	private double[] circularArray;
+	private double[] windowElements;
+	
+	// window size
+	private int rangeSize;
 
 	// marks the position of the oldest element in the circular array
-	private int circularArrayMarker;
+	private int windowArrayMarker;
 
-	// Is the queue window full (using circularArray instead of initialQueue
+	// First-in-First-out circular array to store elements waiting to be in range
+	/*
+	 * Buffer for range... If a range is from 1000-100, then a message has to wait
+	 * in a queue for 99 other messages. For this, a ring buffer is used as a
+	 * waiting queue.
+	 */
+	private CircularArray waitingQueue;
+	
+	// window range start - only stored for cloning window
+	private int rangeStart;
+	
+	// flag that rangeEnd is in use
+	private boolean hasRangeEnd;
+
+	// window range end
+	private int rangeEnd;
+
+	// If the queue window full (using circularArray instead of initialQueue
 	// boolean windowIsFull;
 
 	// Stores elements ordered for calculating MEDIAN and/or MODE
@@ -81,7 +100,7 @@ public class WindowOfQuantity implements Window {
 
 	// For windows larger than 500 elements, MAX data will get summarized into
 	// buckets of 100 for faster processing
-	// We will refer to these are pages, tracked in an array of paginated MAX (or
+	// We will refer to these as pages, tracked in an array of paginated MAX (or
 	// the max value in each bucket of 100)
 	private double maxPaginated[];
 	private double minPaginated[];
@@ -119,9 +138,6 @@ public class WindowOfQuantity implements Window {
 	// In regresion formula, Ex2 is the SUM of all positions squared.
 	private BigDecimal slopeEx2;
 
-	// window limit
-	private int range;
-
 	private boolean required_Functions[];
 	// required functions loaded out of the boolean array into descriptive variables
 	// for readability.
@@ -139,9 +155,19 @@ public class WindowOfQuantity implements Window {
 	private boolean requiresVariance;
 
 	// Constructor
-	public WindowOfQuantity(int range, boolean[] functionsRequired, int partitionExpiration) {
+	public WindowOfQuantity(int rangeStart, int rangeEnd, boolean[] functionsRequired, int partitionExpiration) {
 
-		this.range = range;
+		this.hasRangeEnd = false;
+		this.rangeSize = rangeStart;
+		this.rangeStart = rangeStart;
+		this.rangeEnd = rangeEnd;
+
+		if (rangeEnd > 0) {
+			this.hasRangeEnd = true;
+			this.rangeSize = rangeStart - rangeEnd;
+			this.waitingQueue = new CircularArray(rangeEnd);
+		}
+
 		this.partitionExpiration = partitionExpiration;
 
 		this.required_Functions = functionsRequired;
@@ -161,8 +187,8 @@ public class WindowOfQuantity implements Window {
 		RioDB.rio.getSystemSettings().getLogger().debug("\tconstructing Window of Quantity");
 
 		// start empty initial stack
-		initialQueue = new ArrayDeque<Double>();
-		circularArray = null;
+		initialWindow = new ArrayDeque<Double>();
+		windowElements = null;
 
 		sortedElementsRequired = false;
 		// additional collections are initialized as needed
@@ -192,13 +218,13 @@ public class WindowOfQuantity implements Window {
 		minPaginated = null;
 
 		// some variables get default assignment.
-		circularArrayMarker = 0;
+		windowArrayMarker = 0;
 
 	}
 
 	@Override
-	public Window makeFreshClone() {
-		return new WindowOfQuantity(range, required_Functions, partitionExpiration);
+	public Window makeEmptyClone() {
+		return new WindowOfQuantity(rangeStart, rangeEnd, required_Functions, partitionExpiration);
 	}
 
 	// a wrapper function that adds an element and returns the windowSummary
@@ -210,451 +236,478 @@ public class WindowOfQuantity implements Window {
 			lastEntryTime = currentSecond;
 		}
 		add(element);
+
+		//if(hasRangeEnd)
+		//System.out.println("Waiting queue: "+ waitingQueue.size());
+		//printElements();
+		
+		
 		return getWindowSummaryCopy();
 	}
 
 	// Public procedure to add Element to Window
 	private void add(double elementInserted) {
 
-		// if Previous is required...
-		if (requiresPrevious) {
-			windowSummary.setPrevious(windowSummary.getLast());
-		}
-		// if Last is required...
-		if (requiresLast) {
-			windowSummary.setLast(elementInserted);
-		}
-		// If window is full, we are using Circular Array.
-		// Computations are different due to evicting oldest element
-		if (windowSummary.isFull()) {
+		// if waiting queue is being used but not yet full...
+		if (hasRangeEnd && !waitingQueue.isFull()) {
+			// put in the waiting queue only 
+			waitingQueue.put(elementInserted);
+			// nothing else to do. Actual window is still empty. 
 
-			int thisArrayMarker = circularArrayMarker;
-			// add new element to circular array and retrieve evicted element.
-			double elementEvicted = pushAndPoll(elementInserted);
+		} else {
 
-			// if First is required...
-			if (requiresFirst) {
-				windowSummary.setFirst(getFirst());
+			// if using rangeEnd and the waitingQueue is full:
+			if (hasRangeEnd) {
+				
+				elementInserted = waitingQueue.putAndPop(elementInserted);
+
 			}
-			// if the new arriving is same as oldest leaving, we need to do nothing.
-			if (elementInserted != elementEvicted) {
-				// if SUM is needed, we need to compute windowSum
-				if (requiresSum) {
-					windowSummary.sumAdd(elementInserted - elementEvicted);
+
+			// if Previous is required...
+			if (requiresPrevious) {
+				windowSummary.setPrevious(windowSummary.getLast());
+			}
+			// if Last is required...
+			if (requiresLast) {
+				windowSummary.setLast(elementInserted);
+			}
+			// If window is full, we are using Circular Array.
+			// Computations are different due to evicting oldest element
+			if (windowSummary.isFull()) {
+
+				// after inserting element, marker is incremented. But we still need original marker. 
+				int markerOfElementInserted = windowArrayMarker;
+				// add new element to circular array and retrieve evicted element.
+				double elementEvicted = putAndPopFromWindow(elementInserted);
+
+				// if First is required...
+				if (requiresFirst) {
+					windowSummary.setFirst(getFirst());
+				}
+				// if the new arriving is same as oldest leaving, we need to do nothing.
+				if (elementInserted != elementEvicted) {
+					// if SUM is needed, we need to compute windowSum
+					if (requiresSum) {
+						windowSummary.sumAdd(elementInserted - elementEvicted);
+					}
+
+					// if Median or Mode are required, then we must deal with the sorted TreeMap
+					if (sortedElementsRequired) {
+
+						/// part 1 - add new to sorted tree
+						// If sorted tree already contains elementInserted, we increment its counter
+						// value.
+						Counter c = sortedElements.get(elementInserted);
+						if (c != null) {
+							c.increment();
+							// update windowMode if the new element quantity is greater than windowMode
+							if (requiresMode && c.isGT(modeQuantity)) {
+								windowSummary.setMode(elementInserted);
+								modeQuantity = c.intValue();
+							}
+						} else {
+							sortedElements.put(elementInserted, new Counter());
+						}
+
+						// Decrement the count of the element evicted.
+						// If the count reaches zero, remove from sortedElements
+						if (sortedElements.get(elementEvicted).decrementReachZero()) {
+							sortedElements.remove(elementEvicted);
+						}
+
+						// If the elementEvicted was Mode, check if there's a new higher Mode.
+						if (requiresMode && windowSummary.getMode() == elementEvicted) {
+							windowSummary.setMode(computeWindowMode());
+						}
+
+						// part 2 - determine new median
+						// The logic:
+						// inserted higher, evicted equal or lower: median slides up
+						// inserted lower, evicted equal or higher: median slides down
+						// inserted equal, evicted lower:median slides up (index)
+						// inserted equal, evicted higher: median same
+						if (elementInserted > medianLocalVar && elementEvicted <= medianLocalVar) {
+							medianSlideUp();
+						} else if (elementInserted < medianLocalVar && elementEvicted >= medianLocalVar) {
+							medianSlideDown();
+						} else if (elementInserted == medianLocalVar) {
+							medianDuplicates++;
+							if (elementEvicted < medianLocalVar) {
+								medianSlideUp();
+							}
+						} else if (elementEvicted == medianLocalVar) {
+							medianDuplicates--;
+						}
+						windowSummary.setMedian(computeWindowMedian());
+
+						// if CountDistinct is required, and we have a TreeMap, might as well get it
+						// from the TreeMap
+						if (requiresCountDistinct) {
+							windowSummary.setCountDistinct(sortedElements.size());
+						}
+
+						// If Max or Min are required and we have a TreeMap, might as well get it from
+						// the TreeMap
+						if (requiresMax) {
+							if (elementInserted > windowSummary.getMax()) {
+								windowSummary.setMax(elementInserted);
+							} else if (elementEvicted == windowSummary.getMax()) {
+								windowSummary.setMax(sortedElements.lastKey().doubleValue());
+							}
+						}
+						if (requiresMin) {
+							if (elementInserted < windowSummary.getMin()) {
+								windowSummary.setMin(elementInserted);
+							} else if (elementEvicted == windowSummary.getMin()) {
+								windowSummary.setMin(sortedElements.firstKey().doubleValue());
+							}
+						}
+
+					}
+					// NOT using sorted: CountDistinct, Min and Max have to be calculated some other
+					// way
+					else {
+
+						// countDistinct will rely on the HashMap uniqueElements
+						if (requiresCountDistinct) {
+							Counter c = uniqueElements.get(elementInserted);
+							if (c != null) {
+								c.increment();
+							} else {
+								uniqueElements.put(elementInserted, new Counter());
+							}
+
+							// decrement and remove the evicted value if necessary
+							if (uniqueElements.get(elementEvicted).decrementReachZero()) {
+								uniqueElements.remove(elementEvicted);
+							}
+
+							windowSummary.setCountDistinct(uniqueElements.size());
+						}
+
+						if (requiresMax) {
+							/// Set new max if elementInserted is bigger than max
+							if (elementInserted > windowSummary.getMax()) {
+								windowSummary.setMax(elementInserted);
+								if (pageSize > 0) {
+									maxPaginated[markerOfElementInserted / pageSize] = elementInserted;
+								}
+							} else {
+								// if inserted is not overall MAX but max within page
+								if (pageSize > 0 && elementInserted > maxPaginated[markerOfElementInserted / pageSize]) {
+									maxPaginated[markerOfElementInserted / pageSize] = elementInserted;
+								}
+
+								// if evicted was overall max
+								if (elementEvicted == windowSummary.getMax()) {
+									if (pageSize > 0) {
+										computePageMax(markerOfElementInserted);
+									}
+									windowSummary.setMax(computeWindowMax());
+								}
+								// if evicted was not overall max but max within page
+								else if (pageSize > 0 && elementEvicted == maxPaginated[markerOfElementInserted / pageSize]) {
+									computePageMax(markerOfElementInserted);
+								}
+							}
+
+						}
+
+						if (requiresMin) {
+							/// Set new min if elementInserted is bigger than min
+							if (elementInserted < windowSummary.getMin()) {
+								windowSummary.setMin(elementInserted);
+								if (pageSize > 0) {
+									minPaginated[markerOfElementInserted / pageSize] = elementInserted;
+								}
+							} else {
+								// if inserted is not overall min but min within page
+								if (pageSize > 0 && elementInserted < minPaginated[markerOfElementInserted / pageSize]) {
+									minPaginated[markerOfElementInserted / pageSize] = elementInserted;
+								}
+
+								// if evicted was overall min
+								if (elementEvicted == windowSummary.getMin()) {
+									if (pageSize > 0) {
+										computePageMin(markerOfElementInserted);
+									}
+									windowSummary.setMin(computeWindowMin());
+								}
+								// if evicted was not overall min but min within page
+								else if (pageSize > 0 && elementEvicted == minPaginated[markerOfElementInserted / pageSize]) {
+									computePageMin(markerOfElementInserted);
+									
+									// for use with RingBuffer class. 
+									// minPaginated[thisArrayMarker / pageSize] = buffer.getPageMin(markerOfElementInserted, pageSize); 
+								}
+							}
+						}
+
+					}
+
+					// Variance is always calculated the same way, regardless of using sorted
+					// TreeMap or not.
+					if (requiresVariance) {
+
+						// getCount check to prmessage division by zero.
+						// TODO: check if still needed. Practically, and empty window should never enter
+						// this code block.
+						if (getCount() > 0) {
+							windowSummary.varRunningSumRemove(computeVarianceSubtrahand(elementInserted, elementEvicted,
+									windowSummary.getAvg(), windowSummary.getSum(), getCount()));
+							// originalAvg, originalSum, getCount()-1));
+						} else {
+							windowSummary.setVarRunningSum(0.0);
+						}
+						windowSummary.varRunningSumAdd(
+								computeVarianceAddend(elementInserted, windowSummary.getAvg(), windowSummary.getSum()));
+					}
+
 				}
 
-				// if Median or Mode are required, then we must deal with the sorted TreeMap
-				if (sortedElementsRequired) {
+				// If SLOPE is required...
+				// Slope can change even when inserted is same as evicted.
+				if (requiresSlope) {
 
-					/// part 1 - add new to sorted tree
-					// If sorted tree already contains elementInserted, we increment its counter
-					// value.
-					Counter c = sortedElements.get(elementInserted);
+					// Restart fresh is sums get TOO large.
+					if (slopeExy.precision() + slopeExy.scale() > 20 || slopeEx2.precision() + slopeEx2.scale() > 20) {
+						// if ( slopeInsertsSinceReset > 10000) {
+						resetSlopeVars();
+						// System.out.println("reset");
+					} else {
+						// count how many inserts since resetSlopeVars()
+						slopeInsertsSinceReset++;
+						// as we evict the oldest element, we also evict it's position x from the sum of
+						// x
+						long removedIndex = slopeInsertsSinceReset - windowElements.length;
+						// sum of all X positions...
+						// Clever: add new X and remove old X is same as adding window length
+						slopeEx = slopeEx + windowElements.length;
+						// Update the sum of x*y
+						// slopeExy = slopeExy + (slopeInsertsSinceReset * elementInserted) -
+						// (removedIndex * elementEvicted);
+
+						BigDecimal xy = new BigDecimal(
+								((slopeInsertsSinceReset * elementInserted) - (removedIndex * elementEvicted)));
+						slopeExy = slopeExy.add(xy, Constants.MATH_CONTEXT);
+
+						// Update the sum of x square
+						BigDecimal x2 = new BigDecimal(
+								(slopeInsertsSinceReset * slopeInsertsSinceReset) - (removedIndex * removedIndex));
+
+						slopeEx2 = slopeEx2.add(x2, Constants.MATH_CONTEXT);
+
+					}
+
+					// set the Regression Slope for this window.
+					windowSummary.setSlope(computeWindowSlope());
+
+					/*
+					 * if(windowSummary.getCount() > 1 && windowSummary.getSlope() != 1) {
+					 * System.out.println("				count = " + windowSummary.getCount() +
+					 * "\r\n				min = " + windowSummary.getMin() +
+					 * "\r\n				max = " + windowSummary.getMax() +
+					 * 
+					 * "\r\n				slopeEx = " + slopeEx + "\r\n				slopeExy = "
+					 * + slopeExy + "\r\n				slopeEx2 = " + slopeEx2 +
+					 * "\r\n				slope = " + windowSummary.getSlope()); System.exit(0); }
+					 */
+				}
+			}
+			/*
+			 * 
+			 * So far we handled adding a new element to a window that is already full
+			 *
+			 * Now we handle adding element to a window that is not yet full
+			 * 
+			 * it is still using the ArrayDeque instead of circular array.
+			 * 
+			 * And there's no element being Evicted. So calculations are different.
+			 * 
+			 */
+			else if (initialWindow.size() >= 1) {
+
+				// create Double object for arrayDeque.
+				Double elementAsDouble = elementInserted;
+				initialWindow.add(elementAsDouble);
+
+				// if Count is required...
+				if (requiresCount) {
+					windowSummary.incrementCount();
+				}
+
+				// if SUM is required...
+				if (requiresSum) {
+					windowSummary.sumAdd(elementInserted);
+				}
+				// if MAX is required
+				if (requiresMax && elementInserted > windowSummary.getMax()) {
+					windowSummary.setMax(elementInserted);
+				}
+				// if MIN is required...
+				if (requiresMin && elementInserted < windowSummary.getMin()) {
+					windowSummary.setMin(elementInserted);
+				}
+
+				// If either Median or Mode is required...
+				if (sortedElementsRequired) {
+					// Very similar to what we did for a full window,
+					// except there's no evicted element to remove.
+					// If elementInserted is already in the tree, increment it's counter Integer
+					Counter c = sortedElements.get(elementAsDouble);
 					if (c != null) {
 						c.increment();
-						// update windowMode if the new element quantity is greater than windowMode
 						if (requiresMode && c.isGT(modeQuantity)) {
 							windowSummary.setMode(elementInserted);
 							modeQuantity = c.intValue();
 						}
 					} else {
 						sortedElements.put(elementInserted, new Counter());
-					}
-
-					// Decrement the count of the element evicted.
-					// If the count reaches zero, remove from sortedElements
-					if (sortedElements.get(elementEvicted).decrementReachZero()) {
-						sortedElements.remove(elementEvicted);
-					}
-
-					// If the elementEvicted was Mode, check if there's a new higher Mode.
-					if (requiresMode && windowSummary.getMode() == elementEvicted) {
-						windowSummary.setMode(computeWindowMode());
-					}
-
-					// part 2 - determine new median
-					// The logic:
-					// inserted higher, evicted equal or lower: median slides up
-					// inserted lower, evicted equal or higher: median slides down
-					// inserted equal, evicted lower:median slides up (index)
-					// inserted equal, evicted higher: median same
-					if (elementInserted > medianLocalVar && elementEvicted <= medianLocalVar) {
-						medianSlideUp();
-					} else if (elementInserted < medianLocalVar && elementEvicted >= medianLocalVar) {
-						medianSlideDown();
-					} else if (elementInserted == medianLocalVar) {
-						medianDuplicates++;
-						if (elementEvicted < medianLocalVar) {
-							medianSlideUp();
-						}
-					} else if (elementEvicted == medianLocalVar) {
-						medianDuplicates--;
-					}
-					windowSummary.setMedian(computeWindowMedian());
-
-					// if CountDistinct is required, and we have a TreeMap, might as well get it
-					// from the TreeMap
-					if (requiresCountDistinct) {
-						windowSummary.setCountDistinct(sortedElements.size());
-					}
-
-					// If Max or Min are required and we have a TreeMap, might as well get it from
-					// the TreeMap
-					if (requiresMax) {
-						if (elementInserted > windowSummary.getMax()) {
-							windowSummary.setMax(elementInserted);
-						} else if (elementEvicted == windowSummary.getMax()) {
-							windowSummary.setMax(sortedElements.lastKey().doubleValue());
+						// since we already have a treemap, we can get count distinct:
+						if (requiresCountDistinct) {
+							windowSummary.setCountDistinct(sortedElements.size());
 						}
 					}
-					if (requiresMin) {
-						if (elementInserted < windowSummary.getMin()) {
-							windowSummary.setMin(elementInserted);
-						} else if (elementEvicted == windowSummary.getMin()) {
-							windowSummary.setMin(sortedElements.firstKey().doubleValue());
+
+					// If MEDIAN is required...
+					if (requiresMedian) {
+						// now determine if the median changed.
+						// the logic:
+						// if inserted == median, and the count is now odd, median slides up
+						if (elementInserted == medianLocalVar) {
+							medianDuplicates++;
+							if (initialWindow.size() % 2 != 0) {
+								medianMarker++;
+								// windowSummary.setMedian(computeWindowMedian());
+							}
 						}
+						// If inserted > median, and the count is now now odd: median slides up
+						else if (elementInserted > medianLocalVar && initialWindow.size() % 2 != 0) { //
+							if (medianSlideUp()) {
+								// windowSummary.setMedian(computeWindowMedian());
+							}
+						}
+						// If inserted < median, count is now even: median slides down
+						else if (elementInserted < medianLocalVar && initialWindow.size() % 2 == 0) {
+							if (medianSlideDown()) {
+								// windowSummary.setMedian(computeWindowMedian());
+							}
+						}
+						windowSummary.setMedian(computeWindowMedian());
 					}
 
 				}
-				// NOT using sorted: CountDistinct, Min and Max have to be calculated some other
-				// way
-				else {
+				// If countDistinct is relying on uniqueElements hashmap:
+				else if (requiresCountDistinct) {
 
-					// countDistinct will rely on the HashMap uniqueElements
-					if (requiresCountDistinct) {
-						Counter c = uniqueElements.get(elementInserted);
-						if (c != null) {
-							c.increment();
-						} else {
-							uniqueElements.put(elementInserted, new Counter());
-						}
-
-						// decrement and remove the evicted value if necessary
-						if (uniqueElements.get(elementEvicted).decrementReachZero()) {
-							uniqueElements.remove(elementEvicted);
-						}
-
+					Counter c = uniqueElements.get(elementInserted);
+					if (c != null) {
+						c.increment();
+					} else {
+						uniqueElements.put(elementInserted, new Counter());
 						windowSummary.setCountDistinct(uniqueElements.size());
 					}
 
-					if (requiresMax) {
-						/// Set new max if elementInserted is bigger than max
-						if (elementInserted > windowSummary.getMax()) {
-							windowSummary.setMax(elementInserted);
-							if (pageSize > 0) {
-								maxPaginated[thisArrayMarker / pageSize] = elementInserted;
-							}
-						} else {
-							// if inserted is not overall MAX but max within page
-							if (pageSize > 0 && elementInserted > maxPaginated[thisArrayMarker / pageSize]) {
-								maxPaginated[thisArrayMarker / pageSize] = elementInserted;
-							}
-
-							// if evicted was overall max
-							if (elementEvicted == windowSummary.getMax()) {
-								if (pageSize > 0) {
-									computePageMax(thisArrayMarker);
-								}
-								windowSummary.setMax(computeWindowMax());
-							}
-							// if evicted was not overall max but max within page
-							else if (pageSize > 0 && elementEvicted == maxPaginated[thisArrayMarker / pageSize]) {
-								computePageMax(thisArrayMarker);
-							}
-						}
-
-					}
-
-					if (requiresMin) {
-						/// Set new min if elementInserted is bigger than min
-						if (elementInserted < windowSummary.getMin()) {
-							windowSummary.setMin(elementInserted);
-							if (pageSize > 0) {
-								minPaginated[thisArrayMarker / pageSize] = elementInserted;
-							}
-						} else {
-							// if inserted is not overall min but min within page
-							if (pageSize > 0 && elementInserted < minPaginated[thisArrayMarker / pageSize]) {
-								minPaginated[thisArrayMarker / pageSize] = elementInserted;
-							}
-
-							// if evicted was overall min
-							if (elementEvicted == windowSummary.getMin()) {
-								if (pageSize > 0) {
-									computePageMin(thisArrayMarker);
-								}
-								windowSummary.setMin(computeWindowMin());
-							}
-							// if evicted was not overall min but min within page
-							else if (pageSize > 0 && elementEvicted == minPaginated[thisArrayMarker / pageSize]) {
-								computePageMin(thisArrayMarker);
-							}
-						}
-					}
-
 				}
 
-				// Variance is always calculated the same way, regardless of using sorted
-				// TreeMap or not.
+				// if SLOPE is required...
+				if (requiresSlope) {
+					// count up the inserts since last slope reset.
+					slopeInsertsSinceReset++;
+					// sum of all X positions...
+					slopeEx = slopeEx + slopeInsertsSinceReset;
+					// sum of x*y
+					BigDecimal xy = new BigDecimal((slopeInsertsSinceReset * elementInserted));
+					slopeExy = slopeExy.add(xy, Constants.MATH_CONTEXT);
+					// sum of x square
+					BigDecimal x2 = new BigDecimal((slopeInsertsSinceReset * slopeInsertsSinceReset));
+					slopeEx2 = slopeEx2.add(x2, Constants.MATH_CONTEXT);
+					// call reusable function to finish computing windowSlope variable.
+					windowSummary.setSlope(computeWindowSlope());
+				}
+				// if variance is required
 				if (requiresVariance) {
-
-					// getCount check to prmessage division by zero.
-					// TODO: check if still needed. Practically, and empty window should never enter
-					// this code block.
-					if (getCount() > 0) {
-						windowSummary.varRunningSumRemove(computeVarianceSubtrahand(elementInserted, elementEvicted,
-								windowSummary.getAvg(), windowSummary.getSum(), getCount()));
-						// originalAvg, originalSum, getCount()-1));
-					} else {
-						windowSummary.setVarRunningSum(0.0);
-					}
+					// computeWindowVariance();
 					windowSummary.varRunningSumAdd(
 							computeVarianceAddend(elementInserted, windowSummary.getAvg(), windowSummary.getSum()));
 				}
-
 			}
-
-			// If SLOPE is required...
-			// Slope can change even when inserted is same as evicted.
-			if (requiresSlope) {
-
-				// Restart fresh is sums get TOO large.
-				if (slopeExy.precision() + slopeExy.scale() > 20 || slopeEx2.precision() + slopeEx2.scale() > 20) {
-					// if ( slopeInsertsSinceReset > 10000) {
-					resetSlopeVars();
-					// System.out.println("reset");
-				} else {
-					// count how many inserts since resetSlopeVars()
-					slopeInsertsSinceReset++;
-					// as we evict the oldest element, we also evict it's position x from the sum of
-					// x
-					long removedIndex = slopeInsertsSinceReset - circularArray.length;
-					// sum of all X positions...
-					// Clever: add new X and remove old X is same as adding window length
-					slopeEx = slopeEx + circularArray.length;
-					// Update the sum of x*y
-					// slopeExy = slopeExy + (slopeInsertsSinceReset * elementInserted) -
-					// (removedIndex * elementEvicted);
-
-					BigDecimal xy = new BigDecimal(
-							((slopeInsertsSinceReset * elementInserted) - (removedIndex * elementEvicted)));
-					slopeExy = slopeExy.add(xy, Constants.MATH_CONTEXT);
-
-					// Update the sum of x square
-					BigDecimal x2 = new BigDecimal(
-							(slopeInsertsSinceReset * slopeInsertsSinceReset) - (removedIndex * removedIndex));
-
-					slopeEx2 = slopeEx2.add(x2, Constants.MATH_CONTEXT);
-
+			/*
+			 * 
+			 * We already handled adding new element to window that is full, and window that
+			 * is not yet full.
+			 * 
+			 * This next is for adding the very first element to a window, and this happens
+			 * only once.
+			 */
+			else {
+				// add first element to initialQueue
+				initialWindow.add(elementInserted);
+				// if Count is required...
+				if (requiresCount) {
+					windowSummary.setCount(1);
+				}
+				// if First is required...
+				if (requiresFirst) {
+					windowSummary.setFirst(elementInserted);
 				}
 
-				// set the Regression Slope for this window.
-				windowSummary.setSlope(computeWindowSlope());
-
-				/*
-				 * if(windowSummary.getCount() > 1 && windowSummary.getSlope() != 1) {
-				 * System.out.println("				count = " + windowSummary.getCount() +
-				 * "\r\n				min = " + windowSummary.getMin() +
-				 * "\r\n				max = " + windowSummary.getMax() +
-				 * 
-				 * "\r\n				slopeEx = " + slopeEx + "\r\n				slopeExy = "
-				 * + slopeExy + "\r\n				slopeEx2 = " + slopeEx2 +
-				 * "\r\n				slope = " + windowSummary.getSlope()); System.exit(0); }
-				 */
-			}
-		}
-		/*
-		 * 
-		 * So far we handled adding a new element to a window that is already full
-		 *
-		 * Now we handle adding element to a window that is not yet full
-		 * 
-		 * it is still using the ArrayDeque instead of circular array.
-		 * 
-		 * And there's no element being Evicted. So calculations are different.
-		 * 
-		 */
-		else if (initialQueue.size() >= 1) {
-
-			// create Double object for arrayDeque.
-			Double elementAsDouble = elementInserted;
-			initialQueue.add(elementAsDouble);
-
-			// if Count is required...
-			if (requiresCount) {
-				windowSummary.incrementCount();
-			}
-
-			// if SUM is required...
-			if (requiresSum) {
-				windowSummary.sumAdd(elementInserted);
-			}
-			// if MAX is required
-			if (requiresMax && elementInserted > windowSummary.getMax()) {
-				windowSummary.setMax(elementInserted);
-			}
-			// if MIN is required...
-			if (requiresMin && elementInserted < windowSummary.getMin()) {
-				windowSummary.setMin(elementInserted);
-			}
-
-			// If either Median or Mode is required...
-			if (sortedElementsRequired) {
-				// Very similar to what we did for a full window,
-				// except there's no evicted element to remove.
-				// If elementInserted is already in the tree, increment it's counter Integer
-				Counter c = sortedElements.get(elementAsDouble);
-				if (c != null) {
-					c.increment();
-					if (requiresMode && c.isGT(modeQuantity)) {
-						windowSummary.setMode(elementInserted);
-						modeQuantity = c.intValue();
-					}
-				} else {
+				// if Max is required...
+				if (requiresMax) {
+					windowSummary.setMax(elementInserted);
+				}
+				// if Min is required
+				if (requiresMin) {
+					windowSummary.setMin(elementInserted);
+				}
+				// if SUM is quired
+				if (requiresSum) {
+					windowSummary.setSum(elementInserted);
+				}
+				// if a sortedTree is being used..
+				if (sortedElementsRequired) {
 					sortedElements.put(elementInserted, new Counter());
-					// since we already have a treemap, we can get count distinct:
+					if (requiresMedian) {
+						medianLocalVar = elementInserted;
+						windowSummary.setMedian(elementInserted);
+						medianDuplicates = 0;
+						medianMarker = 0;
+					}
+					if (requiresMode) {
+						windowSummary.setMode(elementInserted);
+						modeQuantity = 1;
+					}
 					if (requiresCountDistinct) {
-						windowSummary.setCountDistinct(sortedElements.size());
+						windowSummary.setCountDistinct(1);
 					}
-				}
-
-				// If MEDIAN is required...
-				if (requiresMedian) {
-					// now determine if the median changed.
-					// the logic:
-					// if inserted == median, and the count is now odd, median slides up
-					if (elementInserted == medianLocalVar) {
-						medianDuplicates++;
-						if (initialQueue.size() % 2 != 0) {
-							medianMarker++;
-							// windowSummary.setMedian(computeWindowMedian());
-						}
-					}
-					// If inserted > median, and the count is now now odd: median slides up
-					else if (elementInserted > medianLocalVar && initialQueue.size() % 2 != 0) { //
-						if (medianSlideUp()) {
-							// windowSummary.setMedian(computeWindowMedian());
-						}
-					}
-					// If inserted < median, count is now even: median slides down
-					else if (elementInserted < medianLocalVar && initialQueue.size() % 2 == 0) {
-						if (medianSlideDown()) {
-							// windowSummary.setMedian(computeWindowMedian());
-						}
-					}
-					windowSummary.setMedian(computeWindowMedian());
-				}
-
-			}
-			// If countDistinct is relying on uniqueElements hashmap:
-			else if (requiresCountDistinct) {
-
-				Counter c = uniqueElements.get(elementInserted);
-				if (c != null) {
-					c.increment();
-				} else {
+//				printSorted(in);
+				} else if (requiresCountDistinct) {
 					uniqueElements.put(elementInserted, new Counter());
-					windowSummary.setCountDistinct(uniqueElements.size());
-				}
-
-			}
-
-			// if SLOPE is required...
-			if (requiresSlope) {
-				// count up the inserts since last slope reset.
-				slopeInsertsSinceReset++;
-				// sum of all X positions...
-				slopeEx = slopeEx + slopeInsertsSinceReset;
-				// sum of x*y
-				BigDecimal xy = new BigDecimal((slopeInsertsSinceReset * elementInserted));
-				slopeExy = slopeExy.add(xy, Constants.MATH_CONTEXT);
-				// sum of x square
-				BigDecimal x2 = new BigDecimal((slopeInsertsSinceReset * slopeInsertsSinceReset));
-				slopeEx2 = slopeEx2.add(x2, Constants.MATH_CONTEXT);
-				// call reusable function to finish computing windowSlope variable.
-				windowSummary.setSlope(computeWindowSlope());
-			}
-			// if variance is required
-			if (requiresVariance) {
-				// computeWindowVariance();
-				windowSummary.varRunningSumAdd(
-						computeVarianceAddend(elementInserted, windowSummary.getAvg(), windowSummary.getSum()));
-			}
-		}
-		/*
-		 * 
-		 * We already handled adding new element to window that is full, and window that
-		 * is not yet full.
-		 * 
-		 * This next is for adding the very first element to a window, and this happens
-		 * only once.
-		 */
-		else {
-			// add first element to initialQueue
-			initialQueue.add(elementInserted);
-			// if Count is required...
-			if (requiresCount) {
-				windowSummary.setCount(1);
-			}
-			// if First is required...
-			if (requiresFirst) {
-				windowSummary.setFirst(elementInserted);
-			}
-
-			// if Max is required...
-			if (requiresMax) {
-				windowSummary.setMax(elementInserted);
-			}
-			// if Min is required
-			if (requiresMin) {
-				windowSummary.setMin(elementInserted);
-			}
-			// if SUM is quired
-			if (requiresSum) {
-				windowSummary.setSum(elementInserted);
-			}
-			// if a sortedTree is being used..
-			if (sortedElementsRequired) {
-				sortedElements.put(elementInserted, new Counter());
-				if (requiresMedian) {
-					medianLocalVar = elementInserted;
-					windowSummary.setMedian(elementInserted);
-					medianDuplicates = 0;
-					medianMarker = 0;
-				}
-				if (requiresMode) {
-					windowSummary.setMode(elementInserted);
-					modeQuantity = 1;
-				}
-				if (requiresCountDistinct) {
 					windowSummary.setCountDistinct(1);
 				}
-//				printSorted(in);
-			} else if (requiresCountDistinct) {
-				uniqueElements.put(elementInserted, new Counter());
-				windowSummary.setCountDistinct(1);
+				// if Slope is required
+				if (requiresSlope) {
+					slopeInsertsSinceReset = 1; // starting...
+					slopeEx = 1; // starting
+					slopeExy = new BigDecimal(elementInserted); // x is 1. x*y = y
+					slopeEx2 = Constants.ONE; // starting
+					windowSummary.setSlope(computeWindowSlope()); // set windowSummary.slope value.
+				}
+				// if variance is required
+				if (requiresVariance) {
+					// computeWindowVariance();
+					windowSummary.varRunningSumAdd(
+							computeVarianceAddend(elementInserted, windowSummary.getAvg(), windowSummary.getSum()));
+				}
 			}
-			// if Slope is required
-			if (requiresSlope) {
-				slopeInsertsSinceReset = 1; // starting...
-				slopeEx = 1; // starting
-				slopeExy = new BigDecimal(elementInserted); // x is 1. x*y = y
-				slopeEx2 = Constants.ONE; // starting
-				windowSummary.setSlope(computeWindowSlope()); // set windowSummary.slope value.
+			// If the queue just got full, time to switch from ArrayDeque to circular array
+			if (!windowSummary.isFull() && initialWindow.size() == rangeSize) {
+				convertToFullWindow();
+				windowSummary.setFull(true);
+				windowSummary.setCount(windowElements.length); // redundant
 			}
-			// if variance is required
-			if (requiresVariance) {
-				// computeWindowVariance();
-				windowSummary.varRunningSumAdd(
-						computeVarianceAddend(elementInserted, windowSummary.getAvg(), windowSummary.getSum()));
-			}
-		}
-		// If the queue just got full, time to switch from ArrayDeque to circular array
-		if (!windowSummary.isFull() && initialQueue.size() == range) {
-			convertToFullWindow();
-			windowSummary.setFull(true);
-			windowSummary.setCount(circularArray.length); // redundant
-		}
+
+		} // end if(hasRangeEnd && !waitingQueue.isFull())
 
 		/// TEST COMPUTED VALUES AGAINST A TRADITIONAL COMPUTATION
 		/// only here until we assert with JUnit
@@ -689,32 +742,19 @@ public class WindowOfQuantity implements Window {
 
 	}
 
-	// procedure to add element to array and remove oldest lement in one shot
-	private double pushAndPoll(double in) {
-		// swaps array entry old for new, at marker
-		double ret = circularArray[circularArrayMarker];
-		circularArray[circularArrayMarker] = in;
-		circularArrayMarker++;
-
-		// if marker exceeds array, return to 0
-		if (circularArrayMarker == circularArray.length) {
-			circularArrayMarker = 0;
-		}
-		return ret;
-	}
 
 	// Procedure to convert from arrayDeque to fixed recycling array:
 	private void convertToFullWindow() {
-		circularArray = new double[initialQueue.size()];
+		windowElements = new double[initialWindow.size()];
 		// fill array with contents of arrayDeque
 
-		if (requiresMax && range >= threshholdForUsingBuckets) {
+		if (requiresMax && rangeSize >= threshholdForUsingBuckets) {
 			pageSize = pageSizeDefault;
-			maxPaginated = new double[(range / pageSize) + 1];
+			maxPaginated = new double[(rangeSize / pageSize) + 1];
 		}
-		if (requiresMin && range >= threshholdForUsingBuckets) {
+		if (requiresMin && rangeSize >= threshholdForUsingBuckets) {
 			pageSize = pageSizeDefault;
-			minPaginated = new double[(range / pageSize) + 1];
+			minPaginated = new double[(rangeSize / pageSize) + 1];
 		}
 
 		int pageCount = 0;
@@ -722,15 +762,15 @@ public class WindowOfQuantity implements Window {
 		double pageMax = Double.MIN_VALUE;
 		double pageMin = Double.MAX_VALUE;
 
-		for (int i = 0; i < circularArray.length; i++) {
-			circularArray[i] = initialQueue.poll().doubleValue();
+		for (int i = 0; i < windowElements.length; i++) {
+			windowElements[i] = initialWindow.poll().doubleValue();
 
 			if (pageSize > 0) {
-				if (requiresMax && circularArray[i] > pageMax) {
-					pageMax = circularArray[i];
+				if (requiresMax && windowElements[i] > pageMax) {
+					pageMax = windowElements[i];
 				}
-				if (requiresMin && circularArray[i] < pageMin) {
-					pageMin = circularArray[i];
+				if (requiresMin && windowElements[i] < pageMin) {
+					pageMin = windowElements[i];
 				}
 				pageCount++;
 				if (pageCount == pageSize) {
@@ -755,7 +795,7 @@ public class WindowOfQuantity implements Window {
 //		System.out.println(s);
 
 		// empty arrayDeque to save memory.
-		initialQueue = null;
+		initialWindow = null;
 
 		// clean up memory...
 		System.gc();
@@ -765,38 +805,40 @@ public class WindowOfQuantity implements Window {
 	// called when the max of a page is evicted
 	// should never be called when not using paginated max
 	private void computePageMax(int thisArrayMarker) {
-		int start = (thisArrayMarker) / 100;
-		start = start * 100;
-		int end = start + 100;
-		if (end >= circularArray.length) {
-			end = circularArray.length;
+		int start = (thisArrayMarker) / pageSize;
+		// devide by 100 and multiply by 100 in order to round it to hundreds
+		start = start * pageSize;
+		int end = start + pageSize;
+		if (end >= windowElements.length) {
+			end = windowElements.length;
 		}
-		double max = circularArray[start];
+		double max = windowElements[start];
 		for (int i = start; i < end; i++) {
-			if (circularArray[i] > max) {
-				max = circularArray[i];
+			if (windowElements[i] > max) {
+				max = windowElements[i];
 			}
 		}
-		maxPaginated[thisArrayMarker / 100] = max;
+		maxPaginated[thisArrayMarker / pageSize] = max;
 	}
 
 	// procedure to find a new min within a page
 	// called when the min of a page is evicted
 	// should never be called when not using paginated Min
 	private void computePageMin(int thisArrayMarker) {
-		int start = (thisArrayMarker) / 100;
-		start = start * 100;
-		int end = start + 100;
-		if (end >= circularArray.length) {
-			end = circularArray.length;
+		int start = (thisArrayMarker) / pageSize;
+		// devide by 100 and multiply by 100 in order to round it to hundreds
+		start = start * pageSize;
+		int end = start + pageSize;
+		if (end >= windowElements.length) {
+			end = windowElements.length;
 		}
-		double min = circularArray[start];
+		double min = windowElements[start];
 		for (int i = start; i < end; i++) {
-			if (circularArray[i] < min) {
-				min = circularArray[i];
+			if (windowElements[i] < min) {
+				min = windowElements[i];
 			}
 		}
-		minPaginated[thisArrayMarker / 100] = min;
+		minPaginated[thisArrayMarker / pageSize] = min;
 	}
 
 	// Procedure called when we need to traverse all the pages looking for a new
@@ -818,11 +860,11 @@ public class WindowOfQuantity implements Window {
 		// if the window size is smaller than threshholdForUsingBuckets, we're not using
 		// pagination.
 		else {
-			double tempMax = circularArray[0];
+			double tempMax = windowElements[0];
 			// loop through circular array looking for a greater value
-			for (int i = 1; i < circularArray.length; i++) {
-				if (circularArray[i] > tempMax) {
-					tempMax = circularArray[i];
+			for (int i = 1; i < windowElements.length; i++) {
+				if (windowElements[i] > tempMax) {
+					tempMax = windowElements[i];
 				}
 			}
 			return tempMax;
@@ -842,11 +884,11 @@ public class WindowOfQuantity implements Window {
 			}
 			return tempMin;
 		} else {
-			double tempMin = circularArray[0];
+			double tempMin = windowElements[0];
 			// loop through circular array looking for a greater value
-			for (int i = 1; i < circularArray.length; i++) {
-				if (circularArray[i] < tempMin) {
-					tempMin = circularArray[i];
+			for (int i = 1; i < windowElements.length; i++) {
+				if (windowElements[i] < tempMin) {
+					tempMin = windowElements[i];
 				}
 			}
 			return tempMin;
@@ -872,7 +914,8 @@ public class WindowOfQuantity implements Window {
 	@SuppressWarnings("deprecation")
 	private float computeWindowSlope() {
 
-		// float d = (float) ((getCount() * slopeExy - slopeEx * windowSummary.getSum()) / (getCount() * slopeEx2 - slopeEx * slopeEx));
+		// float d = (float) ((getCount() * slopeExy - slopeEx * windowSummary.getSum())
+		// / (getCount() * slopeEx2 - slopeEx * slopeEx));
 		/// or (part a - part b) / (part c - part d )
 
 		// the formula above executed with BigDecimal operations:
@@ -901,19 +944,19 @@ public class WindowOfQuantity implements Window {
 
 	// called to reset slope running sums when too large.
 	private void resetSlopeVars() {
-		slopeInsertsSinceReset = circularArray.length;
+		slopeInsertsSinceReset = windowElements.length;
 		slopeEx = ((1 + slopeInsertsSinceReset) * slopeInsertsSinceReset) / 2;
 		slopeEx2 = new BigDecimal(
 				(slopeInsertsSinceReset * (slopeInsertsSinceReset + 1) * (2 * slopeInsertsSinceReset + 1)) / 6);
 
 		slopeExy = new BigDecimal(0);
-		int incr = circularArray.length;
-		int sub = circularArrayMarker - 1;
-		for (int i = 0; i < circularArray.length; i++) {
-			if (incr > 0 && i == circularArrayMarker) {
+		int incr = windowElements.length;
+		int sub = windowArrayMarker - 1;
+		for (int i = 0; i < windowElements.length; i++) {
+			if (incr > 0 && i == windowArrayMarker) {
 				incr = 0;
 			}
-			BigDecimal incrB = new BigDecimal(((i - sub + incr) * circularArray[i]));
+			BigDecimal incrB = new BigDecimal(((i - sub + incr) * windowElements[i]));
 			slopeExy = slopeExy.add(incrB);
 		}
 
@@ -979,16 +1022,16 @@ public class WindowOfQuantity implements Window {
 	// get size
 	private int getCount() {
 		if (windowSummary.isFull()) {
-			return circularArray.length;
+			return windowElements.length;
 		}
-		return initialQueue.size();
+		return initialWindow.size();
 	}
 
 	private double getFirst() {
-		if (circularArray != null) {
-			return circularArray[circularArrayMarker];
+		if (windowElements != null) {
+			return windowElements[windowArrayMarker];
 		}
-		return initialQueue.peekFirst().doubleValue();
+		return initialWindow.peekFirst().doubleValue();
 	}
 
 	private boolean medianSlideUp() {
@@ -1075,15 +1118,15 @@ public class WindowOfQuantity implements Window {
 		String string = "";
 		if (windowSummary.isFull()) {
 			string = "Array\t";
-			for (int i = circularArrayMarker; i < circularArray.length; i++) {
-				string = string + circularArray[i] + "\t";
+			for (int i = windowArrayMarker; i < windowElements.length; i++) {
+				string = string + windowElements[i] + "\t";
 			}
-			for (int i = 0; i < circularArrayMarker; i++) {
-				string = string + circularArray[i] + "\t";
+			for (int i = 0; i < windowArrayMarker; i++) {
+				string = string + windowElements[i] + "\t";
 			}
 		} else {
 			string = "Queue\t";
-			for (Double f : initialQueue) {
+			for (Double f : initialWindow) {
 				string = string + f + "\t";
 			}
 		}
@@ -1093,15 +1136,15 @@ public class WindowOfQuantity implements Window {
 			for (Entry<Double, Counter> entry : sortedElements.entrySet()) {
 				string = string + "\t" + entry.getKey() + "[" + entry.getValue().intValue() + "]";
 			}
-			System.out.println(string);
+	//		System.out.println(string);
 		}
 
 	}
 
 	@Override
-	public int trimExpiredWindowElements(int currentSecond) {
+	public void trimExpiredWindowElements(int currentSecond) {
 		// not applicable. Just here to satisfy interface.
-		return 0;
+		//return 0;
 	}
 
 	@Override
@@ -1115,8 +1158,11 @@ public class WindowOfQuantity implements Window {
 	}
 
 	@Override
-	public int getRange() {
-		return range;
+	public String getRange() {
+		if (hasRangeEnd) {
+			return String.valueOf(rangeStart + "-" + rangeEnd);
+		}
+		return String.valueOf(rangeSize);
 	}
 
 	@Override
@@ -1126,5 +1172,20 @@ public class WindowOfQuantity implements Window {
 		}
 		return false;
 	}
+
 	
+	// procedure to add element to array and remove oldest lement in one shot
+	private double putAndPopFromWindow(double in) {
+		// swaps array entry old for new, at marker
+		double ret = windowElements[windowArrayMarker];
+		windowElements[windowArrayMarker] = in;
+		windowArrayMarker++;
+		// if marker exceeds array, return to 0
+		if (windowArrayMarker == windowElements.length) {
+			windowArrayMarker = 0;
+		}
+		return ret;
+	}
+	
+
 }

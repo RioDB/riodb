@@ -60,9 +60,14 @@ public class WindowOfTimeComplex implements Window {
 	private int partitionExpiration;
 	private int lastEntryTime;
 
-	// A first-in-first-out queue elements
+	// A FIFO queue to hold elements in the window
 	// Elements MUST be inserted in chronological order
-	private ArrayDeque<ValueWithTimestamp> arrayDeque;
+	private ArrayDeque<ValueWithTimestamp> windowQueue;
+
+	// A FIFO queue to hold elements waiting
+	// Used only when range has end time, for example:
+	// 100s-10s -> Elements must wait 10s before entering
+	private ArrayDeque<ValueWithTimestamp> waitingQueue;
 
 	// Stores elements ordered for calculating MEDIAN and/or MODE
 	// Double is an element value.
@@ -77,10 +82,10 @@ public class WindowOfTimeComplex implements Window {
 	private HashMap<Double, Counter> uniqueElements;
 
 	// Count of how many elements equal windowMax
-//	private int maxSiblings; // no longer needed
+	// private int maxSiblings; // no longer needed
 
 	// Count of how many elements equal windowMin
-//	private int minSiblings; // no longer needed
+	// private int minSiblings; // no longer needed
 
 	// median requires a local copy
 	// This is the actual element known as the median element.
@@ -117,7 +122,9 @@ public class WindowOfTimeComplex implements Window {
 	// private int lastTrim;
 
 	// window range
-	private int range;
+	private int rangeStart;
+	private int rangeEnd;
+	private boolean hasRangeEnd;
 
 	private boolean functionsRequired[];
 	// required aggregations:
@@ -135,9 +142,17 @@ public class WindowOfTimeComplex implements Window {
 	private boolean requiresVariance;
 
 	// Constructor
-	public WindowOfTimeComplex(int range, boolean[] functionsRequired, int partitionExpiration) {
+	public WindowOfTimeComplex(int rangeStart, int rangeEnd, boolean[] functionsRequired, int partitionExpiration) {
 
-		this.range = range;
+		this.rangeStart = rangeStart;
+		this.rangeEnd = rangeEnd;
+		this.hasRangeEnd = false;
+		if (rangeEnd > 0) {
+			this.hasRangeEnd = true;
+			// initialize waiting Queue.
+			waitingQueue = new ArrayDeque<ValueWithTimestamp>();
+		}
+
 		this.partitionExpiration = partitionExpiration;
 		this.functionsRequired = functionsRequired;
 		this.requiresCount = functionsRequired[SQLFunctionMap.getFunctionId("count")];
@@ -158,7 +173,7 @@ public class WindowOfTimeComplex implements Window {
 		windowSummary = new WindowSummary();
 
 		// start empty initial stack
-		arrayDeque = new ArrayDeque<ValueWithTimestamp>();
+		windowQueue = new ArrayDeque<ValueWithTimestamp>();
 
 		usingSorted = false;
 		// additional collections are initialized as needed
@@ -188,8 +203,8 @@ public class WindowOfTimeComplex implements Window {
 	}
 
 	@Override
-	public Window makeFreshClone() {
-		return new WindowOfTimeComplex(range, functionsRequired, partitionExpiration);
+	public Window makeEmptyClone() {
+		return new WindowOfTimeComplex(rangeStart, rangeEnd, functionsRequired, partitionExpiration);
 	}
 
 	// a wrapper function that adds an element and returns the windowSummary
@@ -200,24 +215,36 @@ public class WindowOfTimeComplex implements Window {
 			lastEntryTime = currentSecond;
 		}
 		trimExpiredWindowElements(currentSecond);
-		add(element, currentSecond);
+
+		// Double elementAsDouble = element;
+		ValueWithTimestamp elementWithTimestamp = new ValueWithTimestamp(element, currentSecond);
+
+		// if waiting queue is not being used
+		if (!hasRangeEnd) {
+			// add new element to window queue
+			add(elementWithTimestamp);
+		}
+		// else (waiting queue is being used
+		else {
+			// add new item to tail of waiting queue
+			waitingQueue.add(elementWithTimestamp);
+		}
+
 		return getWindowSummaryCopy();
 	}
 
 	// Public procedure to add Element to Window
-	private void add(double elementInserted, int currentSecond) {
+	// it looks redundant to have the primitive parameters AND the combined object.
+	// But since the caller already has both addresses available, might as well use
+	// the primitives to reduce unboxing time.
+	// the ValueWithTimestamp object will be used for the arrayDequeue.
+	private void add(ValueWithTimestamp pairInserted) {
 
-		Double elementAsDouble = elementInserted;
-		// create an object for arrayDeque.
-		// Someday, implement arrayDeque of primitive double/int
-		ValueWithTimestamp pairInserted = new ValueWithTimestamp(elementAsDouble, currentSecond);
-
-		// printElements();
-		// printSorted();
+		Double elementAsDouble = pairInserted.doubleValue();
 
 		/*
-		 * Stats like Previous, Last, and Variance are calculated before we start making
-		 * changes to Sum, Count, etc
+		 * functions like Previous, Last, and Variance are pre-calculated before we
+		 * start making changes to Sum, Count, etc
 		 * 
 		 */
 
@@ -227,13 +254,13 @@ public class WindowOfTimeComplex implements Window {
 		}
 		// if Last is required...
 		if (requiresLast) {
-			windowSummary.setLast(elementInserted);
+			windowSummary.setLast(pairInserted.doubleValue());
 		}
 
 		// If queue already has elements
-		if (arrayDeque.size() >= 1) {
+		if (windowQueue.size() >= 1) {
 
-			arrayDeque.add(pairInserted);
+			windowQueue.add(pairInserted);
 
 			// if Count is required...
 			if (requiresCount) {
@@ -242,15 +269,15 @@ public class WindowOfTimeComplex implements Window {
 
 			// if SUM is required...
 			if (requiresSum) {
-				windowSummary.sumAdd(elementInserted);
+				windowSummary.sumAdd(pairInserted.doubleValue());
 			}
 			// if MAX is required
-			if (requiresMax && elementInserted > windowSummary.getMax()) {
-				windowSummary.setMax(elementInserted);
+			if (requiresMax && pairInserted.doubleValue() > windowSummary.getMax()) {
+				windowSummary.setMax(pairInserted.doubleValue());
 			}
 			// if MIN is required...
-			if (requiresMin && elementInserted < windowSummary.getMin()) {
-				windowSummary.setMin(elementInserted);
+			if (requiresMin && pairInserted.doubleValue() < windowSummary.getMin()) {
+				windowSummary.setMin(pairInserted.doubleValue());
 			}
 
 			// If either Median or Mode is required...
@@ -262,11 +289,11 @@ public class WindowOfTimeComplex implements Window {
 				if (c != null) {
 					c.increment();
 					if (requiresMode && c.isGT(modeQuantity)) {
-						windowSummary.setMode(elementInserted);
+						windowSummary.setMode(pairInserted.doubleValue());
 						modeQuantity = c.intValue();
 					}
 				} else {
-					sortedElements.put(elementInserted, new Counter());
+					sortedElements.put(pairInserted.doubleValue(), new Counter());
 					if (requiresCountDistinct) {
 						windowSummary.setCountDistinct(sortedElements.size());
 					}
@@ -277,20 +304,20 @@ public class WindowOfTimeComplex implements Window {
 					// now determine if the median changed.
 					// the logic:
 					// if inserted == median, and the count is now odd, median slides up
-					if (elementInserted == medianLocalVar) {
+					if (pairInserted.doubleValue() == medianLocalVar) {
 						medianDuplicates++;
-						if (arrayDeque.size() % 2 != 0) {
+						if (windowQueue.size() % 2 != 0) {
 							medianMarker++;
 						}
 					}
 					// If inserted > median, and the count is now now odd: median slides up
-					else if (elementInserted > medianLocalVar && arrayDeque.size() % 2 != 0) { //
+					else if (pairInserted.doubleValue() > medianLocalVar && windowQueue.size() % 2 != 0) { //
 						if (medianSlideUp()) {
 							windowSummary.setMedian(computeWindowMedian());
 						}
 					}
 					// If inserted < median, count is now even: median slides down
-					else if (elementInserted < medianLocalVar && arrayDeque.size() % 2 == 0) {
+					else if (pairInserted.doubleValue() < medianLocalVar && windowQueue.size() % 2 == 0) {
 						if (medianSlideDown()) {
 							windowSummary.setMedian(computeWindowMedian());
 						}
@@ -303,11 +330,11 @@ public class WindowOfTimeComplex implements Window {
 			// If countDistinct is relying on uniqueElements hashmap:
 			// countDistinct use hashmap
 			else if (requiresCountDistinct) {
-				Counter c = uniqueElements.get(elementInserted);
+				Counter c = uniqueElements.get(pairInserted.doubleValue());
 				if (c != null) {
 					c.increment();
 				} else {
-					uniqueElements.put(elementInserted, new Counter());
+					uniqueElements.put(pairInserted.doubleValue(), new Counter());
 					windowSummary.setCountDistinct(uniqueElements.size());
 				}
 			}
@@ -323,7 +350,7 @@ public class WindowOfTimeComplex implements Window {
 					// sum of all X positions...
 					slopeEx = slopeEx + insertsSinceSlopeReset;
 					// sum of x*y
-					BigDecimal xy = new BigDecimal((insertsSinceSlopeReset * elementInserted));
+					BigDecimal xy = new BigDecimal((insertsSinceSlopeReset * pairInserted.doubleValue()));
 					slopeExy = slopeExy.add(xy, Constants.MATH_CONTEXT);
 					// sum of x square
 					BigDecimal x2 = new BigDecimal((insertsSinceSlopeReset * insertsSinceSlopeReset));
@@ -343,43 +370,43 @@ public class WindowOfTimeComplex implements Window {
 		 */
 		else {
 			// add first element to arrayDeque
-			arrayDeque.add(pairInserted);
+			windowQueue.add(pairInserted);
 			// if Count is required...
 			if (requiresCount) {
 				windowSummary.setCount(1);
 			}
 			// if First is required...
 			if (requiresFirst) {
-				windowSummary.setFirst(elementInserted);
+				windowSummary.setFirst(pairInserted.doubleValue());
 			}
 
 			// if Max is required...
 			if (requiresMax) {
-				windowSummary.setMax(elementInserted);
+				windowSummary.setMax(pairInserted.doubleValue());
 				// if (!usingSorted)
 				// maxSiblings = 1;
 			}
 			// if Min is required
 			if (requiresMin) {
-				windowSummary.setMin(elementInserted);
+				windowSummary.setMin(pairInserted.doubleValue());
 				// if (!usingSorted)
 				// minSiblings = 1;
 			}
 			// if SUM is required
 			if (requiresSum) {
-				windowSummary.setSum(elementInserted);
+				windowSummary.setSum(pairInserted.doubleValue());
 			}
 			// if Median is required...
 			if (usingSorted) {
-				sortedElements.put(elementInserted, new Counter());
+				sortedElements.put(pairInserted.doubleValue(), new Counter());
 				if (requiresMedian) {
-					medianLocalVar = elementInserted;
-					windowSummary.setMedian(elementInserted);
+					medianLocalVar = pairInserted.doubleValue();
+					windowSummary.setMedian(pairInserted.doubleValue());
 					medianDuplicates = 0;
 					medianMarker = 0;
 				}
 				if (requiresMode) {
-					windowSummary.setMode(elementInserted);
+					windowSummary.setMode(pairInserted.doubleValue());
 					modeQuantity = 1;
 				}
 				if (requiresCountDistinct) {
@@ -387,14 +414,14 @@ public class WindowOfTimeComplex implements Window {
 				}
 //				printSorted(in);
 			} else if (requiresCountDistinct) {
-				uniqueElements.put(elementInserted, new Counter());
+				uniqueElements.put(pairInserted.doubleValue(), new Counter());
 				windowSummary.setCountDistinct(1);
 			}
 			// if Slope is required
 			if (requiresSlope) {
 				insertsSinceSlopeReset = 1; // starting...
 				slopeEx = 1; // starting
-				slopeExy = new BigDecimal(elementInserted); // x is 1. x*y = y
+				slopeExy = new BigDecimal(pairInserted.doubleValue()); // x is 1. x*y = y
 				slopeEx2 = Constants.ONE; // starting
 				windowSummary.setSlope(computeWindowSlope()); // set windowSummary.slope value.
 			}
@@ -404,25 +431,22 @@ public class WindowOfTimeComplex implements Window {
 			// computeWindowVariance();
 			// windowSummary.varRunningSumAdd(elementInserted);
 			windowSummary.varRunningSumAdd(
-					computeVarianceAddend(elementInserted, windowSummary.getAvg(), windowSummary.getSum()));
+					computeVarianceAddend(pairInserted.doubleValue(), windowSummary.getAvg(), windowSummary.getSum()));
 		}
 
 //		printSorted();
 //		printElements();
 //		System.out.println("localMedian: " + localMedian + " medianMarker: " + medianMarker + " actualMedian: "+ windowSummary.getMedian()+"\n");
-/*
-		if(windowSummary.getCount() > 1 && windowSummary.getSlope() != 1) {
-			System.out.println("				insertsSinceSlopeReset = " + insertsSinceSlopeReset + 
-					"\r\n				min = " + windowSummary.getMin() +
-					"\r\n				max = " + windowSummary.getMax() +
-
-					"\r\n				slopeEx = " + slopeEx + 
-					"\r\n				slopeExy = " + slopeExy + 
-					"\r\n				slopeEx2 = " + slopeEx2 +
-					"\r\n				slope = " + windowSummary.getSlope());
-			System.exit(0);
-		}
-*/
+		/*
+		 * if(windowSummary.getCount() > 1 && windowSummary.getSlope() != 1) {
+		 * System.out.println("				insertsSinceSlopeReset = " +
+		 * insertsSinceSlopeReset + "\r\n				min = " + windowSummary.getMin()
+		 * + "\r\n				max = " + windowSummary.getMax() +
+		 * 
+		 * "\r\n				slopeEx = " + slopeEx + "\r\n				slopeExy = "
+		 * + slopeExy + "\r\n				slopeEx2 = " + slopeEx2 +
+		 * "\r\n				slope = " + windowSummary.getSlope()); System.exit(0); }
+		 */
 	}
 
 	private void resetWindow() {
@@ -430,7 +454,7 @@ public class WindowOfTimeComplex implements Window {
 		windowSummary = new WindowSummary();
 
 		// start empty initial stack
-		arrayDeque = new ArrayDeque<ValueWithTimestamp>();
+		windowQueue = new ArrayDeque<ValueWithTimestamp>();
 
 		// additional collections are initialized as needed
 		if (usingSorted) {
@@ -444,13 +468,13 @@ public class WindowOfTimeComplex implements Window {
 			windowSummary.resetVarRunningSum();
 		}
 		// if Slope is required
-					if (requiresSlope) {
-						insertsSinceSlopeReset = 0; // starting...
-						slopeEx = 0; // starting
-						slopeExy = new BigDecimal(0); // x is 1. x*y = y
-						slopeEx2 = new BigDecimal(0); // starting
-						windowSummary.setSlope(0);
-					}
+		if (requiresSlope) {
+			insertsSinceSlopeReset = 0; // starting...
+			slopeEx = 0; // starting
+			slopeExy = new BigDecimal(0); // x is 1. x*y = y
+			slopeEx2 = new BigDecimal(0); // starting
+			windowSummary.setSlope(0);
+		}
 
 		// System.out.println("reset - sortedElements size " + sortedElements.size());
 	}
@@ -459,25 +483,25 @@ public class WindowOfTimeComplex implements Window {
 	// If sync performance is bad, then maybe have CLOCK pass request as a special
 	// message through message process.
 	@Override
-	public int trimExpiredWindowElements(int currentSecond) {
+	public void trimExpiredWindowElements(int currentSecond) {
 
 		// counting how many elements get evicted, to return
-		int count = 0;
+		// int count = 0;
 		boolean itemsRemoved = false;
 
 		// lastTrim = currentSecond;
 		// int expirationTime = lastTrim - range;
-		int expirationTime = currentSecond - range;
+		int expirationTime = currentSecond - rangeStart;
 
 		// Window has to be not empty. Else there's nothing to evict
-		if (arrayDeque.size() > 0) {
+		if (windowQueue.size() > 0) {
 
 			// if the newest element is due for expiration, then everything can go
-			if (arrayDeque.peekLast().getSecond() < expirationTime) {
+			if (windowQueue.peekLast().getSecond() <= expirationTime) {
 				resetWindow();
 			}
 			// otherwise, we check from the oldest
-			else if (arrayDeque.peekFirst().getSecond() < expirationTime) {
+			else if (windowQueue.peekFirst().getSecond() <= expirationTime) {
 
 				// in case we are expiring many entries,
 				// there's no point in searching for a new max and min in each iteration
@@ -487,12 +511,12 @@ public class WindowOfTimeComplex implements Window {
 				boolean medianChanged = false;
 				boolean modeEvicted = false;
 
-				for (ValueWithTimestamp evictingElement : arrayDeque) {
+				for (ValueWithTimestamp evictingElement : windowQueue) {
 
-					if (evictingElement.getSecond() < expirationTime) {
+					if (evictingElement.getSecond() <= expirationTime) {
 
 						// double evicted = arrayDeque.poll().doubleValue();
-						arrayDeque.poll().doubleValue();
+						windowQueue.poll().doubleValue();
 
 						if (requiresSum) {
 							windowSummary.sumSubtract(evictingElement.doubleValue());
@@ -525,17 +549,17 @@ public class WindowOfTimeComplex implements Window {
 								// evicted higher, now even: slides down
 								// evicted median, now even: slides down
 								// evicted median, now odd: slides up
-								if (evictingElement.doubleValue() < medianLocalVar && arrayDeque.size() % 2 != 0) { //
+								if (evictingElement.doubleValue() < medianLocalVar && windowQueue.size() % 2 != 0) { //
 									if (medianSlideUp()) {
 										medianChanged = true;
 									}
 								} else if (evictingElement.doubleValue() > medianLocalVar
-										&& arrayDeque.size() % 2 == 0) { //
+										&& windowQueue.size() % 2 == 0) { //
 									if (medianSlideDown()) {
 										medianChanged = true;
 									}
 								} else if (evictingElement.doubleValue() == medianLocalVar) {
-									if (arrayDeque.size() % 2 == 0) { // slides down
+									if (windowQueue.size() % 2 == 0) { // slides down
 										if (medianSlideDown()) {
 											medianChanged = true;
 										}
@@ -578,22 +602,23 @@ public class WindowOfTimeComplex implements Window {
 							// insertsSinceSlopeReset++;
 							// as we evict the oldest element, we also evict it's position x from the sum of
 							// x
-							long removedIndex = insertsSinceSlopeReset - arrayDeque.size();
+							long removedIndex = insertsSinceSlopeReset - windowQueue.size();
 							// as we insert new element, we add new x to ex
 							slopeEx = slopeEx - removedIndex;
 							// Update the sum of x*y
 							BigDecimal xy = new BigDecimal((removedIndex * evictingElement.doubleValue()));
-							slopeExy = slopeExy.subtract(xy,Constants.MATH_CONTEXT);
+							slopeExy = slopeExy.subtract(xy, Constants.MATH_CONTEXT);
 							// Update the sum of x square
 							BigDecimal x2 = new BigDecimal((removedIndex * removedIndex));
-							slopeEx2 = slopeEx2.subtract(x2,Constants.MATH_CONTEXT);
+							slopeEx2 = slopeEx2.subtract(x2, Constants.MATH_CONTEXT);
 							// As these Sums start to get too big, we need to reset them back to a fresh
 							// start.
 						}
 
-						count++;
+						// count++;
 						itemsRemoved = true;
 					} else {
+						// done with expired elements
 						break;
 					}
 
@@ -617,11 +642,11 @@ public class WindowOfTimeComplex implements Window {
 					}
 
 					if (requiresFirst) {
-						windowSummary.setFirst(arrayDeque.peekFirst().doubleValue());
+						windowSummary.setFirst(windowQueue.peekFirst().doubleValue());
 					}
 
 					if (requiresCount) {
-						windowSummary.setCount(arrayDeque.size());
+						windowSummary.setCount(windowQueue.size());
 					}
 
 					if (requiresCountDistinct) {
@@ -644,9 +669,29 @@ public class WindowOfTimeComplex implements Window {
 				}
 			}
 		}
-	//	if(count > 0)
-	//		System.out.println("trimmed "+ count);
-		return count;
+		// if(count > 0)
+		// System.out.println("trimmed "+ count);
+
+		// done evicting stuff.
+		// IF using waiting queue....
+		// move elements from waitingQueue into windowQueue:
+		// loop through head of waiting queue dequeuing elements done waiting.
+		if (hasRangeEnd) {
+			for (ValueWithTimestamp waitingElement : waitingQueue) {
+
+				// element is done waiting when element second + waiting period < current second
+				if (waitingElement.getSecond() + rangeEnd <= currentSecond) {
+					// remove pair from waiting queue and add to window queue.
+					add(waitingQueue.poll());
+
+				} else {
+					// done with items that are done waiting...
+					break;
+				}
+			}
+		}
+
+		// return count;
 	}
 
 	// Procedure called when we need to traverse all the data looking for a new MAX
@@ -656,10 +701,10 @@ public class WindowOfTimeComplex implements Window {
 			return sortedElements.lastKey().doubleValue();
 		} else {
 			double tempMax = Double.MIN_VALUE;
-			tempMax = arrayDeque.peekFirst().doubleValue();
+			tempMax = windowQueue.peekFirst().doubleValue();
 			// maxSiblings = 0;
 			// loop through dequeue looking for a smaller value
-			for (ValueWithTimestamp entry : arrayDeque) {
+			for (ValueWithTimestamp entry : windowQueue) {
 				if (entry.doubleValue() > tempMax) {
 					tempMax = entry.doubleValue();
 					// maxSiblings = 1;
@@ -681,7 +726,7 @@ public class WindowOfTimeComplex implements Window {
 			double tempMin = Double.MAX_VALUE;
 			// minSiblings = 0;
 			// loop through deque looking for lower Min
-			for (ValueWithTimestamp entry : arrayDeque) {
+			for (ValueWithTimestamp entry : windowQueue) {
 				if (entry.doubleValue() < tempMin) {
 					tempMin = entry.doubleValue();
 					// minSiblings = 1;
@@ -714,7 +759,8 @@ public class WindowOfTimeComplex implements Window {
 	// calculate the regression line slope of elements in this window
 	@SuppressWarnings("deprecation")
 	private float computeWindowSlope() {
-		// float d = (float) ((getCount() * slopeExy - slopeEx * windowSummary.getSum()) / (getCount() * slopeEx2 - slopeEx * slopeEx));
+		// float d = (float) ((getCount() * slopeExy - slopeEx * windowSummary.getSum())
+		// / (getCount() * slopeEx2 - slopeEx * slopeEx));
 		/// or (part a - part b) / (part c - part d )
 
 		// the formula above executed with BigDecimal operations:
@@ -786,7 +832,7 @@ public class WindowOfTimeComplex implements Window {
 
 	private double computeWindowMedian() {
 		// If there are even numbers in the set
-		if (medianDuplicates == medianMarker && arrayDeque.size() % 2 == 0
+		if (medianDuplicates == medianMarker && windowQueue.size() % 2 == 0
 				&& sortedElements.lastEntry().getKey() > medianLocalVar) {
 			double tempMedian = (medianLocalVar + sortedElements.higherEntry(medianLocalVar).getKey().doubleValue())
 					/ 2;
@@ -801,15 +847,15 @@ public class WindowOfTimeComplex implements Window {
 
 		// assuming that count has already been increased by 1
 		// BigDecimal representation of count (for BigDecimal computation)
-		BigDecimal countB = new BigDecimal(arrayDeque.size());
+		BigDecimal countB = new BigDecimal(windowQueue.size());
 		// BigDecimal representation of the element inserted
 		BigDecimal elementB = new BigDecimal(elementInserted);
 		// BigDecimal representation of mean (or average)
 		BigDecimal meanB = new BigDecimal(mean);
 		// BigDecimal computation of the delta between mean and new element
 		double avg = 0;
-		if (arrayDeque.size() > 1) {
-			avg = (double) ((sum - elementInserted) / (arrayDeque.size() - 1));
+		if (windowQueue.size() > 1) {
+			avg = (double) ((sum - elementInserted) / (windowQueue.size() - 1));
 		}
 		meanB = new BigDecimal(avg);
 		// BigDecimal representation of the delta
@@ -869,14 +915,14 @@ public class WindowOfTimeComplex implements Window {
 
 	private void resetSlopeVars() {
 
-		insertsSinceSlopeReset = arrayDeque.size();
+		insertsSinceSlopeReset = windowQueue.size();
 		slopeEx = ((1 + insertsSinceSlopeReset) * insertsSinceSlopeReset) / 2;
-		slopeEx2 = new BigDecimal((insertsSinceSlopeReset * (insertsSinceSlopeReset + 1) * 
-				(2 * insertsSinceSlopeReset + 1)) / 6);
+		slopeEx2 = new BigDecimal(
+				(insertsSinceSlopeReset * (insertsSinceSlopeReset + 1) * (2 * insertsSinceSlopeReset + 1)) / 6);
 
 		slopeExy = new BigDecimal(0);
 		int x = 1;
-		for (ValueWithTimestamp f : arrayDeque) {
+		for (ValueWithTimestamp f : windowQueue) {
 			BigDecimal xy = new BigDecimal((x++ * f.doubleValue()));
 			slopeExy = slopeExy.add(xy);
 		}
@@ -885,7 +931,7 @@ public class WindowOfTimeComplex implements Window {
 
 	@Override
 	public boolean isEmpty() {
-		return arrayDeque.size() == 0;
+		return windowQueue.size() == 0;
 	}
 
 	@Override
@@ -918,9 +964,9 @@ public class WindowOfTimeComplex implements Window {
 	public void printElements() {
 		String string = "";
 
-		double[] fa = new double[arrayDeque.size()];
+		double[] fa = new double[windowQueue.size()];
 		int i = 0;
-		for (ValueWithTimestamp f : arrayDeque) {
+		for (ValueWithTimestamp f : windowQueue) {
 			string = string + f.doubleValue() + "\t";
 			fa[i++] = f.doubleValue();
 		}
@@ -954,8 +1000,11 @@ public class WindowOfTimeComplex implements Window {
 	}
 
 	@Override
-	public int getRange() {
-		return range;
+	public String getRange() {
+		if (hasRangeEnd) {
+			return rangeStart + "-" + rangeEnd;
+		}
+		return String.valueOf(rangeStart);
 	}
 
 	@Override

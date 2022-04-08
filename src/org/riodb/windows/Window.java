@@ -30,8 +30,8 @@ public interface Window {
 	public static final int GRACE_PERIOD = 60;
 	// get list of aggregations
 	public String getAggregations();
-	// gets the window size of the window (which is not the element count() )
-	public int getRange();
+	// gets the window Range. Example: 1000s-100s
+	public String getRange();
 	// get count of elements
 	public int getWindowCount();
 	// get last element inserted
@@ -46,7 +46,7 @@ public interface Window {
 	public boolean isFull();
 	// Makes a copy of the window, but fresh from start. 
 	// used to start new empty windows when partitioning windows by a key. 
-	public Window makeFreshClone();
+	public Window makeEmptyClone();
 	// print function for debugging
 	public void printElements();
 	// checks if this window requires a function:
@@ -57,5 +57,5 @@ public interface Window {
 	// used when a window does NOT match its query condition, but should still trim expired entries
 	public WindowSummaryInterface trimAndGetWindowSummaryCopy(int currentSecond);
 	// function to evict expired elements (effective on windowOfTime* only)
-	public int trimExpiredWindowElements(int currentSecond);
+	public void trimExpiredWindowElements(int currentSecond);
 }
