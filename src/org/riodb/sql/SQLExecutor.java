@@ -46,9 +46,11 @@ public final class SQLExecutor {
 		}
 		else if (stmt != null && stmt.contains(";")) {
 			
-			actingUser = actingUser.toUpperCase();
+			//actingUser = actingUser.toUpperCase();
 
-			RioDB.rio.getSystemSettings().getLogger().trace("SQLExecutor received statement from '"+ actingUser +"' ("+ RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).stringValue() +")");
+			if(!actingUser.equals("SYSTEM")) {
+				RioDB.rio.getSystemSettings().getLogger().trace("SQLExecutor received statement from '"+ actingUser +"' ("+ RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).stringValue() +")");
+			}
 			RioDB.rio.getSystemSettings().getLogger().trace("Removing comments...");
 			stmt = SQLParser.removeComments(stmt);
 			RioDB.rio.getSystemSettings().getLogger().trace("Encoding quoted text...");
