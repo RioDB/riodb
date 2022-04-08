@@ -48,10 +48,11 @@ public class UserManager {
 	// map of users (in memory)
 	private HashMap<String, User> users;
 
-	// Location of password file (it's updated when users are created,modified,deleted)
+	// Location of password file (it's updated when users are
+	// created,modified,deleted)
 	private String pwdFile;
 
-	// regex requirements for username. 
+	// regex requirements for username.
 	private final String userNameRegex = "^[a-zA-Z0-9_]*$";
 	private final String userNameRequirement = "Must contain only letters, numbers and underscores.";
 
@@ -66,7 +67,7 @@ public class UserManager {
 		loadPwdFile();
 	}
 
-	// authenticate a user. 
+	// authenticate a user.
 	public boolean authenticate(String userName, String userPwd) {
 
 		if (userName == null || userName.length() == 0 || userPwd == null || userPwd.length() == 0) {
@@ -78,7 +79,7 @@ public class UserManager {
 
 		User u = users.get(userName);
 		if (u != null) {
-			// make hash of password provided, and check if it matches stored hash. 
+			// make hash of password provided, and check if it matches stored hash.
 			String pwdHash = Hashing.sha256().hashString(userPwd, StandardCharsets.UTF_8).toString();
 			if (u.getPwd().equals(pwdHash)) {
 				return true;
@@ -88,8 +89,8 @@ public class UserManager {
 	}
 
 	/*
-	 *  All user management operations are channeled through a single synchronized
-	 *  procedure to avoid race conditions on writing output file.
+	 * All user management operations are channeled through a single synchronized
+	 * procedure to avoid race conditions on writing output file.
 	 */
 	public synchronized String changeRequest(String requestStmt, String actingUserName)
 			throws ExceptionAccessMgt, ExceptionSQLStatement {
@@ -119,14 +120,14 @@ public class UserManager {
 			throw new ExceptionAccessMgt("Request type unknown.");
 		}
 
-		// update password file. 
+		// update password file.
 		writeToFile();
-		
+
 		return response;
 
 	}
 
-	//  create a user
+	// create a user
 	private void createUser(String stmt, String actingUserName) throws ExceptionAccessMgt {
 
 		// check that requester has permissions to do this
@@ -167,7 +168,7 @@ public class UserManager {
 			if (!newUserName.matches(userNameRegex)) {
 				throw new ExceptionAccessMgt(userNameRequirement);
 			}
-			
+
 			// check for password requirements
 			if (!newUserPwd.matches(userPwdRegex)) {
 				throw new ExceptionAccessMgt(userPwdRequirement);
@@ -181,7 +182,7 @@ public class UserManager {
 			// make hash of password (for storing hash)
 			String pwdHash = Hashing.sha256().hashString(newUserPwd, StandardCharsets.UTF_8).toString();
 			User u = new User(pwdHash);
-			
+
 			// add user to map
 			users.put(newUserName, u);
 
@@ -224,24 +225,24 @@ public class UserManager {
 
 	// get access level of a user
 	public AccessLevel getUserAccessLevel(String userName) {
-		
+
 		if (userName != null) {
 
-			if(userName.equals("SYSTEM")) {
+			if (userName.equals("SYSTEM")) {
 				try {
 					return new AccessLevel(AccessLevel.getAccessLevelCode("ADMIN"));
 				} catch (ExceptionAccessMgt e) {
-					// nothing here. "ADMIN" must exist. 
+					// nothing here. "ADMIN" must exist.
 				}
 			}
-			
+
 			User u = users.get(userName);
 			if (u != null) {
 				// return the users access level
 				return u.getUserAccessLevel();
 			}
 		}
-		
+
 		// if user doesn't exist, return access level NONE
 		return new AccessLevel(0); // NO ACCESS
 	}
@@ -274,7 +275,7 @@ public class UserManager {
 		}
 	}
 
-	// list all users. 
+	// list all users.
 	public String listUsers() {
 
 		// no special priv required to list users. It helps users police the system.
@@ -300,7 +301,6 @@ public class UserManager {
 
 	}
 
-	
 	// load password file during start up (if any was indicated in Conf file)
 	private void loadPwdFile() throws ExceptionAccessMgt {
 
@@ -311,7 +311,7 @@ public class UserManager {
 		try {
 			File myObj = new File(pwdFile);
 			Scanner myReader = new Scanner(myObj);
-			
+
 			// loop. for each user in file, load them into memory (hashmap)
 			while (myReader.hasNextLine()) {
 				String data = myReader.nextLine().trim();
@@ -335,16 +335,19 @@ public class UserManager {
 
 					if (userName.equals("ADMIN")) {
 						newUser.setAccess("ADMIN");
-						if(userPwd.equals("c918fadce1ecef2830b6f47e2116d18ea8b83629d46378c4780f15eba3146503")) {
-							RioDB.rio.getSystemSettings().getLogger().warn("ADMIN password is still set to default 'riodb'. Changing it!");
+						if (userPwd.equals("ce8fb32e15aaa5b84495638c795f554ccf3e08681782763241b8aaba88d93214")) {
+							RioDB.rio.getSystemSettings().getLogger()
+									.warn("ADMIN password is still set to default. Changing it!");
 						}
-					
-					}else if (creds.length > 2) {
+
+					} else if (creds.length > 2) {
 						if (creds[2].equals("ADMIN")) {
 							newUser.setAccess(creds[2]);
 						}
 					}
 					users.put(userName, newUser);
+					RioDB.rio.getSystemSettings().getLogger()
+					.trace("Adding user "+ userName +" ("+ newUser.getUserAccessLevel().stringValue() +").");
 				}
 			}
 			myReader.close();
@@ -354,7 +357,7 @@ public class UserManager {
 		RioDB.rio.getSystemSettings().getLogger().debug("Password File provided " + users.size() + " user accounts.");
 
 	}
-	
+
 	// reset user's password
 	private void resetPwd(String stmt, String actingUserName) throws ExceptionAccessMgt {
 		String newStmt = stmt.trim();
@@ -414,8 +417,8 @@ public class UserManager {
 		return false;
 	}
 
-	// Save the user data that is in-memory to a file on the disk. 
-	// Basically, update the same password file provided in conf file. 
+	// Save the user data that is in-memory to a file on the disk.
+	// Basically, update the same password file provided in conf file.
 	private void writeToFile() {
 
 		String fileContent = "";
@@ -435,7 +438,8 @@ public class UserManager {
 
 			writer.close();
 		} catch (IOException e) {
-			RioDB.rio.getSystemSettings().getLogger().error("Error writing password file: " + e.getMessage().replace("\n", "").replace("\r", ""));
+			RioDB.rio.getSystemSettings().getLogger()
+					.error("Error writing password file: " + e.getMessage().replace("\n", "").replace("\r", ""));
 		}
 
 	}
