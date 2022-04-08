@@ -83,8 +83,8 @@ public class WindowOfOne implements Window {
 
 	// range is always 1
 	@Override
-	public int getRange() {
-		return 1;
+	public String getRange() {
+		return "1";
 	}
 
 	// get count
@@ -119,7 +119,7 @@ public class WindowOfOne implements Window {
 
 	// clone a copy in reset state
 	@Override
-	public Window makeFreshClone() {
+	public Window makeEmptyClone() {
 		return new WindowOfOne(requiresPrevious, partitionExpiration);
 	}
 
@@ -174,8 +174,8 @@ public class WindowOfOne implements Window {
 	// window of fixed length 1 does not evict elements based on time. 
 	// method is only here to satisfy interface
 	@Override
-	public int trimExpiredWindowElements(int currentSecond) {
-		return 0;
+	public void trimExpiredWindowElements(int currentSecond) {
+		//return 0;
 	}
 
 	// check if window is due for expiration

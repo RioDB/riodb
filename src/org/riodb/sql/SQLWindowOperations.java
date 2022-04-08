@@ -79,14 +79,23 @@ public final class SQLWindowOperations {
 		boolean rangeByTime = false;
 		boolean rangeByTimeIsTimestamp = false; // NOT CLOCK-based.
 		int windowRange = 0;
+		int windowRangeEnd = -1; // negative 1 means it's not used. 
 
 		String rangeStr = SQLParser.getWindowRangeStr(stmt);
+		String rangeEndStr = null;
+		
+		if(rangeStr != null && rangeStr.contains(" - ")) {
+			rangeEndStr =rangeStr.substring(rangeStr.indexOf(" - ")+3).trim();
+			rangeStr = rangeStr.substring(0,rangeStr.indexOf(" - "));
+		}
 
-		// System.out.println("rangeStr: "+rangeStr);
-
+		
 		// if rangeStr is just a number, then it's a range of quantity (integer)
 		if (SQLParser.isNumber(rangeStr)) {
 			windowRange = Integer.valueOf(rangeStr);
+			if (rangeEndStr != null && SQLParser.isNumber(rangeEndStr)) {
+				windowRangeEnd = Integer.valueOf(rangeEndStr);
+			}
 		}
 		// if clock or timestamp is specified, then it's range by time.
 		else if (rangeStr != null && (rangeStr.contains("clock ") || rangeStr.contains("timestamp "))) {
@@ -112,26 +121,9 @@ public final class SQLWindowOperations {
 		}
 
 		if (rangeByTime) {
-			if (rangeStr.charAt(rangeStr.length() - 1) == 's' || rangeStr.charAt(rangeStr.length() - 1) == 'm'
-					|| rangeStr.charAt(rangeStr.length() - 1) == 'h' || rangeStr.charAt(rangeStr.length() - 1) == 'd') {
-
-				String numberInRangeStr = rangeStr.substring(0, rangeStr.length() - 1);
-				if (SQLParser.isNumber(numberInRangeStr)) {
-					windowRange = Integer.valueOf(numberInRangeStr);
-				} else {
-					throw new ExceptionSQLStatement("could not find number in '" + rangeStr + "'");
-				}
-
-				if (rangeStr.charAt(rangeStr.length() - 1) == 's') {
-				} else if (rangeStr.charAt(rangeStr.length() - 1) == 'm') {
-					windowRange = windowRange * 60;
-				} else if (rangeStr.charAt(rangeStr.length() - 1) == 'h') {
-					windowRange = windowRange * 60 * 60;
-				} else if (rangeStr.charAt(rangeStr.length() - 1) == 'd') {
-					windowRange = windowRange * 60 * 60 * 24;
-				}
-			} else {
-				throw new ExceptionSQLStatement("Missing range-by-time unit  2s, 2m, 2h, 2d ...");
+			windowRange = getRangeTime(rangeStr);
+			if(rangeEndStr != null && rangeEndStr.length()> 0) {
+				windowRangeEnd = getRangeTime(rangeEndStr);
 			}
 		}
 
@@ -146,6 +138,12 @@ public final class SQLWindowOperations {
 
 		int partitionExpiration = SQLParser.getWindowPartitionExpiration(stmt);
 
+		
+		if (windowRangeEnd >= windowRange) {
+			throw new ExceptionSQLStatement("The range expression goes from oldest to most recent. The value after the dash has to be smaller than the first value, like 100-10, or 10m-20s");
+		}
+		
+		
 		Window window;
 
 		if (rangeByTime) {
@@ -154,14 +152,14 @@ public final class SQLWindowOperations {
 					|| functionsRequired[SQLFunctionMap.getFunctionId("mode")]
 					|| functionsRequired[SQLFunctionMap.getFunctionId("slope")]
 					|| functionsRequired[SQLFunctionMap.getFunctionId("variance")]) {
-				window = new WindowOfTimeComplex(windowRange, functionsRequired, partitionExpiration);
+				window = new WindowOfTimeComplex(windowRange, windowRangeEnd, functionsRequired, partitionExpiration);
 			} else {
-				window = new WindowOfTimeSimple(windowRange, functionsRequired, partitionExpiration);
+				window = new WindowOfTimeSimple(windowRange, windowRangeEnd, functionsRequired, partitionExpiration);
 			}
 		} else if (windowRange == 1) {
 			window = new WindowOfOne(functionsRequired[SQLFunctionMap.getFunctionId("previous")], partitionExpiration);
 		} else {
-			window = new WindowOfQuantity(windowRange, functionsRequired, partitionExpiration);
+			window = new WindowOfQuantity(windowRange, windowRangeEnd, functionsRequired, partitionExpiration);
 		}
 
 		RioDB.rio.getSystemSettings().getLogger().trace("\twindow object created.");
@@ -569,6 +567,33 @@ public final class SQLWindowOperations {
 		expression = SQLParser.decodeQuotedText(expression).replace("''", "'");
 
 		return new SQLWindowConditionExpression(expression, streamId, likeArr, inArr, whereStr);
+	}
+	
+	
+	private static int getRangeTime(String rangeStr) throws ExceptionSQLStatement {
+		int windowRange;
+		if (rangeStr.charAt(rangeStr.length() - 1) == 's' || rangeStr.charAt(rangeStr.length() - 1) == 'm'
+				|| rangeStr.charAt(rangeStr.length() - 1) == 'h' || rangeStr.charAt(rangeStr.length() - 1) == 'd') {
+
+			String numberInRangeStr = rangeStr.substring(0, rangeStr.length() - 1);
+			if (SQLParser.isNumber(numberInRangeStr)) {
+				windowRange = Integer.valueOf(numberInRangeStr);
+			} else {
+				throw new ExceptionSQLStatement("could not find number in '" + rangeStr + "'");
+			}
+
+			if (rangeStr.charAt(rangeStr.length() - 1) == 's') {
+			} else if (rangeStr.charAt(rangeStr.length() - 1) == 'm') {
+				windowRange = windowRange * 60;
+			} else if (rangeStr.charAt(rangeStr.length() - 1) == 'h') {
+				windowRange = windowRange * 60 * 60;
+			} else if (rangeStr.charAt(rangeStr.length() - 1) == 'd') {
+				windowRange = windowRange * 60 * 60 * 24;
+			}
+		} else {
+			throw new ExceptionSQLStatement("Missing range-by-time unit  2s, 2m, 2h, 2d ...");
+		}
+		return windowRange;
 	}
 
 }

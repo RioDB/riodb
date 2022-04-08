@@ -114,7 +114,7 @@ public class WindowWrapperPartitioned extends WindowWrapper {
 								(int) (message.getDouble(rangeByTimeFieldNumericIndexId) / 1000d));
 					} else {
 						// key not found. Make new window and put in hashmap.
-						w = defaultWindow.makeFreshClone();
+						w = defaultWindow.makeEmptyClone();
 						WindowSummaryInterface ws = w.trimAddAndGetWindowSummaryCopy(d,
 								(int) (message.getDouble(rangeByTimeFieldNumericIndexId) / 1000d));
 
@@ -128,7 +128,7 @@ public class WindowWrapperPartitioned extends WindowWrapper {
 					if (w != null) {
 						return w.trimAddAndGetWindowSummaryCopy(d, currentSecond);
 					} else {
-						w = defaultWindow.makeFreshClone();
+						w = defaultWindow.makeEmptyClone();
 						WindowSummaryInterface ws = w.trimAddAndGetWindowSummaryCopy(d, currentSecond);
 						windowMap.put(message.getString(partitionByStringFieldId), w);
 						return ws;

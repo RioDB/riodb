@@ -18,7 +18,6 @@
  
 */
 
-
 /*
  *    The WindowOfTimeComplex is a window that expires elements based on age. 
  *    But it must keep every individual element in order to calculate complex 
@@ -56,6 +55,9 @@ public class WindowOfTimeSimple implements Window {
 		private double nodeMax; // max val received in this second
 		private double nodeMin; // min val received in this second
 		private double nodeFirst; // first item received in this batch
+		private double nodeLast; // first item received in this batch
+		private double nodePrevious; // element before Last
+
 		private double nodeSum; // sum of all vals in this second
 		private int nodeCount; // count of all vals in this second.
 
@@ -66,12 +68,17 @@ public class WindowOfTimeSimple implements Window {
 			this.nodeMin = elementInserted;
 			this.nodeSum = elementInserted;
 			this.nodeFirst = elementInserted;
+			this.nodeLast = elementInserted;
 			this.nodeCount = 1;
 			this.nodeSecond = second;
+			this.nodePrevious = Double.NaN;
+			// should never hit NaN because getPrevious is only called
+			// when nodeCount > 1
 		}
 
 		// adding item to second node
 		protected void add(double element) {
+
 			if (requiresMax && element > nodeMax) {
 				nodeMax = element;
 			}
@@ -84,6 +91,11 @@ public class WindowOfTimeSimple implements Window {
 			if (requiresCount) {
 				nodeCount++;
 			}
+			if (requiresPrevious) {
+				nodePrevious = nodeLast;
+			}
+			this.nodeLast = element;
+
 		}
 
 		protected int getSecond() {
@@ -102,6 +114,14 @@ public class WindowOfTimeSimple implements Window {
 			return nodeFirst;
 		}
 
+		protected double getLast() {
+			return nodeLast;
+		}
+
+		protected double getPrevious() {
+			return nodePrevious;
+		}
+
 		protected double getSum() {
 			return nodeSum;
 		}
@@ -111,13 +131,18 @@ public class WindowOfTimeSimple implements Window {
 		}
 	}
 
-	// A list of all SecondNodes
-	private ArrayDeque<SecondNode> secondSummaryList;
+	// A list of all SecondNodes in window
+	private ArrayDeque<SecondNode> batchedWindowQueue;
+
+	// A list of all SecondNodes waiting in queue
+	// used when range has endtime.
+	// exmaple: range 100s-10s has to wait for 10s
+	private ArrayDeque<SecondNode> batchedWaitingQueue;
 
 	// a WindowSummary object to track the current state of this window.
 	private WindowSummary windowSummary;
-	
-	// partitionExpiration - to expire stale partitions. 
+
+	// partitionExpiration - to expire stale partitions.
 	private int partitionExpiration;
 	private int lastEntryTime;
 
@@ -126,7 +151,9 @@ public class WindowOfTimeSimple implements Window {
 	private int mostRecentSecond;
 
 	// window range
-	private int range;
+	private int rangeStart;
+	private int rangeEnd;
+	private boolean hasRangeEnd;
 
 	private boolean functionsRequired[];
 	// required aggregations:
@@ -136,11 +163,19 @@ public class WindowOfTimeSimple implements Window {
 	private boolean requiresMin;
 	private boolean requiresPrevious;
 	private boolean requiresSum;
-	
-		// constructor
-	public WindowOfTimeSimple(int range, boolean[] functionsRequired, int partitionExpiration) {
 
-		this.range = range;
+	// constructor
+	public WindowOfTimeSimple(int rangeStart, int rangeEnd, boolean[] functionsRequired, int partitionExpiration) {
+
+		this.rangeStart = rangeStart;
+		this.rangeEnd = rangeEnd;
+		this.hasRangeEnd = false;
+		if (rangeEnd > 0) {
+			this.hasRangeEnd = true;
+			// initialize waiting Queue.
+			batchedWaitingQueue = new ArrayDeque<SecondNode>();
+		}
+
 		this.partitionExpiration = partitionExpiration;
 		this.functionsRequired = functionsRequired;
 		this.requiresCount = functionsRequired[SQLFunctionMap.getFunctionId("count")];
@@ -149,160 +184,309 @@ public class WindowOfTimeSimple implements Window {
 		this.requiresMin = functionsRequired[SQLFunctionMap.getFunctionId("min")];
 		this.requiresPrevious = functionsRequired[SQLFunctionMap.getFunctionId("previous")];
 		this.requiresSum = functionsRequired[SQLFunctionMap.getFunctionId("sum")];
-		
+
 		RioDB.rio.getSystemSettings().getLogger().debug("\tconstructing Window of time, simple");
 		// list = new LinkedList<SecondNode>();
-		secondSummaryList = new ArrayDeque<SecondNode>();
+		batchedWindowQueue = new ArrayDeque<SecondNode>();
 		windowSummary = new WindowSummary();
 		mostRecentSecond = 0;
 	}
-	
+
 	@Override
-	public Window makeFreshClone() {
-		return new WindowOfTimeSimple(range, functionsRequired, partitionExpiration);
+	public Window makeEmptyClone() {
+		return new WindowOfTimeSimple(rangeStart, rangeEnd, functionsRequired, partitionExpiration);
 	}
 
 	@Override
 	public WindowSummary trimAddAndGetWindowSummaryCopy(double element, int currentSecond) {
+
 		trimExpiredWindowElements(currentSecond);
-		add(element, currentSecond);
+
+		// if waiting queue is not being used
+		if (!hasRangeEnd) {
+			// add new element to window queue
+			add(element, currentSecond);
+		}
+		// else (waiting queue is being used
+		else {
+			// add new item to tail of waiting queue
+			// check if the latest "Second" is the current second.
+			if (mostRecentSecond == currentSecond && !batchedWaitingQueue.isEmpty()) {
+				batchedWaitingQueue.getLast().add(element);
+			}
+			// else, time has moved on to a new second.
+			else {
+				// new second on the clock
+				// mark lastEntryTime
+				if (partitionExpiration > 0) {
+					lastEntryTime = currentSecond;
+				}
+				// make new Node
+				SecondNode s = new SecondNode(currentSecond, element);
+				batchedWaitingQueue.add(s);
+				mostRecentSecond = currentSecond;
+			}
+		}
+
 		return getWindowSummaryCopy();
 	}
 
 	private void add(double elementInserted, int currentSecond) {
 
-		// check if the latest "Second" is the current second.
-		if (mostRecentSecond == currentSecond) {
-			secondSummaryList.getLast().add(elementInserted);
-		}
-		// else, time has moved on to a new second.
-		else {
+		// if NOT empty...
+		if (!batchedWindowQueue.isEmpty()) {
+			// check if the latest "Second" is the current second.
+			if (mostRecentSecond == currentSecond) {
+				batchedWindowQueue.getLast().add(elementInserted);
+			}
+			// else, time has moved on to a new second.
+			else {
+				// new second on the clock
+				// mark lastEntryTime
+				if (partitionExpiration > 0) {
+					lastEntryTime = currentSecond;
+				}
+				// make new Node
+				SecondNode s = new SecondNode(currentSecond, elementInserted);
+				batchedWindowQueue.add(s);
+				mostRecentSecond = currentSecond;
+			}
+
+			// we only bother with updating max and min if a rule needs them.
+			if (requiresMax && elementInserted > windowSummary.getMax()) {
+				windowSummary.setMax(elementInserted);
+			}
+			if (requiresMin && elementInserted < windowSummary.getMin()) {
+				windowSummary.setMin(elementInserted);
+			}
+			if (requiresCount) {
+				windowSummary.incrementCount();
+			}
+			if (requiresSum) {
+				windowSummary.sumAdd(elementInserted);
+			}
+			if (requiresPrevious) {
+				windowSummary.setPrevious(windowSummary.getLast());
+			}
+			if (requiresFirst && windowSummary.getCount() == 1) {
+				windowSummary.setFirst(elementInserted);
+			}
+			windowSummary.setLast(elementInserted);
+
+		} else {
+			// window is empty. Insert very first
+			// IF statements are different because some variables have NaN assigned.
 			// new second on the clock
-			// timestamp
-			if(partitionExpiration > 0) {
+			// mark lastEntryTime
+			if (partitionExpiration > 0) {
 				lastEntryTime = currentSecond;
 			}
 			// make new Node
 			SecondNode s = new SecondNode(currentSecond, elementInserted);
-			secondSummaryList.add(s);
+			batchedWindowQueue.add(s);
 			mostRecentSecond = currentSecond;
-		}
 
-		// we only bother with updating max and min if a rule needs them.
-		if (requiresMax && elementInserted > windowSummary.getMax()) {
-			windowSummary.setMax(elementInserted);
-		}
-		if (requiresMin && elementInserted < windowSummary.getMin()) {
-			windowSummary.setMin(elementInserted);
-		}
-		if (requiresCount) {
-			windowSummary.incrementCount();
-		}
-		if (requiresSum) {
-			windowSummary.sumAdd(elementInserted);
-		}
-		if (requiresPrevious) {
-			windowSummary.setPrevious(windowSummary.getLast());
-		}
-		if (requiresFirst && windowSummary.getCount() == 1) {
-			windowSummary.setFirst(elementInserted);
-		}
+			// we only bother with updating max and min if a rule needs them.
+			if (requiresMax) {
+				windowSummary.setMax(elementInserted);
+			}
+			if (requiresMin) {
+				windowSummary.setMin(elementInserted);
+			}
+			if (requiresCount) {
+				windowSummary.incrementCount();
+			}
+			if (requiresSum) {
+				windowSummary.sumAdd(elementInserted);
+			}
+			if (requiresFirst) {
+				windowSummary.setFirst(elementInserted);
+			}
+			windowSummary.setLast(elementInserted);
 
-		windowSummary.setLast(elementInserted);
+		}
 
 	}
-	
-	
-	// TODO need to synchronize so that QUERY calls don't clash with CLOCK calls. 
-	// If sync performance is bad, then maybe have CLOCK pass request as a special message through message process. 
-	@Override
-	public int trimExpiredWindowElements(int currentSecond) {
-		
-		int expirationTime = currentSecond - range;
-		
-		// if the oldest record is current, then there's nothing to remove. 
-		// or if the window is empty, there's nothing to remove.
-        if(mostRecentSecond == currentSecond || secondSummaryList.isEmpty()) {
-			return 0;
-		}
 
-		
-		
-		// if the newest record is old enough to be evicted, then we might as well 
-		// evict everything by resetting the window. 
-		if(secondSummaryList.peekLast().getSecond() <= expirationTime ) {
-			int totalRemoved = windowSummary.getCount();
-			secondSummaryList = new ArrayDeque<SecondNode>();
-			WindowSummary newEmptyWindow = new WindowSummary();
-			if(requiresPrevious) {
-				newEmptyWindow.setPrevious(windowSummary.getPrevious());
-			}
-			windowSummary = newEmptyWindow;
-			return totalRemoved;
-		}
-		
-		//mostRecentSecond = currentSecond;
-		int count = 0;
-		boolean maxRemoved = false;
-		boolean minRemoved = false;
-		
-		
-		// evict expired entries in secondList, starting from oldest to newest. 
-		for (SecondNode sn : secondSummaryList) {
-			if (sn.getSecond() <= expirationTime) {
-				if (requiresSum) {
-					windowSummary.sumSubtract((double) sn.getSum());
-				}
-				if (requiresMax && sn.getMax() == windowSummary.getMax()) {
-					maxRemoved = true;
-				}
-				if (requiresMin && sn.getMin() == windowSummary.getMin()) {
-					minRemoved = true;
-				}
-				if (requiresCount) {
-					windowSummary.setCount(windowSummary.getCount() - sn.getCount());
-				}
-				secondSummaryList.poll();
-				count++;
-			} else { // end loop
-				break;
-			}
-		}
-		
-		// if everything was removed entirely, windowSummary can be reset to brand new WindowSummary:
-		if (secondSummaryList == null || secondSummaryList.size() == 0) {
-			windowSummary = new WindowSummary();
-		} else if (count > 0) {
-			if (maxRemoved || minRemoved) {
+	// procedure to add a SecondNode to window.
+	// This is used one waiting queue needs to bring
+	// nodes that are done waiting into the window
+	private void add(SecondNode newNode) {
 
-				double max = secondSummaryList.peek().getMax();
-				double min = secondSummaryList.peek().getMin();
-				for (SecondNode entry : secondSummaryList) {
-					if (requiresMax && entry.getMax() > max) {
-						max = entry.getMax();
-					}
-					if (requiresMin && entry.getMin() < min) {
-						min = entry.getMin();
-					}
-				}
-				if (requiresMax) {
-					windowSummary.setMax(max);
-				}
-				if (requiresMin) {
-					windowSummary.setMin(min);
-				}
+		if (!batchedWindowQueue.isEmpty()) {
+			batchedWindowQueue.add(newNode);
+		
+			// we only bother with updating max and min if a rule needs them.
+			if (requiresMax && newNode.getMax() > windowSummary.getMax()) {
+				windowSummary.setMax(newNode.getMax());
 			}
-			
+			if (requiresMin && newNode.getMin() < windowSummary.getMin()) {
+				windowSummary.setMin(newNode.getMin());
+			}
+			if (requiresCount) {
+				windowSummary.incrementCount(newNode.getCount());
+			}
+			if (requiresSum) {
+				windowSummary.sumAdd(newNode.getSum());
+			}
+
+			// if new node has more than 1, use newNode previous
+			if (requiresPrevious && newNode.getCount() > 1) {
+				windowSummary.setPrevious(newNode.getPrevious());
+			}
+			// if new node only has 1, then previous will be the last from
+			// the previous node.
+			else {
+				windowSummary.setPrevious(windowSummary.getLast());
+			}
+
+			windowSummary.setLast(newNode.getLast());
+		}
+		// Window is empty. 
+		// Commands are different because window variables are currently set to NaN
+		else {
+			batchedWindowQueue.add(newNode);
+		
+			// we only bother with updating max and min if a rule needs them.
+			if (requiresMax) {
+				windowSummary.setMax(newNode.getMax());
+			}
+			if (requiresMin) {
+				windowSummary.setMin(newNode.getMin());
+			}
+			if (requiresCount) {
+				windowSummary.incrementCount(newNode.getCount());
+			}
+			if (requiresSum) {
+				windowSummary.sumAdd(newNode.getSum());
+			}
 			if (requiresFirst) {
-				windowSummary.setFirst(secondSummaryList.peek().getFirst());
+				windowSummary.setFirst(newNode.getFirst());
 			}
-			
-			if (!windowSummary.isFull()) {
-				windowSummary.setFull(true);
+			if (requiresPrevious && newNode.getCount()>1) {
+				windowSummary.setPrevious(newNode.getPrevious());
+			}
+			windowSummary.setLast(newNode.getLast());
+		}
+
+	}
+
+	// TODO need to synchronize so that QUERY calls don't clash with CLOCK calls.
+	// If sync performance is bad, then maybe have CLOCK pass request as a special
+	// message through message process.
+	@Override
+	public void trimExpiredWindowElements(int currentSecond) {
+
+		int expirationTime = currentSecond - rangeStart;
+
+		// we remove expired entries.
+
+		// for efficiency, we may skip the trouble of looking for expired entries:
+		// If the window is empty, there's nothing to remove.
+		// if the most recent record was added at the current second, there's nothing to
+		// remove.
+		// because it would have already been removed.
+		if (mostRecentSecond != currentSecond && !batchedWindowQueue.isEmpty()) {
+
+			// if the newest record is old enough to be evicted, then everything is old
+			// enough to be evicted. We reset the window to a new empty window
+			if (batchedWindowQueue.peekLast().getSecond() <= expirationTime) {
+				// int totalRemoved = windowSummary.getCount();
+				batchedWindowQueue = new ArrayDeque<SecondNode>();
+				WindowSummary newEmptyWindow = new WindowSummary();
+				if (requiresPrevious) {
+					newEmptyWindow.setPrevious(windowSummary.getPrevious());
+				}
+				windowSummary = newEmptyWindow;
+
+			} else {
+				// we are only evicting expired elements, and preserving non-expired elements.
+
+				int count = 0;
+				boolean maxRemoved = false;
+				boolean minRemoved = false;
+
+				// loop to evict expired entries, starting from oldest to newest.
+				for (SecondNode sn : batchedWindowQueue) {
+					if (sn.getSecond() <= expirationTime) {
+						if (requiresSum) {
+							windowSummary.sumSubtract((double) sn.getSum());
+						}
+						if (requiresMax && sn.getMax() == windowSummary.getMax()) {
+							maxRemoved = true;
+						}
+						if (requiresMin && sn.getMin() == windowSummary.getMin()) {
+							minRemoved = true;
+						}
+						if (requiresCount) {
+							windowSummary.setCount(windowSummary.getCount() - sn.getCount());
+						}
+						batchedWindowQueue.poll();
+						count++;
+					} else { // end loop
+						break;
+					}
+				}
+
+				// if everything was removed entirely, windowSummary can be reset to brand new
+				// WindowSummary:
+				if (batchedWindowQueue == null || batchedWindowQueue.size() == 0) {
+					windowSummary = new WindowSummary();
+				} else if (count > 0) {
+					if (maxRemoved || minRemoved) {
+
+						double max = batchedWindowQueue.peek().getMax();
+						double min = batchedWindowQueue.peek().getMin();
+						for (SecondNode entry : batchedWindowQueue) {
+							if (requiresMax && entry.getMax() > max) {
+								max = entry.getMax();
+							}
+							if (requiresMin && entry.getMin() < min) {
+								min = entry.getMin();
+							}
+						}
+						if (requiresMax) {
+							windowSummary.setMax(max);
+						}
+						if (requiresMin) {
+							windowSummary.setMin(min);
+						}
+					}
+
+					if (requiresFirst) {
+						windowSummary.setFirst(batchedWindowQueue.peek().getFirst());
+					}
+
+					if (!windowSummary.isFull()) {
+						windowSummary.setFull(true);
+					}
+
+				}
+
 			}
 
 		}
-		return count;
+
+		// done evicting stuff.
+		// IF using waiting queue....
+		// move elements from waitingQueue into windowQueue:
+		// loop through head of waiting queue dequeuing elements done waiting.
+		if (hasRangeEnd && !batchedWaitingQueue.isEmpty()) {
+
+			for (SecondNode waitingSecondNode : batchedWaitingQueue) {
+
+				// element is done waiting when element second + waiting period < current second
+				if (waitingSecondNode.getSecond() + rangeEnd <= currentSecond) {
+					// remove pair from waiting queue and add to window queue.
+					add(batchedWaitingQueue.poll());
+
+				} else {
+					// done with items that are done waiting...
+					break;
+				}
+			}
+		}
+
 	}
 
 	@Override
@@ -317,15 +501,14 @@ public class WindowOfTimeSimple implements Window {
 
 	@Override
 	public WindowSummary trimAndGetWindowSummaryCopy(int currentSecond) {
-		System.out.println("trimAndGet: "+trimExpiredWindowElements(currentSecond));
+		trimExpiredWindowElements(currentSecond);
 		return getWindowSummaryCopy();
 	}
-	
+
 	@Override
 	public WindowSummary getWindowSummaryCopy() {
 		return new WindowSummary(windowSummary);
 	}
-	
 
 	@Override
 	public boolean isEmpty() {
@@ -340,7 +523,7 @@ public class WindowOfTimeSimple implements Window {
 	@Override
 	public void printElements() {
 		String s = "nodes getCount(): ";
-		for (SecondNode entry : secondSummaryList) {
+		for (SecondNode entry : batchedWindowQueue) {
 			s = s + ", " + entry.getCount();
 		}
 
@@ -350,24 +533,26 @@ public class WindowOfTimeSimple implements Window {
 	public String getAggregations() {
 		return SQLFunctionMap.getFunctionsAvailable(functionsRequired);
 	}
-	
+
 	@Override
 	public boolean requiresFunction(int functionId) {
 		return functionsRequired[functionId];
 	}
-	
+
 	@Override
-	public int getRange() {
-		return range;
+	public String getRange() {
+		if (hasRangeEnd) {
+			return rangeStart + "-" + rangeEnd;
+		}
+		return String.valueOf(rangeStart);
 	}
-	
+
 	@Override
 	public boolean isDueForExpiration(int currentSecond) {
-		if(currentSecond - lastEntryTime > Window.GRACE_PERIOD) {
+		if (currentSecond - lastEntryTime > Window.GRACE_PERIOD) {
 			return true;
 		}
 		return false;
 	}
-
 
 }

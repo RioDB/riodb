@@ -390,6 +390,8 @@ public final class SQLParser {
 
 	}
 
+	 
+	/* // not used.
 	public static final int getWindowRangeByFieldId(String stmt, int streamId) throws ExceptionSQLStatement {
 
 		if (stmt != null && stmt.contains(" by ") && stmt.indexOf(";") > stmt.indexOf(" by ")) {
@@ -410,7 +412,8 @@ public final class SQLParser {
 
 		return -1;
 	}
-
+	*/
+	
 	public static final String getWindowRangeStr(String stmt) throws ExceptionSQLStatement {
 		if (stmt != null && stmt.contains(" range ") && stmt.indexOf(";") > stmt.indexOf(" range ")) {
 

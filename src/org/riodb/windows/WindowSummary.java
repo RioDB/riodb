@@ -46,13 +46,13 @@ public class WindowSummary implements WindowSummaryInterface {
 		full = false;
 		count = 0;
 		countDistinct = 0;
-		first = 0;
-		last = 0;
-		max = Float.MIN_NORMAL;
-		median = 0;
-		min = Float.MAX_VALUE;
-		mode = 0;
-		previous = 0;
+		first =  Double.NaN;
+		last =  Double.NaN;
+		max = Double.NaN;
+		median =  Double.NaN;
+		min = Double.NaN;
+		mode =  Double.NaN;
+		previous =  Double.NaN;
 		slope = 0;
 		sum = 0;
 		varRunningSum = null;
@@ -94,6 +94,11 @@ public class WindowSummary implements WindowSummaryInterface {
 	@Override
 	public void incrementCount() {
 		this.count++;
+	}
+	
+	@Override
+	public void incrementCount(int addend) {
+		this.count += addend;
 	}
 
 	@Override
@@ -225,28 +230,28 @@ public class WindowSummary implements WindowSummaryInterface {
 	public double getPopulationVariance() {
 		if (count > 0 && varRunningSum != null)
 			return varRunningSum.divide(new BigDecimal(count), Constants.MATH_CONTEXT).doubleValue();
-		return Float.NaN;
+		return Double.NaN;
 	}
 
 	@Override
 	public double getSampleVariance() {
 		if (count > 1 && varRunningSum != null)
 			return varRunningSum.divide(new BigDecimal(count - 1), Constants.MATH_CONTEXT).doubleValue();
-		return Float.NaN;
+		return Double.NaN;
 	}
 
 	@Override
 	public double getPopulationStdDev() {
 		if (count > 0 && varRunningSum != null)
 			return (double) Math.sqrt(this.getPopulationVariance());
-		return Float.NaN;
+		return Double.NaN;
 	}
 
 	@Override
 	public double getSampleStdDev() {
 		if (count > 1 && varRunningSum != null)
 			return (double) Math.sqrt(this.getSampleVariance());
-		return Float.NaN;
+		return Double.NaN;
 	}
 
 	public BigDecimal getVarRunningSum() {

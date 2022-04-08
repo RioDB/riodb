@@ -156,7 +156,7 @@ public class WindowWrapper {
 	}
 	
 	public void resetWindow() {
-		defaultWindow = defaultWindow.makeFreshClone();
+		defaultWindow = defaultWindow.makeEmptyClone();
 	}
 
 }

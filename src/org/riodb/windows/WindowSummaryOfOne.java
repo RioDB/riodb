@@ -49,17 +49,22 @@ public class WindowSummaryOfOne implements WindowSummaryInterface {
 
 	@Override
 	public void setCount(int count) {
-
+		// not used
 	}
 
 	@Override
 	public void incrementCount() {
-
+		// not used
+	}
+	
+	@Override
+	public void incrementCount(int addend) {
+		// not used
 	}
 
 	@Override
 	public void decrementCount() {
-
+		// not used
 	}
 
 	@Override
@@ -69,7 +74,7 @@ public class WindowSummaryOfOne implements WindowSummaryInterface {
 
 	@Override
 	public void setCountDistinct(int countDistinct) {
-
+		// not used
 	}
 
 	@Override
@@ -79,7 +84,7 @@ public class WindowSummaryOfOne implements WindowSummaryInterface {
 
 	@Override
 	public void setFirst(double first) {
-
+		// not used
 	}
 
 	@Override
@@ -117,7 +122,7 @@ public class WindowSummaryOfOne implements WindowSummaryInterface {
 
 	@Override
 	public void setMax(double max) {
-
+		// not used
 	}
 
 	@Override
@@ -127,7 +132,7 @@ public class WindowSummaryOfOne implements WindowSummaryInterface {
 
 	@Override
 	public void setMedian(double median) {
-
+		// not used
 	}
 
 	@Override
@@ -137,7 +142,7 @@ public class WindowSummaryOfOne implements WindowSummaryInterface {
 
 	@Override
 	public void setMin(double min) {
-
+		// not used
 	}
 
 	@Override
@@ -147,7 +152,7 @@ public class WindowSummaryOfOne implements WindowSummaryInterface {
 
 	@Override
 	public void setMode(double mode) {
-
+		// not used
 	}
 
 	@Override
@@ -167,7 +172,7 @@ public class WindowSummaryOfOne implements WindowSummaryInterface {
 
 	@Override
 	public void setSlope(float slope) {
-
+		// not used
 	}
 
 	@Override
@@ -177,17 +182,17 @@ public class WindowSummaryOfOne implements WindowSummaryInterface {
 
 	@Override
 	public void setSum(double sum) {
-
+		// not used
 	}
 
 	@Override
 	public void sumAdd(double f) {
-
+		// not used
 	}
 
 	@Override
 	public void sumSubtract(double f) {
-
+		// not used
 	}
 
 	@Override
