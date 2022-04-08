@@ -37,10 +37,20 @@ public final class SQLExecutor {
 
 		ArrayList<String> responseList = new ArrayList<String>();
 		String httpResponseStatus = "200";
+		
+		if(actingUser == null) {
+			
+			responseList.add("No user provided.");
+			httpResponseStatus = "401";
+			
+		}
+		else if (stmt != null && stmt.contains(";")) {
+			
+			//actingUser = actingUser.toUpperCase();
 
-		if (stmt != null && stmt.contains(";")) {
-
-			RioDB.rio.getSystemSettings().getLogger().trace("SQLExecutor received statement.");
+			if(!actingUser.equals("SYSTEM")) {
+				RioDB.rio.getSystemSettings().getLogger().trace("SQLExecutor received statement from '"+ actingUser +"' ("+ RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).stringValue() +")");
+			}
 			RioDB.rio.getSystemSettings().getLogger().trace("Removing comments...");
 			stmt = SQLParser.removeComments(stmt);
 			RioDB.rio.getSystemSettings().getLogger().trace("Encoding quoted text...");
