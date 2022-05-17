@@ -21,23 +21,39 @@
 package org.riodb.sql;
 
 import org.riodb.windows.WindowSummary;
-
+import org.riodb.windows.WindowSummary_String;
 import org.riodb.plugin.RioDBStreamMessage;
 
 public class SQLQueryColumnFromWindow implements SQLQueryColumn {
 	
 	private int windowId;
+	private int windowId_String;
 	private int functionId;
 	private String heading;
 	
 	SQLQueryColumnFromWindow(int windowId, int functionId, String heading){
 		this.windowId = windowId;
+		
+		// windowId is positive for window of number
+		// windowId is negative for window of String
+		// -1 = window index 0
+		// -2 = window index 1
+		// -3 = window index 2
+		// we store a converted index here so that the window manager
+		// doesn't have to compute again and again. 
+		this.windowId_String = (windowId+1) * -1;
+		
 		this.functionId = functionId;
+		
+		
 		this.heading = heading;
 	}
 	@Override
-	public String getValue(RioDBStreamMessage message, WindowSummary[] windowSummaries) throws ExceptionSQLExecution {
+	public String getValue(RioDBStreamMessage message, WindowSummary[] windowSummaries, WindowSummary_String[] windowSummaries_String) throws ExceptionSQLExecution {
 
+		// positive windowId means window of Number.
+		// negative windowId means window of String
+		if(windowId >= 0) {
 		
 		// moved LAST and SUM to top because of popularity
 		if(functionId == 5) {
@@ -96,6 +112,43 @@ public class SQLQueryColumnFromWindow implements SQLQueryColumn {
 //		else if(functionId == 17) {
 //			return String.valueOf(windowSummaries[windowId].getSumIf());
 //		}
+		
+		}
+		
+		/// else, window is a window of Strings
+		else {
+			
+			// moved LAST to top because of popularity
+			if(functionId == 5) {
+				return String.valueOf(windowSummaries_String[windowId_String].getLast());
+			}
+			else if(functionId == 1) {
+				return String.valueOf(windowSummaries_String[windowId_String].getCount());
+			}
+			else if(functionId == 2) {
+				return String.valueOf(windowSummaries_String[windowId_String].getCountDistinct());
+			}
+//			else if(functionId == 3) {
+//				return String.valueOf(windowSummaries[windowId].getCountIf());
+//			}
+			else if(functionId == 4) {
+				return String.valueOf(windowSummaries_String[windowId_String].getFirst());
+			}
+			else if(functionId == 6) {
+				return String.valueOf(windowSummaries_String[windowId_String].getMax());
+			}
+			else if(functionId == 8) {
+				return String.valueOf(windowSummaries_String[windowId_String].getMin());
+			}
+			else if(functionId == 9) {
+				return String.valueOf(windowSummaries_String[windowId_String].getMode());
+			}
+			else if(functionId == 12) {
+				return String.valueOf(windowSummaries_String[windowId_String].getPrevious());
+			}
+			
+		}
+
 		return "";
 	}
 

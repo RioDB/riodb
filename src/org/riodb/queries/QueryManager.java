@@ -101,8 +101,19 @@ public class QueryManager{
 	public String listAllQueries() {
 		String response = "";
 		for (int i = 0; i < queries.size(); i++) {
-			if(queries.get(i) != null)
-				response = response + "{\"id\":" + queries.get(i).getQueryId() + ", \"stream\":\""+ RioDB.rio.getEngine().getStream(streamId).getName() +"\", \"status\": "+ !queries.get(i).isDestroying() +",  \"statement\": \"" +  SQLParser.hidePassword(queries.get(i).getQueryStr().replace("\"","\\\"")) + "\"},";
+			if(queries.get(i) != null) {
+				
+				String queryString = queries.get(i).getQueryStr();
+			
+				queryString = queryString.replace("\"","\\\"");
+				queryString = SQLParser.decodeQuotedText(queryString);
+				queryString = SQLParser.hidePassword(queryString);
+			
+				response = response + "{\"id\":" + queries.get(i).getQueryId() + ", \"stream\":\""
+			    + RioDB.rio.getEngine().getStream(streamId).getName() +"\", \"status\": "+ !queries.get(i).isDestroying() 
+			    +",  \"statement\": \"" +  queryString + "\"},";
+				
+			}
 		}
 		if (response.length() > 2) { // remove that last comma
 			response = response.substring(0, response.length() - 1);
@@ -131,8 +142,16 @@ public class QueryManager{
 	public String describeQuery(int queryId) {
 		
 		for (int i = 0; i < queries.size(); i++) {
+			
 			if(queryId == queries.get(i).getQueryId()) {
-				return "\"" + queries.get(queryId).getQueryStr() + "\"";
+				
+				String queryString = queries.get(i).getQueryStr();
+				
+				queryString = queryString.replace("\"","\\\"");
+				queryString = SQLParser.decodeQuotedText(queryString);
+				queryString = SQLParser.hidePassword(queryString);
+				
+				return "\"" + queryString + "\"";
 			}
 		}
 		return "\"Query not found.\"";
@@ -163,7 +182,7 @@ public class QueryManager{
 	// This is for Stream to send messageWithSummaries to the Query mgr. 
 	public void putMessageRef(MessageWithSummaries esum) {
 		
-		
+		// concurrency
 		if(queryWaitingToBeInserted) {
 			queries.add(tempQuery);
 			queryWaitingToBeInserted = false;

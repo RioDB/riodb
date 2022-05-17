@@ -23,7 +23,7 @@ package org.riodb.sql;
 import org.mdkt.compiler.InMemoryJavaCompiler;
 import org.riodb.engine.RioDB;
 import org.riodb.windows.WindowSummary;
-
+import org.riodb.windows.WindowSummary_String;
 import org.riodb.plugin.RioDBStreamMessage;
 
 public class SQLQueryColumnFromExpression implements SQLQueryColumn {
@@ -39,7 +39,8 @@ public class SQLQueryColumnFromExpression implements SQLQueryColumn {
 
 		String source = "package org.riodb.sql;\r\n" + 
 		          "import org.riodb.plugin.RioDBStreamMessage;\r\n"	+
-				  "import org.riodb.windows.WindowSummary;\r\n";
+				  "import org.riodb.windows.WindowSummary;\r\n" +
+				  "import org.riodb.windows.WindowSummary_String;\r\n";
 
 		if (expression != null && expression.contains("Math.")) {
 			source = source + "import java.lang.Math;\r\n";
@@ -47,7 +48,7 @@ public class SQLQueryColumnFromExpression implements SQLQueryColumn {
 		source = source + "public class " + className + " implements SQLQueryColumnCompiled {\r\n";
 
 		source = source + "	@Override\r\n" + 
-		"	public String getValue(RioDBStreamMessage message, WindowSummary[] windowSummaries) throws ExceptionSQLExecution {\r\n	"+
+		"	public String getValue(RioDBStreamMessage message, WindowSummary[] windowSummaries, WindowSummary_String[] windowSummaries_String) throws ExceptionSQLExecution {\r\n	"+
 		"	return String.valueOf("	+ expression + ");\r\n" + 
 		"	}\r\n" + "}";
 		
@@ -70,8 +71,8 @@ public class SQLQueryColumnFromExpression implements SQLQueryColumn {
 	}
 
 	@Override
-	public String getValue(RioDBStreamMessage message, WindowSummary[] windowSummaries) throws ExceptionSQLExecution {
-		return compiledItem.getValue(message, windowSummaries);
+	public String getValue(RioDBStreamMessage message, WindowSummary[] windowSummaries, WindowSummary_String[] windowSummaries_String) throws ExceptionSQLExecution {
+		return compiledItem.getValue(message, windowSummaries, windowSummaries_String);
 	}
 
 	@Override

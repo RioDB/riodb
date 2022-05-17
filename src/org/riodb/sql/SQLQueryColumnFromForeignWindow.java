@@ -22,99 +22,133 @@ package org.riodb.sql;
 
 import org.riodb.engine.RioDB;
 import org.riodb.windows.WindowSummary;
-
+import org.riodb.windows.WindowSummary_String;
 import org.riodb.plugin.RioDBStreamMessage;
 
 public class SQLQueryColumnFromForeignWindow implements SQLQueryColumn {
-	
+
 	private int streamId;
 	private int windowId;
 	private int functionId;
 	private String heading;
-	
-	SQLQueryColumnFromForeignWindow(int streamId, int windowId, int functionId, String heading){
+
+	SQLQueryColumnFromForeignWindow(int streamId, int windowId, int functionId, String heading) {
 		this.streamId = streamId;
 		this.windowId = windowId;
 		this.functionId = functionId;
 		this.heading = heading;
 	}
+
 	@Override
-	public String getValue(RioDBStreamMessage message, WindowSummary[] windowSummaries) throws ExceptionSQLExecution {
+	public String getValue(RioDBStreamMessage message, WindowSummary[] windowSummaries,
+			WindowSummary_String[] windowSummaries_String) throws ExceptionSQLExecution {
 
-		
-		// moved LAST and SUM to top because of popularity
-		if(functionId == 5) {
-			return String.valueOf(
-					RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().getLast());
-		}
-		else if(functionId == 16) {
-			return String.valueOf(
-					RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().getSum());
-		}
+		// positive windowId means window of Number.
+		// negative windowId means window of String
 
-		
-		else if(functionId == 0) {
-			return String.valueOf(
-					RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().getAvg());
-		}
-		else if(functionId == 1) {
-			return String.valueOf(
-					RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().getCount());
-		}
-		else if(functionId == 2) {
-			return String.valueOf(
-					RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().getCountDistinct());
-		}
+		// if window of Number
+		if (windowId >= 0) {
+			// moved LAST and SUM to top because of popularity
+			if (functionId == 5) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId)
+						.getWindowSummary().getLast());
+			} else if (functionId == 16) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId)
+						.getWindowSummary().getSum());
+			}
+
+			else if (functionId == 0) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId)
+						.getWindowSummary().getAvg());
+			} else if (functionId == 1) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId)
+						.getWindowSummary().getCount());
+			} else if (functionId == 2) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId)
+						.getWindowSummary().getCountDistinct());
+			}
 //		else if(functionId == 3) {
 //			return String.valueOf(RioDB.rio.getStreamMgr().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().getCountIf());
 //		}
-		else if(functionId == 4) {
-			return String.valueOf(
-					RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().getFirst());
-		}
-		else if(functionId == 6) {
-			return String.valueOf(
-					RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().getMax());
-		}
-		else if(functionId == 7) {
-			return String.valueOf(
-					RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().getMedian());
-		}
-		else if(functionId == 8) {
-			return String.valueOf(
-					RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().getMin());
-		}
-		else if(functionId == 9) {
-			return String.valueOf(
-					RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().getMode());
-		}
-		else if(functionId == 10) {
-			return String.valueOf(
-					RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().getPopulationStdDev() ) ;
-		}
-		else if(functionId == 11) {
-			return String.valueOf(
-					RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().getPopulationVariance());
-		}
-		else if(functionId == 12) {
-			return String.valueOf(
-					RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().getPrevious());
-		}
-		else if(functionId == 13) {
-			return String.valueOf(
-					RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().getSampleStdDev());
-		}
-		else if(functionId == 14) {
-			return String.valueOf(
-					RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().getSampleVariance());
-		}
-		else if(functionId == 15) {
-			return String.valueOf(
-					RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().getSlope());
-		}
+			else if (functionId == 4) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId)
+						.getWindowSummary().getFirst());
+			} else if (functionId == 6) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId)
+						.getWindowSummary().getMax());
+			} else if (functionId == 7) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId)
+						.getWindowSummary().getMedian());
+			} else if (functionId == 8) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId)
+						.getWindowSummary().getMin());
+			} else if (functionId == 9) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId)
+						.getWindowSummary().getMode());
+			} else if (functionId == 10) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId)
+						.getWindowSummary().getPopulationStdDev());
+			} else if (functionId == 11) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId)
+						.getWindowSummary().getPopulationVariance());
+			} else if (functionId == 12) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId)
+						.getWindowSummary().getPrevious());
+			} else if (functionId == 13) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId)
+						.getWindowSummary().getSampleStdDev());
+			} else if (functionId == 14) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId)
+						.getWindowSummary().getSampleVariance());
+			} else if (functionId == 15) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId)
+						.getWindowSummary().getSlope());
+			}
 //		else if(functionId == 17) {
 //			return String.valueOf(RioDB.rio.getStreamMgr().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().getSumIf());
 //		}
+
+		}
+
+		// else, window if String
+		else {
+
+			if (functionId == 5) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr()
+						.getWindow_String(windowId).getWindowSummary().getLast());
+			}
+
+			else if (functionId == 1) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr()
+						.getWindow_String(windowId).getWindowSummary().getCount());
+			} else if (functionId == 2) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr()
+						.getWindow_String(windowId).getWindowSummary().getCountDistinct());
+			}
+//			else if(functionId == 3) {
+//				return String.valueOf(RioDB.rio.getStreamMgr().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().getCountIf());
+//			}
+			else if (functionId == 4) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr()
+						.getWindow_String(windowId).getWindowSummary().getFirst());
+			} else if (functionId == 6) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr()
+						.getWindow_String(windowId).getWindowSummary().getMax());
+			} else if (functionId == 8) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr()
+						.getWindow_String(windowId).getWindowSummary().getMin());
+			} else if (functionId == 9) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr()
+						.getWindow_String(windowId).getWindowSummary().getMode());
+			} else if (functionId == 12) {
+				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr()
+						.getWindow_String(windowId).getWindowSummary().getPrevious());
+			}
+//			else if(functionId == 17) {
+//				return String.valueOf(RioDB.rio.getStreamMgr().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().getSumIf());
+//			}
+
+		}
 		return "";
 	}
 
@@ -122,7 +156,5 @@ public class SQLQueryColumnFromForeignWindow implements SQLQueryColumn {
 	public String getHeading() {
 		return heading;
 	}
-
-	
 
 }

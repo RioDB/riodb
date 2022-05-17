@@ -18,10 +18,14 @@
  
 */
 
+/*
+ *   user selects a String value from the Stream  message:
+ *   SELECT myStream.myStringField  from myStream... 
+ */
 package org.riodb.sql;
 
 import org.riodb.windows.WindowSummary;
-
+import org.riodb.windows.WindowSummary_String;
 import org.riodb.plugin.RioDBStreamMessage;
 
 public class SQLQueryColumnStringFromMessage implements SQLQueryColumn {
@@ -35,7 +39,7 @@ public class SQLQueryColumnStringFromMessage implements SQLQueryColumn {
 	}
 
 	@Override
-	public String getValue(RioDBStreamMessage message, WindowSummary[] windowSummaries) throws ExceptionSQLExecution {
+	public String getValue(RioDBStreamMessage message, WindowSummary[] windowSummaries, WindowSummary_String[] windowSummaries_String) throws ExceptionSQLExecution {
 		return message.getString(stringColumnIndex);
 	}
 

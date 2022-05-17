@@ -35,7 +35,7 @@
 package org.riodb.queries;
 
 import org.riodb.windows.WindowSummary;
-
+import org.riodb.windows.WindowSummary_String;
 import org.riodb.plugin.RioDBStreamMessage;
 import org.riodb.sql.SQLParser;
 
@@ -44,11 +44,14 @@ public class MessageWithSummaries {
 	private RioDBStreamMessage message;
 	// the array of window summaries
 	private WindowSummary windowSummaries[];
+	private WindowSummary_String windowSummaries_String[];
 
 	// constructor
-	public MessageWithSummaries(RioDBStreamMessage message, WindowSummary[] windowSummaries){
+	public MessageWithSummaries(RioDBStreamMessage message, WindowSummary[] windowSummaries,
+			WindowSummary_String[] windowSummaries_String) {
 		this.message = message;
 		this.windowSummaries = windowSummaries;
+		this.windowSummaries_String = windowSummaries_String;
 	}
 
 	// get a reference of the message
@@ -60,16 +63,21 @@ public class MessageWithSummaries {
 	public WindowSummary[] getWindowSummariesRef() {
 		return windowSummaries;
 	}
-	
+
+	// get a reference of the windowSummary array
+	public WindowSummary_String[] getWindowSummariesRef_String() {
+		return windowSummaries_String;
+	}
+
 	// a print function for troubleshooting
 	public void printMessage() {
-		
+
 		String s = "--- message:";
-		for(int i = 0; i < message.getDoubleFieldsCount(); i++) {
-			s = s + "  "+ message.getDouble(i) + ",";
+		for (int i = 0; i < message.getDoubleFieldsCount(); i++) {
+			s = s + "  " + message.getDouble(i) + ",";
 		}
-		for(int i = 0; i < message.getStringFieldsCount(); i++) {
-			s = s + "  "+ SQLParser.decodeText(message.getString(i)) + ",";
+		for (int i = 0; i < message.getStringFieldsCount(); i++) {
+			s = s + "  " + SQLParser.decodeText(message.getString(i)) + ",";
 		}
 		System.out.println(s);
 	}
