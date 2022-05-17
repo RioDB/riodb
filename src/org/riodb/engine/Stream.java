@@ -44,8 +44,9 @@ import org.riodb.queries.QueryManager;
 import org.riodb.sql.ExceptionSQLStatement;
 import org.riodb.windows.WindowManager;
 import org.riodb.windows.WindowSummary;
+import org.riodb.windows.WindowSummary_String;
 import org.riodb.windows.WindowWrapper;
-
+import org.riodb.windows.WindowWrapper_String;
 import org.riodb.plugin.RioDBPlugin;
 import org.riodb.plugin.RioDBPluginException;
 import org.riodb.plugin.RioDBStreamMessage;
@@ -279,9 +280,14 @@ public class Stream implements Runnable {
 		return streamInput.getQueueSize();
 	}
 
-	// Add window to this stream
+	// Add window of NUMBER to this stream
 	public void addWindowRef(WindowWrapper newWindow) {
 		streamWindowMgr.addWindow(newWindow);
+	}
+	
+	// Add window of STRING to this stream
+	public void addWindowRef_String(WindowWrapper_String newWindow) {
+		streamWindowMgr.addWindow_String(newWindow);
 	}
 
 	// getter for the window manager
@@ -348,9 +354,11 @@ public class Stream implements Runnable {
 					 * 
 					 */
 					final WindowSummary results[] = streamWindowMgr.putMessageRef(message);
+					final WindowSummary_String results_String[] = streamWindowMgr.putMessageRef_String(message);
 
 					// make new object that wraps the Message & window summaries together.
-					final MessageWithSummaries ews = new MessageWithSummaries(message, results);
+					final MessageWithSummaries ews = new MessageWithSummaries(message, results, results_String);
+					
 
 					// Send message + window summaries to Queries for processing.
 					sendMessageResultsRefToQueries(ews);

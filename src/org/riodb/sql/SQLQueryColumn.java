@@ -18,15 +18,19 @@
  
 */
 
+/*
+ *   An Interface for different types of things that can be selected.
+ * 
+ */
 package org.riodb.sql;
 
 import org.riodb.windows.WindowSummary;
-
+import org.riodb.windows.WindowSummary_String;
 import org.riodb.plugin.RioDBStreamMessage;
 
 public interface SQLQueryColumn {
 	
-	public String getValue(RioDBStreamMessage message, WindowSummary[] windowSummaries) throws ExceptionSQLExecution;
+	public String getValue(RioDBStreamMessage message, WindowSummary[] windowSummaries, WindowSummary_String[] windowSummaries_String) throws ExceptionSQLExecution;
 	public String getHeading();
 	
 }

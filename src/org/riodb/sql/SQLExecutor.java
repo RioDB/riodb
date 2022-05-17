@@ -32,6 +32,7 @@ public final class SQLExecutor {
 	public final static String execute(String stmt, String actingUser, boolean persistStmt,
 			boolean respondWithDetails) {
 
+		
 		// time elapsed....
 		long startTime = System.currentTimeMillis();
 
@@ -64,8 +65,8 @@ public final class SQLExecutor {
 			for (int i = 0; i < statements.length; i++) {
 
 				String statement = statements[i];
-
-				try {
+				
+								try {
 					String originalStatement = statement;
 					statement = SQLParser.formatStmt(statement + ";");
 
@@ -289,6 +290,7 @@ public final class SQLExecutor {
 											|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("QUERY")) {
 										String description = SQLQueryOperations.describeQuery(statement);
 										responseList.add(description);
+										
 									} else {
 										RioDB.rio.getSystemSettings().getLogger()
 												.debug("User not authorized to manage windows.");
@@ -325,7 +327,7 @@ public final class SQLExecutor {
 										} else if (RioDB.rio.getEngine().getStream(streamName).getWindowMgr()
 												.hasWindow(windowName)) {
 											RioDB.rio.getEngine().getStream(streamName).getWindowMgr()
-													.getWindow(windowName).resetWindow();
+													.resetWindow(windowName);
 											responseList.add("Reset window " + target + ".");
 										} else {
 											responseList.add("Window " + target + " was not found.");

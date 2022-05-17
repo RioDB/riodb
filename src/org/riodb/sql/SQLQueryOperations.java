@@ -223,7 +223,11 @@ public final class SQLQueryOperations {
 	public static final String describeQuery(String stmt) throws ExceptionSQLStatement {
 
 		String newStmt = SQLStreamOperations.formatSQL(stmt);
-
+		
+		if (newStmt.endsWith(";")) {
+			newStmt = newStmt.substring(0,newStmt.length()-1);
+		}
+		
 		String words[] = newStmt.split(" ");
 		if (words.length >= 3 && words[0] != null && words[0].equals("describe") && words[1] != null
 				&& words[1].equals("query") && words[2] != null && words[2].length() > 0) {
@@ -243,7 +247,7 @@ public final class SQLQueryOperations {
 					int queryId = Integer.valueOf(id[1]);
 					return RioDB.rio.getEngine().getStream(streamId).getQueryMgr().describeQuery(queryId);
 
-				}
+				} 
 			}
 		}
 		throw new ExceptionSQLStatement(

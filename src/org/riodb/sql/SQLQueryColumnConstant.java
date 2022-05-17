@@ -18,10 +18,16 @@
  
 */
 
+/*
+ *  user selects a constant value, like :
+ *  SELECT 'my_value' FROM ...
+ * 
+ */
+
 package org.riodb.sql;
 
 import org.riodb.windows.WindowSummary;
-
+import org.riodb.windows.WindowSummary_String;
 import org.riodb.plugin.RioDBStreamMessage;
 
 public class SQLQueryColumnConstant implements SQLQueryColumn {
@@ -32,11 +38,15 @@ public class SQLQueryColumnConstant implements SQLQueryColumn {
 	SQLQueryColumnConstant(String constant, String heading) throws ExceptionSQLStatement {
 		this.constant = SQLParser.decodeQuotedText(constant);
 		this.heading = SQLParser.decodeQuotedText(heading);
+		
+		if(this.constant != null && this.constant.startsWith("'") && this.constant.endsWith("'") ) {
+			this.constant = this.constant.substring(1, this.constant.length()-1);
+		}
 		//TODO: use decodeText()
 	}
 
 	@Override
-	public String getValue(RioDBStreamMessage message, WindowSummary[] windowSummaries) throws ExceptionSQLExecution {
+	public String getValue(RioDBStreamMessage message, WindowSummary[] windowSummaries, WindowSummary_String[] windowSummaries_String) throws ExceptionSQLExecution {
 		return constant;
 	}
 

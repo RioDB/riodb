@@ -318,11 +318,13 @@ public final class SQLParser {
 		if (fieldId < 0) {
 			throw new ExceptionSQLStatement("field not found. ");
 		}
+		/*
 		if (!RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId)) {
 			throw new ExceptionSQLStatement("field '" + fieldName + "' is not a numeric field.  ");
 
 		}
-
+		*/
+		
 		return fieldId;
 	}
 

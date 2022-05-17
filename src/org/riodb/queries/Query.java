@@ -100,8 +100,12 @@ public class Query {
 	// if 'true' is returned, the query will be removed.
 	public boolean evalAndGetStatus(MessageWithSummaries esum) throws ExceptionSQLExecution {
 		
+		
+		
 		// print function for troubleshooting...
-		//esum.printMessage();
+		// System.out.println("Evaluating query "+ queryId);
+		// esum.printMessage();
+		
 
 		// PART 1, take care of expiring queries and queries in timeout
 
@@ -150,7 +154,7 @@ public class Query {
 			// Make array of SELECTed column values:
 			String columnValues[] = new String[columns.length];
 			for (int i = 0; i < columns.length; i++) {
-				columnValues[i] = columns[i].getValue(esum.getMessageRef(), esum.getWindowSummariesRef());
+				columnValues[i] = columns[i].getValue(esum.getMessageRef(), esum.getWindowSummariesRef(),esum.getWindowSummariesRef_String());
 				if(columnValues[i] != null && columnValues[i].equals("NaN")) {
 					columnValues[i] = "null";
 				}

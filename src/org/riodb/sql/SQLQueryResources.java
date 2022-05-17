@@ -18,6 +18,10 @@
  
 */
 
+/*
+ *  Resources (stream, windows, etc) used by a query.
+ * 
+ */
 package org.riodb.sql;
 
 import java.util.ArrayList;

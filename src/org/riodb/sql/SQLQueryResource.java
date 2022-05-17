@@ -33,6 +33,7 @@ public class SQLQueryResource {
 		if(code == null || code.length()==0) {
 			throw new ExceptionSQLStatement("Attempted to create a resource with no name.");
 		}
+		RioDB.rio.getSystemSettings().getLogger().trace("  Adding query resource "+alias+" stream: "+streamId+" widow: "+windowId);
 		this.streamId = streamId;
 		this.windowId = windowId;
 		this.code = code;
