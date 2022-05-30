@@ -22,9 +22,9 @@ package org.riodb.windows;
 
 import org.riodb.engine.RioDB;
 import org.riodb.sql.ExceptionSQLExecution;
-import org.riodb.sql.SQLFunctionMap;
+import org.riodb.sql.SQLAggregateFunctions;
 import org.riodb.sql.SQLWindowCondition;
-
+import org.riodb.sql.SQLWindowSourceExpression;
 import org.riodb.plugin.RioDBStreamMessage;
 
 public class WindowWrapper_String {
@@ -32,6 +32,10 @@ public class WindowWrapper_String {
 	// what data stream these queries run against
 	protected int streamId;
 	protected String windowName;
+	
+	protected boolean windowOfStringExpression;
+	protected SQLWindowSourceExpression windowSourceExpression;
+	
 	protected int stringFieldIndex;
 	protected boolean hasCondition;
 
@@ -42,14 +46,29 @@ public class WindowWrapper_String {
 	protected Window_String defaultWindow;
 	protected SQLWindowCondition windowCondition;
 	protected boolean errorAlreadyCaught;
+	
+	protected boolean keepPreviousMessage;
+	protected RioDBStreamMessage previousMessage;
+	protected RioDBStreamMessage currentMessage;
+	protected boolean firstMessage;
 
 	public WindowWrapper_String(int streamId, String windowName, Window_String window, int fieldId,
-			SQLWindowCondition windowCondition, boolean rangeByTime, boolean rangeByTimeIsTimestamp) {
+			SQLWindowCondition windowCondition, boolean rangeByTime, boolean rangeByTimeIsTimestamp,
+			SQLWindowSourceExpression windowSourceExpression) {
 
 		this.streamId = streamId;
 		this.windowName = windowName;
 		this.defaultWindow = window;
-		this.stringFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getStringFieldIndex(fieldId);
+		
+		
+		this.windowOfStringExpression = false;
+		if(windowSourceExpression != null) {
+			windowOfStringExpression = true;
+			this.windowSourceExpression = windowSourceExpression;
+		} else {
+			this.stringFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getStringFieldIndex(fieldId);
+		}		
+		
 
 		this.rangeByTime = rangeByTime;
 		this.rangeByTimeIsTimestamp = rangeByTimeIsTimestamp;
@@ -64,6 +83,13 @@ public class WindowWrapper_String {
 		}
 
 		errorAlreadyCaught = false;
+		
+		keepPreviousMessage = false;
+		if(windowSourceExpression != null && windowSourceExpression.requiresPrevious()) {
+			keepPreviousMessage = true;
+			firstMessage = true;
+		}
+		previousMessage = null;
 	}
 
 	public String getName() {
@@ -73,8 +99,15 @@ public class WindowWrapper_String {
 	public String describeWindow() {
 
 		String s = "{\"name\":\"" + windowName + "\",\n \"steam\":\""
-				+ RioDB.rio.getEngine().getStream(streamId).getName() + "\",\n \"field\":\""
-				+ RioDB.rio.getEngine().getStream(streamId).getDef().getStringFieldName(stringFieldIndex) + "\",\n";
+				+ RioDB.rio.getEngine().getStream(streamId).getName() + "\",\n \"field\":\"";
+				
+				if (windowOfStringExpression) {
+					s = s + windowSourceExpression.getExpression();
+				} else {
+					s = s + RioDB.rio.getEngine().getStream(streamId).getDef().getNumericFieldName(stringFieldIndex);
+				}
+				 
+				s = s +  "\",\n";
 		
 				if(windowCondition != null) {
 					s = s + " \"where\": \"" + windowCondition.getExpression() + "\",\n";
@@ -103,10 +136,20 @@ public class WindowWrapper_String {
 	}
 
 	public WindowSummaryInterface_String putMessageRef(RioDBStreamMessage message, int currentSecond) {
+		
+		if (keepPreviousMessage) {
+			previousMessage = currentMessage;
+			currentMessage = message;
+			if(firstMessage) {
+				firstMessage = false;
+				return new WindowSummary_String();
+			}
+		}
+		
 		try {
 
 			// if there's a required condition and it doesn't match
-			if (hasCondition && !windowCondition.match(message)) {
+			if (hasCondition && !windowCondition.match(message, previousMessage)) {
 				// then we just read the summary. no updates made.
 				if (rangeByTime && rangeByTimeIsTimestamp) {
 					return defaultWindow.trimAndGetWindowSummaryCopy(
@@ -119,7 +162,19 @@ public class WindowWrapper_String {
 
 			} else {
 				// there's no condition, or the condition matches. We update and read summary:
-				String s = message.getString(stringFieldIndex);
+				
+				String s;
+
+				// if this window is NOT sourced from an expression:
+				if (!windowOfStringExpression) {
+					s = message.getString(stringFieldIndex);
+				}
+				// else, window is sourced from a numeric expression:
+				else {
+					s = windowSourceExpression.getString(message, previousMessage);
+				}
+				
+				
 				// for range by time using timestamp, we pass in the timestamp
 				if (rangeByTime && rangeByTimeIsTimestamp) {
 					return defaultWindow.trimAddAndGetWindowSummaryCopy(s,
@@ -140,7 +195,7 @@ public class WindowWrapper_String {
 	}
 
 	public boolean windowRequiresFunction(int functionId) {
-		if (functionId >= SQLFunctionMap.functionsAvailable() || functionId < 0)
+		if (functionId >= SQLAggregateFunctions.functionsAvailable() || functionId < 0)
 			return false;
 		return defaultWindow.requiresFunction(functionId);
 	}

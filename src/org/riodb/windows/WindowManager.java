@@ -57,13 +57,13 @@ public class WindowManager {
 	// add a window to this stream's windowManager
 	public void addWindow(WindowWrapper newWindow) {
 		windowWrapperList.add(newWindow);
-		RioDB.rio.getSystemSettings().getLogger().debug("Window (Number) '" + newWindow.getName() + "' added");
+		RioDB.rio.getSystemSettings().getLogger().trace("    window '" + newWindow.getName() + "' added to WindowManager");
 	}
 
 	// add a window to this stream's windowManager
 	public void addWindow_String(WindowWrapper_String newWindow) {
 		windowWrapperList_String.add(newWindow);
-		RioDB.rio.getSystemSettings().getLogger().debug("Window (String) '" + newWindow.getName() + "' added");
+		RioDB.rio.getSystemSettings().getLogger().trace("    window '" + newWindow.getName() + "' added to WindowManager");
 	}
 
 	// drop a window (sync in case of concurrent requests)

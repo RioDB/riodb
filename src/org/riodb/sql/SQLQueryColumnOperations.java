@@ -20,6 +20,9 @@
 
 package org.riodb.sql;
 
+import java.util.ArrayList;
+import java.util.TreeSet;
+
 import org.riodb.engine.RioDB;
 
 final public class SQLQueryColumnOperations {
@@ -29,7 +32,8 @@ final public class SQLQueryColumnOperations {
 
 		if (selectStr != null && selectStr.length() > 0) {
 
-			String selectItemStr[] = selectStr.split(",");
+			String selectItemStr[] = SQLParser.splitColumns(selectStr);
+			
 			SQLQueryColumn[] selectItemArr = new SQLQueryColumn[selectItemStr.length];
 
 			int streamId = queryResources.getDrivingStreamId();
@@ -51,7 +55,7 @@ final public class SQLQueryColumnOperations {
 						selectItemArr[i] = makeSelectItemConstant(itemStrParts[0], itemStrParts[0]);
 					} else if (SQLParser.isNumber(itemStrParts[0]) || SQLParser.isStringConstant(itemStrParts[0])) {
 						selectItemArr[i] = makeSelectItemConstant(itemStrParts[0], itemStrParts[0]);
-					} else if (SQLParser.isSQLFunction(itemStrParts[0])) {
+					} else if (SQLParser.isAggregateFunction(itemStrParts[0])) {
 						if (queryResources.countWindows() == 1) {
 							selectItemArr[i] = makeSelectItemFromWindow(itemStrParts[0], itemStrParts[0],
 									queryResources);
@@ -69,7 +73,7 @@ final public class SQLQueryColumnOperations {
 							int windowId = queryResources.getResourceIdByAlias(alias);
 							String item = itemStrParts[0].substring(itemStrParts[0].indexOf(".") + 1);
 
-							if (windowId >= 0 && SQLParser.isSQLFunction(item)) {
+							if (windowId >= 0 && SQLParser.isAggregateFunction(item)) {
 								selectItemArr[i] = makeSelectItemFromWindow(itemStrParts[0], itemStrParts[0],
 										queryResources);
 							} else if (windowId == -1 && SQLParser.isStreamField(streamId, item)) {
@@ -89,7 +93,7 @@ final public class SQLQueryColumnOperations {
 						selectItemArr[i] = makeSelectItemFromMessage(streamId, itemStrParts[0], itemStrParts[1]);
 					} else if (SQLParser.isNumber(itemStrParts[0]) || SQLParser.isStringConstant(itemStrParts[0])) {
 						selectItemArr[i] = makeSelectItemConstant(itemStrParts[0], itemStrParts[1]);
-					} else if (SQLParser.isSQLFunction(itemStrParts[0])) {
+					} else if (SQLParser.isAggregateFunction(itemStrParts[0])) {
 						if (queryResources.countWindows() == 1) {
 							selectItemArr[i] = makeSelectItemFromWindow(itemStrParts[0], itemStrParts[1],
 									queryResources);
@@ -107,7 +111,7 @@ final public class SQLQueryColumnOperations {
 							int windowId = queryResources.getResourceIdByAlias(alias);
 							String item = itemStrParts[0].substring(itemStrParts[0].indexOf(".") + 1);
 
-							if (windowId >= 0 && SQLParser.isSQLFunction(item)) {
+							if (windowId >= 0 && SQLParser.isAggregateFunction(item)) {
 								selectItemArr[i] = makeSelectItemFromWindow(itemStrParts[0], itemStrParts[1],
 										queryResources);
 							} else if (windowId == -1 && SQLParser.isStreamField(streamId, item)) {
@@ -127,7 +131,7 @@ final public class SQLQueryColumnOperations {
 						selectItemArr[i] = makeSelectItemFromMessage(streamId, itemStrParts[0], itemStrParts[2]);
 					} else if (SQLParser.isNumber(itemStrParts[0]) || SQLParser.isStringConstant(itemStrParts[0])) {
 						selectItemArr[i] = makeSelectItemConstant(itemStrParts[0], itemStrParts[2]);
-					} else if (SQLParser.isSQLFunction(itemStrParts[0])) {
+					} else if (SQLParser.isAggregateFunction(itemStrParts[0])) {
 						if (queryResources.countWindows() == 1) {
 							selectItemArr[i] = makeSelectItemFromWindow(itemStrParts[0], itemStrParts[2],
 									queryResources);
@@ -145,7 +149,7 @@ final public class SQLQueryColumnOperations {
 							int windowId = queryResources.getResourceIdByAlias(alias);
 							String item = itemStrParts[0].substring(itemStrParts[0].indexOf(".") + 1);
 
-							if (windowId >= 0 && SQLParser.isSQLFunction(item)) {
+							if (windowId >= 0 && SQLParser.isAggregateFunction(item)) {
 								selectItemArr[i] = makeSelectItemFromWindow(itemStrParts[0], itemStrParts[2],
 										queryResources);
 							} else if (windowId == -1 && SQLParser.isStreamField(streamId, item)) {
@@ -188,7 +192,7 @@ final public class SQLQueryColumnOperations {
 		int fieldId = RioDB.rio.getEngine().getStream(streamId).getDef().getFieldId(selectItemStr);
 		if (RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId)) {
 			int floatFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getNumericFieldIndex(fieldId);
-			return new SQLQueryColumnDoubleFromMessage(floatFieldIndex, heading);
+			return new SQLQueryColumnNumberFromMessage(floatFieldIndex, heading);
 		} else {
 			int stringFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getStringFieldIndex(fieldId);
 			return new SQLQueryColumnStringFromMessage(stringFieldIndex, heading);
@@ -216,7 +220,7 @@ final public class SQLQueryColumnOperations {
 				throw new ExceptionSQLStatement("alias not identified: " + selectItemStr);
 			}
 			String function = selectItemStr.substring(selectItemStr.indexOf(".") + 1);
-			int functionId = SQLFunctionMap.getFunctionId(function);
+			int functionId = SQLAggregateFunctions.getFunctionId(function);
 			if (functionId == -1) {
 				throw new ExceptionSQLStatement("not a valid function: " + selectItemStr);
 			}
@@ -256,9 +260,9 @@ final public class SQLQueryColumnOperations {
 		} 
 		// else if no stream/window provided. Only a function. But the query has only one window declared, so
 		// we assume the user intended that window
-		else if (queryResources.countWindows() == 1 && SQLFunctionMap.isFunction(selectItemStr)) {
+		else if (queryResources.countWindows() == 1 && SQLAggregateFunctions.isFunction(selectItemStr)) {
 			
-			int functionId = SQLFunctionMap.getFunctionId(selectItemStr);
+			int functionId = SQLAggregateFunctions.getFunctionId(selectItemStr);
 
 			int windowId = queryResources.getResourceById(0).getWindowId();
 			
@@ -284,142 +288,27 @@ final public class SQLQueryColumnOperations {
 
 		int streamId = queryResources.getDrivingStreamId();
 
-		String words[] = expression.split(" ");
-		for (int i = 0; i < words.length; i++) {
+		
+		// ArrayLists of StringLike and StringIn objects if needed
+		ArrayList<SQLStringLIKE> likeList = new ArrayList<SQLStringLIKE>();
+		ArrayList<SQLStringIN> inList = new ArrayList<SQLStringIN>();
+		// get the list of all required Windows for this query condition
+		TreeSet<Integer> requiredWindows = new TreeSet<Integer>();
 
-			if (words[i].contains(".") && !SQLParser.isNumber(words[i])) {
+		String javaExpression = JavaGenerator.convertSqlToJava(expression, queryResources, streamId, likeList,
+						inList, requiredWindows);
+		
+		RioDB.rio.getSystemSettings().getLogger().trace("\tcompiled: " + javaExpression);
 
-				String resourceAlias = words[i].substring(0, words[i].indexOf("."));
-				String field = words[i].substring(words[i].indexOf(".") + 1);
+		SQLStringLIKE[] likeArr = new SQLStringLIKE[likeList.size()];
+		likeArr = likeList.toArray(likeArr);
 
-				// if the alias requested is the Driving Stream:
-				if (resourceAlias != null && resourceAlias.equals(queryResources.getDrivingStreamAlias())) {
+		SQLStringIN[] inArr = new SQLStringIN[inList.size()];
+		inArr = inList.toArray(inArr);
+		
+		RioDB.rio.getSystemSettings().getLogger().debug("SELECT expression: " + javaExpression);
 
-					if (SQLParser.isStreamField(streamId, field)) {
-
-						int fieldId = RioDB.rio.getEngine().getStream(streamId).getDef().getFieldId(field);
-						boolean isNumeric = RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId);
-						if (isNumeric) {
-							int floatFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef()
-									.getNumericFieldIndex(fieldId);
-							words[i] = "message.getDouble(" + floatFieldIndex + ")";
-						} else {
-							int stringFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef()
-									.getStringFieldIndex(fieldId);
-							words[i] = "message.getString(" + stringFieldIndex + ")";
-						}
-
-					} else {
-						throw new ExceptionSQLStatement("The stream doesn't have field: " + field);
-					}
-				}
-				// else if the alias requested is a window:
-				else if (resourceAlias != null && queryResources.getResourceIdByAlias(resourceAlias) != -1) {
-					int resourceId = queryResources.getResourceIdByAlias(resourceAlias);
-					int windowStreamId = queryResources.getResourceById(resourceId).getStreamId();
-					int windowId = queryResources.getResourceById(resourceId).getWindowId();
-					int functionId = SQLFunctionMap.getFunctionId(field);
-
-					// positive windowId is window of NUMBER
-					// negative windowId is window of String:
-					// if window of Number
-					if (windowId >= 0) {
-
-						if (RioDB.rio.getEngine().getStream(windowStreamId).getWindowMgr().getWindow(windowId)
-								.windowRequiresFunction(functionId)) {
-							// if window belongs to driving stream.
-							if (windowStreamId == streamId) {
-								words[i] = "windowSummaries[" + windowId + "]."
-										+ SQLFunctionMap.getFunctionCall(functionId);
-							}
-							// else the window belongs to another stream
-							else {
-								words[i] = "RioDB.rio.getStreamMgr().getStream(" + windowStreamId
-										+ ").getWindowMgr().getWindow(" + windowId + ")."
-										+ SQLFunctionMap.getFunctionCall(functionId);
-							}
-						} else {
-							throw new ExceptionSQLStatement("The window doesn't provide the function: " + words[i]);
-						}
-
-					}
-					
-					// else window of String
-					else {
-
-						if (RioDB.rio.getEngine().getStream(windowStreamId).getWindowMgr().getWindow_String(windowId)
-								.windowRequiresFunction(functionId)) {
-							// if window belongs to driving stream.
-							if (windowStreamId == streamId) {
-								words[i] = "windowSummaries_String[" + windowId + "]."
-										+ SQLFunctionMap.getFunctionCall(functionId);
-							}
-							// else the window belongs to another stream
-							else {
-								words[i] = "RioDB.rio.getStreamMgr().getStream(" + windowStreamId
-										+ ").getWindowMgr().getWindow_String(" + windowId + ")."
-										+ SQLFunctionMap.getFunctionCall(functionId);
-
-							}
-						} else {
-							throw new ExceptionSQLStatement("The window doesn't provide the function: " + words[i]);
-						}
-
-					}
-
-				} else {
-					throw new ExceptionSQLStatement("The selected item couldn't be identified: " + words[i]);
-				}
-
-			} else if (SQLParser.isSQLFunction(words[i]) && queryResources.countWindows() == 1) {
-				// if the query has only one resource (one window), then we get the function from that window. 
-				// but first we determine if it's a window of Number or window of String.
-				// window of Number has positive windowId
-				// window of String has negative windowId
-				int functionId = SQLFunctionMap.getFunctionId(words[i]);
-				
-				if(queryResources.getResourceById(0).getWindowId() >= 0) {
-					words[i] = "windowSummaries[0]." + SQLFunctionMap.getFunctionCall(functionId);
-				} else {
-					words[i] = "windowSummaries_String[0]." + SQLFunctionMap.getFunctionCall(functionId);
-				}
-				
-			} else if (SQLParser.isMathFunction(words[i])) {
-				words[i] = "Math." + words[i];
-			}
-
-			else if (SQLParser.isStreamField(streamId, words[i])) {
-				int fieldId = RioDB.rio.getEngine().getStream(streamId).getDef().getFieldId(words[i]);
-				boolean isNumeric = RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId);
-				if (isNumeric) {
-					int floatFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef()
-							.getNumericFieldIndex(fieldId);
-					words[i] = "message.getDouble(" + floatFieldIndex + ")";
-				} else {
-					int stringFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef()
-							.getStringFieldIndex(fieldId);
-					words[i] = "message.getString(" + stringFieldIndex + ")";
-				}
-				
-			} else if (words[i].equals("to_number")) {
-				words[i] = "Double.valueOf";
-			} else if (words[i].equals("to_string")) {
-				words[i] = "String.valueOf";
-			}
-			
-			else if (SQLParser.isReservedWord(words[i]) || SQLParser.isNumber(words[i])) {
-				;
-			} else {
-				throw new ExceptionSQLStatement("Unable to determine this selected item: " + words[i]);
-			}
-		}
-		String newExpression = "";
-		for (String s : words) {
-			newExpression = newExpression + s + " ";
-		}
-		RioDB.rio.getSystemSettings().getLogger().debug("SELECT expression: " + newExpression);
-
-		return new SQLQueryColumnFromExpression(newExpression, heading);
+		return new SQLQueryColumnFromExpression(javaExpression, heading, likeArr, inArr);
 	}
 
 }

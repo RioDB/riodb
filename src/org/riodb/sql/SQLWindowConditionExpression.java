@@ -29,76 +29,104 @@ public class SQLWindowConditionExpression implements SQLWindowCondition {
 
 	private String expression;
 	private SQLWindowConditionCompiled compiledCondition;
-	
-	SQLWindowConditionExpression(String expression, int streamId, SQLStringLIKE[] likeArr, SQLStringIN[] inArr, String originalExpression) 
-			throws ExceptionSQLStatement {
+
+	SQLWindowConditionExpression(String expression, int streamId, SQLStringLIKE[] likeArr, SQLStringIN[] inArr,
+			String originalExpression) throws ExceptionSQLStatement {
 
 		this.expression = originalExpression;
-		String className = "CompiledWindowCondition"+ RioDB.rio.getEngine().counterNext();
+		String className = "CompiledWindowCondition" + RioDB.rio.getEngine().counterNext();
+
+		String source = "package org.riodb.sql;\r\n" 
+				+ "import org.riodb.plugin.RioDBStreamMessage;\r\n"
+				+ "import org.riodb.sql.SQLStringIN;\r\n" 
+				+ "import org.riodb.sql.SQLStringLIKE;\r\n";
+
+		if (expression != null && expression.contains("SQLScalarFunctions.")) {
+			source = source + "import org.riodb.sql.SQLScalarFunctions;\r\n";
+		}
+		if (expression != null && expression.contains("Math.")) {
+			source = source + "import java.lang.Math;\r\n";
+		}
+		source = source + "public class " + className 
+				+ " implements SQLWindowConditionCompiled {\r\n";
+
+		if(likeArr.length > 0) {
+			source += 	
+					"	SQLStringLIKE likeList[];\r\n"+
+					"	public void loadLike(SQLStringLIKE likeArr[]) {\r\n" + 
+					"		this.likeList = likeArr;\r\n" + 
+					//"		String s = \"\";\r\n" + 
+					//"		for(int i = 0; i < likeArr.length; i++) {\r\n" + 
+					//"			s = s + likeArr[i].getElements();\r\n" + 
+					//"			if(i < likeArr.length-2)\r\n" + 
+					//"				s = s + \" | \";\r\n" + 
+					//"		}\r\n"+
+					//"		RioDB.rio.getSystemSettings().getLogger().trace(\"\\tloadLike(): \"+ s);\r\n"+
+					"	}\r\n";
+		} else {
+			source += 	
+					"	public void loadLike(SQLStringLIKE likeArr[]) {}\r\n";
+		}
 		
-		String source = "package org.riodb.sql;\r\n" + 
-				"import org.riodb.plugin.RioDBStreamMessage;\r\n" + 
-				"import org.riodb.sql.SQLStringIN;\r\n" + 
-				"import org.riodb.sql.SQLStringLIKE;\r\n";
-		
-				if(expression!=null && expression.contains("Math.")) {
-					source = source + 
-					"import java.lang.Math;\r\n";
-				}
-				source = source + 
-				"public class "+ className +" implements SQLWindowConditionCompiled {\r\n" + 
-				"	SQLStringLIKE likeList[];\r\n" + 
-				"	SQLStringIN inList[];\r\n";
-		
-				source = source +
-				"	public void loadLike(SQLStringLIKE likeArr[]) {\r\n" + 
-				"		this.likeList = likeArr;\r\n" + 
-				"	}\r\n";
-				
-				source = source + 
+		if(inArr.length > 0) {
+			source = source + 
+				"	SQLStringIN inList[];\r\n"+
 				"	public void loadIn(SQLStringIN inArr[]) {\r\n" + 
-				"		this.inList = inArr;\r\n" + 
+				"		this.inList = inArr;\r\n" +
+				//"		String s = \"\";\r\n" + 
+				//"		for(int i = 0; i < inArr.length; i++) {\r\n" + 
+				//"			s = s + inArr[i].getElements();\r\n" + 
+				//"			if(i < inArr.length-2)\r\n" + 
+				//"				s = s + \" | \";\r\n" + 
+				//"		}\r\n"+
+				//"		RioDB.rio.getSystemSettings().getLogger().trace(\"\\tloadIn(): \"+ s);\r\n"+
 				"	}\r\n";
-				
-				source = source+
-				"	@Override\r\n" + 
-				"	public boolean match(RioDBStreamMessage message) {\r\n" + 
-				"		return "+ expression +";\r\n" + 
-				"	}\r\n" + 
-				"}\r\n" + 
-				"";
+		} else {
+			source = source + 
+				"	public void loadIn(SQLStringIN inArr[]) {}\r\n"; 
+		}
+
+		source = source + "	@Override\r\n"
+				+ "	public boolean match(RioDBStreamMessage message,RioDBStreamMessage previousMessage) {\r\n"
+				+ "		return " + expression + ";\r\n" 
+				+ "	}\r\n" 
+				+ "}\r\n";
 		
+		//System.out.println(source);
+
 		try {
-			
-			RioDB.rio.getSystemSettings().getLogger().debug("Compiling dynamic class "+className);
-			
+
 			@SuppressWarnings("unchecked")
-			Class<SQLWindowConditionCompiled> newClass = (Class<SQLWindowConditionCompiled>) InMemoryJavaCompiler.newInstance().compile("org.riodb.sql."+ className , source.toString());
+			Class<SQLWindowConditionCompiled> newClass = (Class<SQLWindowConditionCompiled>) InMemoryJavaCompiler
+					.newInstance().compile("org.riodb.sql." + className, source.toString());
 
 			compiledCondition = (SQLWindowConditionCompiled) newClass.getDeclaredConstructor().newInstance();
-			
-			if(inArr.length > 0) {
+
+			if (inArr.length > 0) {
 				compiledCondition.loadIn(inArr);
 			}
-			if(likeArr.length > 0) {
+			if (likeArr.length > 0) {
 				compiledCondition.loadLike(likeArr);
 			}
-			
+
+			RioDB.rio.getSystemSettings().getLogger().trace("    compiled " + className);
+
 		} catch (Exception e) {
-			RioDB.rio.getSystemSettings().getLogger().debug("Error compiling dynamic class: ["+expression + "] " + e.getMessage().replace("\n", "\\n"));
+			RioDB.rio.getSystemSettings().getLogger().debug(
+					"Error compiling dynamic class: [" + expression + "] " + e.getMessage().replace("\n", "\\n"));
 			throw new ExceptionSQLStatement("Error evaluating query conditions.");
 		}
 
 	}
 
 	@Override
-	public boolean match(RioDBStreamMessage message) {
-		return compiledCondition.match(message);
+	public boolean match(RioDBStreamMessage message, RioDBStreamMessage previousMessage) {
+		return compiledCondition.match(message, previousMessage);
 	}
 
 	@Override
 	public String getExpression() {
 		return expression;
 	}
-	
+
 }

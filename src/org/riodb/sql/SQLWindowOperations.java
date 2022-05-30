@@ -20,8 +20,6 @@
 
 package org.riodb.sql;
 
-import java.util.ArrayList;
-
 import org.riodb.engine.RioDB;
 import org.riodb.windows.Window;
 import org.riodb.windows.WindowOfOne;
@@ -46,47 +44,80 @@ public final class SQLWindowOperations {
 			throw new ExceptionSQLStatement("Did you mean WHEN instead of WHERE?");
 		}
 
-		RioDB.rio.getSystemSettings().getLogger().trace("Creating Window...");
-
 		// get window name
 		String windowName = SQLParser.getWindowStr(stmt);
 		if (RioDB.rio.getEngine().getStreamIdOfWindow(windowName) >= 0) {
 			throw new ExceptionSQLStatement("A window named '" + windowName + "' already exists.");
 		}
 
-		RioDB.rio.getSystemSettings().getLogger().trace("\tWindow name: " + windowName);
+		RioDB.rio.getSystemSettings().getLogger().trace("\tWINDOW: " + windowName);
 
 		// get window functions
 		String functionStr = SQLParser.getWindowRunningFunctions(stmt);
-		boolean functionsRequired[] = SQLFunctionMap.getFunctionsRequired(functionStr);
+		boolean functionsRequired[] = SQLAggregateFunctions.getFunctionsRequired(functionStr);
 
-		RioDB.rio.getSystemSettings().getLogger().trace("\tfunctions: " + functionsRequired.length);
+		String functionsRequiredStr = "";
+		
+		for (int i = 0; i < functionsRequired.length; i++) {
+			if(functionsRequired[i]) {
+				functionsRequiredStr += " " + SQLAggregateFunctions.getFunction(i);
+			}
+		}
+			
+		RioDB.rio.getSystemSettings().getLogger().trace("\tRUNNING:" + functionsRequiredStr);
 
 		// get window Stream
 		int streamId = SQLParser.getWindowStreamId(stmt);
 
-		RioDB.rio.getSystemSettings().getLogger().trace("\tStreamId: " + streamId);
-
-		// get window field (numeric field from stream)
-		int fieldId = SQLParser.getWindowFieldId(stmt);
-
-		boolean fieldIsNumeric = true;
-
-		// user wants to create a window on a String field
-		if (!RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId)) {
-			fieldIsNumeric = false;
+		RioDB.rio.getSystemSettings().getLogger().trace("\tSTREAM: " + streamId);
+		
+		String fromStr = SQLParser.getWindowFromStr(stmt);
+		
+		int fieldId = -1;
+		
+		boolean windowOfNumbers = true;
+		SQLWindowSourceExpression windowSourceExpression = null;
+		
+		String whereStr = SQLParser.getWindowWhereStr(stmt);
+		boolean whereClauseRequiresPrevious = false;
+		if(whereStr != null && whereStr.contains(" previous ")) {
+			whereClauseRequiresPrevious = true;
 		}
+		
+		if (fromStr.startsWith("number (")) {
+			windowSourceExpression = SQLWindowSourceOperations.getWindowSource(fromStr, streamId, whereClauseRequiresPrevious);
+			
+			
+		} 
+		else if (fromStr.startsWith("string (")) {
+			windowOfNumbers = false;
+			windowSourceExpression = SQLWindowSourceOperations.getWindowSource(fromStr, streamId, whereClauseRequiresPrevious);
+			
+		} else {
+			fieldId = SQLParser.getWindowFieldId(stmt);
+			
+			// user wants to create a window on a String field
+			if (!RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId)) {
+				windowOfNumbers = false;
+			}
+			RioDB.rio.getSystemSettings().getLogger().trace("\tfieldId: " + fieldId + " fieldIsNumeric: " + windowOfNumbers);
 
-		RioDB.rio.getSystemSettings().getLogger().trace("\tfieldId: " + fieldId + " fieldIsNumeric: " + fieldIsNumeric);
+		}
+	
+
+
+		
 
 		// get window condition (WHERE...)
 		SQLWindowCondition whereClause = null;
-		String whereStr = SQLParser.getWindowWhereStr(stmt);
+		
 
 		if (whereStr != null) {
-			whereClause = getWhereClause(whereStr, streamId);
-			RioDB.rio.getSystemSettings().getLogger().trace("\tWHERE clause: " + whereClause.getExpression());
+			RioDB.rio.getSystemSettings().getLogger().trace("\tWHEN: " + whereStr);
+			whereClause = SQLWindowConditionOperations.getWindowCondition(whereStr, streamId);
 		}
+		
+		
 
 		// get window RANGE information
 		// default is range by quantity.
@@ -144,7 +175,7 @@ public final class SQLWindowOperations {
 			throw new ExceptionSQLStatement("Range is required, and must be a positive intenger.");
 		}
 
-		RioDB.rio.getSystemSettings().getLogger().trace("  range: " + windowRange);
+		RioDB.rio.getSystemSettings().getLogger().trace("\tRANGE: " + windowRange);
 
 		// get window partition (numeric field from stream). -1 for none.
 		int partitionFieldId = SQLParser.getWindowPartitionFieldId(stmt);
@@ -156,16 +187,16 @@ public final class SQLWindowOperations {
 					"The range expression goes from oldest to most recent. The value after the dash has to be smaller than the first value, like 100-10, or 10m-20s");
 		}
 
-		if (fieldIsNumeric) {
+		if (windowOfNumbers) {
 
 			Window window;
 
 			if (rangeByTime) {
-				if (functionsRequired[SQLFunctionMap.getFunctionId("count_distinct")]
-						|| functionsRequired[SQLFunctionMap.getFunctionId("median")]
-						|| functionsRequired[SQLFunctionMap.getFunctionId("mode")]
-						|| functionsRequired[SQLFunctionMap.getFunctionId("slope")]
-						|| functionsRequired[SQLFunctionMap.getFunctionId("variance")]) {
+				if (functionsRequired[SQLAggregateFunctions.getFunctionId("count_distinct")]
+						|| functionsRequired[SQLAggregateFunctions.getFunctionId("median")]
+						|| functionsRequired[SQLAggregateFunctions.getFunctionId("mode")]
+						|| functionsRequired[SQLAggregateFunctions.getFunctionId("slope")]
+						|| functionsRequired[SQLAggregateFunctions.getFunctionId("variance")]) {
 					window = new WindowOfTimeComplex(windowRange, windowRangeEnd, functionsRequired,
 							partitionExpiration);
 				} else {
@@ -173,7 +204,7 @@ public final class SQLWindowOperations {
 							partitionExpiration);
 				}
 			} else if (windowRange == 1) {
-				window = new WindowOfOne(functionsRequired[SQLFunctionMap.getFunctionId("previous")],
+				window = new WindowOfOne(functionsRequired[SQLAggregateFunctions.getFunctionId("previous")],
 						partitionExpiration);
 			} else {
 				window = new WindowOfQuantity(windowRange, windowRangeEnd, functionsRequired, partitionExpiration);
@@ -183,7 +214,7 @@ public final class SQLWindowOperations {
 			WindowWrapper wrapper;
 			if (partitionFieldId == -1) {
 				wrapper = new WindowWrapper(streamId, windowName, window, fieldId, whereClause, rangeByTime,
-						rangeByTimeIsTimestamp);
+						rangeByTimeIsTimestamp, windowSourceExpression);
 			} else if (RioDB.rio.getEngine().getStream(streamId).getDef().getStreamField(partitionFieldId)
 					.isNumeric()) {
 
@@ -191,9 +222,9 @@ public final class SQLWindowOperations {
 						"Partition must be by String field. Partition by numeric field is not currently supported.");
 			} else {
 				wrapper = new WindowWrapperPartitioned(streamId, windowName, window, fieldId, whereClause, rangeByTime,
-						rangeByTimeIsTimestamp, partitionFieldId);
+						rangeByTimeIsTimestamp, partitionFieldId, windowSourceExpression);
 			}
-			RioDB.rio.getSystemSettings().getLogger().trace("\tWindow wrapper created.");
+			RioDB.rio.getSystemSettings().getLogger().trace("\twindow wrapper created.");
 
 			RioDB.rio.getEngine().getStream(streamId).addWindowRef(wrapper);
 			if (persistStmt) {
@@ -214,11 +245,11 @@ public final class SQLWindowOperations {
 			Window_String window;
 
 			if (rangeByTime) {
-				if (functionsRequired[SQLFunctionMap.getFunctionId("count_distinct")]
-						|| functionsRequired[SQLFunctionMap.getFunctionId("median")]
-						|| functionsRequired[SQLFunctionMap.getFunctionId("mode")]
-						|| functionsRequired[SQLFunctionMap.getFunctionId("slope")]
-						|| functionsRequired[SQLFunctionMap.getFunctionId("variance")]) {
+				if (functionsRequired[SQLAggregateFunctions.getFunctionId("count_distinct")]
+						|| functionsRequired[SQLAggregateFunctions.getFunctionId("median")]
+						|| functionsRequired[SQLAggregateFunctions.getFunctionId("mode")]
+						|| functionsRequired[SQLAggregateFunctions.getFunctionId("slope")]
+						|| functionsRequired[SQLAggregateFunctions.getFunctionId("variance")]) {
 					window = new WindowOfTimeComplex_String(windowRange, windowRangeEnd, functionsRequired,
 							partitionExpiration);
 				} else {
@@ -226,7 +257,7 @@ public final class SQLWindowOperations {
 							partitionExpiration);
 				}
 			} else if (windowRange == 1) {
-				window = new WindowOfOne_String(functionsRequired[SQLFunctionMap.getFunctionId("previous")],
+				window = new WindowOfOne_String(functionsRequired[SQLAggregateFunctions.getFunctionId("previous")],
 						partitionExpiration);
 			} else {
 				window = new WindowOfQuantity_String(windowRange, windowRangeEnd, functionsRequired, partitionExpiration);
@@ -236,7 +267,7 @@ public final class SQLWindowOperations {
 			WindowWrapper_String wrapper;
 			if (partitionFieldId == -1) {
 				wrapper = new WindowWrapper_String(streamId, windowName, window, fieldId, whereClause, rangeByTime,
-						rangeByTimeIsTimestamp);
+						rangeByTimeIsTimestamp, windowSourceExpression);
 			} else if (RioDB.rio.getEngine().getStream(streamId).getDef().getStreamField(partitionFieldId)
 					.isNumeric()) {
 
@@ -244,9 +275,9 @@ public final class SQLWindowOperations {
 						"Partition must be by String field. Partition by numeric field is not currently supported.");
 			} else {
 				wrapper = new WindowWrapperPartitioned_String(streamId, windowName, window, fieldId, whereClause, rangeByTime,
-						rangeByTimeIsTimestamp, partitionFieldId);
+						rangeByTimeIsTimestamp, partitionFieldId, windowSourceExpression);
 			}
-			RioDB.rio.getSystemSettings().getLogger().trace("\tWindow wrapper created.");
+			RioDB.rio.getSystemSettings().getLogger().trace("\twindow wrapper created.");
 
 			RioDB.rio.getEngine().getStream(streamId).addWindowRef_String(wrapper);
 			if (persistStmt) {
@@ -260,11 +291,6 @@ public final class SQLWindowOperations {
 
 		}
 		
-		
-		
-		
-		RioDB.rio.getSystemSettings().getLogger().trace("\tWindow creation complete.");
-
 		return "Created window " + windowName;
 	}
 
@@ -325,325 +351,10 @@ public final class SQLWindowOperations {
 
 	}
 
-	private static final SQLWindowCondition getWhereClause(String whereStr, int streamId) throws ExceptionSQLStatement {
+	
 
-		if (whereStr != null) {
-			if (whereStr.equals("-")) {
-				return null;
-			}
-			// MULTIPLE WHERE CONDITIONS. COMPLEX.
-			else if (whereStr.toLowerCase().contains(" and ") || whereStr.toLowerCase().contains(" and(")
-					|| whereStr.toLowerCase().contains(" or ") || whereStr.toLowerCase().contains(" or(")) {
-				return makeComplexWhereClause(whereStr, streamId);
-			}
-			// SINGLE WHERE CONDITION. SIMPLE.
-			else {
-				return makeSimpleWhereClause(whereStr, streamId);
-			}
-		} else {
-			throw new ExceptionSQLStatement(SQLStmtErrorMsg.write(20, whereStr));
-		}
-	}
-
-	private static final SQLWindowCondition makeSimpleWhereClause(String whereStr, int streamId)
-			throws ExceptionSQLStatement {
-
-		if (whereStr == null) {
-			return null;
-		}
-
-		// tuning. faster comparison with null checks
-		if (whereStr.contains(" != #qq~#")) {
-			whereStr = whereStr.replace(" = #qq~#", " is not null");
-		} else if (whereStr.contains(" = #qq~#")) {
-			whereStr = whereStr.replace(" = #qq~#", " is null");
-		} else if (whereStr.contains(" not like #qq~#")) {
-			whereStr = whereStr.replace(" not like #qq~#", " is not null");
-		} else if (whereStr.contains(" like #qq~#")) {
-			whereStr = whereStr.replace(" like #qq~#", " is null");
-		}
-
-		String operator = "";
-		if (whereStr.contains("!=")) {
-			operator = "!=";
-		} else if (whereStr.contains(">=")) {
-			operator = ">=";
-		} else if (whereStr.contains("<=")) {
-			operator = "<=";
-		} else if (whereStr.contains(">")) {
-			operator = ">";
-		} else if (whereStr.contains("<")) {
-			operator = "<";
-		} else if (whereStr.contains("!=")) {
-			operator = "!=";
-		} else if (whereStr.contains("=")) {
-			operator = "=";
-		} else if (whereStr.toLowerCase().contains(" not in ")) {
-			operator = " not in ";
-		} else if (whereStr.toLowerCase().contains(" not in(")) {
-			operator = " not in ";
-			whereStr = whereStr.replace(" not in(", " not in (");
-		} else if (whereStr.toLowerCase().contains(" in ")) {
-			operator = " in ";
-		} else if (whereStr.toLowerCase().contains(" in(")) {
-			operator = " in ";
-			whereStr = whereStr.replace(" in(", " in (");
-		} else if (whereStr.toLowerCase().contains(" not like ")) {
-			operator = " not like ";
-		} else if (whereStr.toLowerCase().contains(" like ")) {
-			operator = " like ";
-		} else if (whereStr.toLowerCase().contains(" is null")) {
-			operator = " is null";
-		} else if (whereStr.toLowerCase().contains(" is not null")) {
-			operator = " is not null";
-		} else {
-			throw new ExceptionSQLStatement(SQLStmtErrorMsg.write(21, whereStr));
-		}
-
-		if (operator.length() > 0) {
-
-			String column = whereStr.substring(0, whereStr.indexOf(operator));
-			column = column.trim();
-
-			String pattern = "";
-			if (operator.equals(" is null") || operator.equals(" is not null")) {
-				pattern = "''";
-			} else {
-				pattern = whereStr.substring(whereStr.indexOf(operator) + operator.length());
-				pattern.trim();
-			}
-
-			int columnId = -1;
-			int columnId2 = -1;
-
-			if (column != null && column.length() > 0) {
-				columnId = RioDB.rio.getEngine().getStream(streamId).getDef().getFieldId(column);
-			}
-			if (pattern != null && pattern.length() > 0) {
-				columnId2 = RioDB.rio.getEngine().getStream(streamId).getDef().getFieldId(pattern);
-			}
-
-			if (columnId < 0 || columnId2 >= 0) {
-				return makeComplexWhereClause(whereStr, streamId);
-			}
-			//
-			else {
-				if (RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(columnId)) {
-					if (!operator.equals(" is null") && !operator.equals(" is not null")) {
-						try {
-							float patternNum = Float.valueOf(pattern);
-							SQLWindowConditionNumber clause = new SQLWindowConditionNumber(streamId, columnId, operator,
-									patternNum, whereStr);
-							return clause;
-						} catch (NumberFormatException exception) {
-							throw new ExceptionSQLStatement(SQLStmtErrorMsg.write(25, whereStr));
-						}
-					} else {
-						SQLWindowConditionNumber clause = new SQLWindowConditionNumber(streamId, columnId, operator,
-								Float.NaN, whereStr);
-						return clause;
-					}
-
-				} else {
-					pattern = pattern.trim();
-					pattern = SQLParser.decodeQuotedText(pattern);
-					if ((pattern != null && pattern.length() >= 2)) {
-						if (pattern.charAt(0) != '\'' || pattern.charAt(pattern.length() - 1) != '\'') {
-							throw new ExceptionSQLStatement(SQLStmtErrorMsg.write(26, whereStr));
-						}
-						return new SQLWindowConditionString(streamId, columnId, operator, pattern, whereStr);
-					} else if (operator.equals(" is null") || operator.equals(" is not null")) {
-						return new SQLWindowConditionString(streamId, columnId, operator, pattern, whereStr);
-					} else {
-						throw new ExceptionSQLStatement(SQLStmtErrorMsg.write(27, whereStr));
-					}
-
-				}
-			}
-		} else {
-			throw new ExceptionSQLStatement(SQLStmtErrorMsg.write(29, whereStr));
-		}
-	}
-
-	private static final SQLWindowCondition makeComplexWhereClause(String whereStr, int streamId)
-			throws ExceptionSQLStatement {
-
-		String expression = whereStr;
-		// String streamName = RioDB.rio.getStreamMgr().getStream(streamId).getName();
-
-		// PREPARE JAVA EXPRESSION
-		expression = expression.replace(" or ", " || ");
-		expression = expression.replace(" and ", " && ");
-		expression = expression.replace("(", " ( ");
-		expression = expression.replace(")", " ) ");
-		expression = expression.replace("is null", "is_null");
-		expression = expression.replace("is not null", "is_not_null");
-
-		while (expression.contains("  ")) {
-			expression = expression.replace("  ", " ");
-		}
-		expression = expression.trim();
-
-		// ArrayLists of StringLike and StringIn objects if needed
-		ArrayList<SQLStringLIKE> likeList = new ArrayList<SQLStringLIKE>();
-		ArrayList<SQLStringIN> inList = new ArrayList<SQLStringIN>();
-
-		/// REPLACE fields with StreamMessage variables...
-		String words[] = expression.split(" ");
-		for (int i = 0; i < words.length; i++) {
-			int fieldId = RioDB.rio.getEngine().getStream(streamId).getDef().getFieldId(words[i]);
-			if (words[i].charAt(0) == '\''
-					&& (words[i].charAt(words[i].length() - 1) == '\'' || words[i].endsWith("' )"))) {
-				words[i] = words[i].replace("'", "\"").replace("\" )", "\")");
-			} else {
-				if (fieldId >= 0) {
-					if (RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId)) {
-						// the field is numeric
-						int messageNumberFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef()
-								.getNumericFieldIndex(fieldId);
-						words[i] = "message.getDouble(" + String.valueOf(messageNumberFieldIndex) + ")";
-						if (words[i + 1].equals("is_null")) {
-							words[i + 1] = "!= Double.NaN";
-						} else if (words[i + 1].equals("is_not_null")) {
-							words[i + 1] = "= Double.NaN";
-						}
-
-					} else {
-						// the field is string
-						int messageStringIndex = RioDB.rio.getEngine().getStream(streamId).getDef()
-								.getStringFieldIndex(fieldId);
-						words[i] = "message.getString(" + String.valueOf(messageStringIndex) + ")";
-
-						if (i < words.length - 3) {
-							if (words[i + 1].equals("=")) {
-								words[i + 1] = ".equals(";
-								words[i + 2] = words[i + 2] + " )";
-							} else if (words[i + 1].equals("!=")) {
-								words[i] = "!" + words[i];
-								words[i + 1] = ".equals(";
-								words[i + 2] = words[i + 2] + " )";
-							} else if (words[i + 1].equals("not")) {
-								words[i] = "!" + words[i];
-								words[i + 1] = "";
-								i++;
-							} else if (words[i + 1].equals("like")) {
-
-							} else if (words[i + 1].equals("is_null")) {
-								words[i + 1] = ".equals(\"\")";
-
-							} else if (words[i + 1].equals("is_not_null")) {
-								words[i] = "!" + words[i];
-								words[i + 1] = ".equals(\"\")";
-							}
-
-						}
-
-					}
-				} else if (!SQLParser.isNumber(words[i])) {
-					if (!SQLParser.isReservedWord(words[i]) && words[i].charAt(0) != '\'') {
-						throw new ExceptionSQLStatement(SQLStmtErrorMsg.write(35, words[i] + " at:\n\t " + whereStr));
-					}
-
-					if (words[i].equals("like")) {
-
-						if (i < words.length - 2 && i > 0) {
-							String val = words[i + 1].replace("'", "");
-							val = SQLParser.decodeQuotedText(val);
-							String likeCounter = String.valueOf(likeList.size());
-
-							String source = words[i - 1];
-							// was NOT
-							if (source.equals("") && i > 1) {
-								source = words[i - 2];
-								if (source.charAt(0) == '!') {
-									words[i - 2] = "!";
-									source = source.substring(1);
-								}
-							} else {
-								words[i - 1] = "";
-							}
-							// System.out.println("likeList["+likeCounter+"] pattern:"+ val);
-							words[i] = "likeList[" + likeCounter + "].match(" + source + ")";
-							SQLStringLIKE sl = new SQLStringLIKE(val);
-							likeList.add(sl);
-							words[i + 1] = "";
-							i++;
-
-						}
-					} else if (words[i].equals("in")) {
-
-						if (i < words.length - 2 && i > 0) {
-
-							String val = "";
-							int j = i + 2;
-							while (words[j].indexOf(')') == -1) {
-								val = val + words[j];
-								words[j] = "";
-								j++;
-							}
-							words[j] = "";
-
-							val = "(" + SQLParser.decodeQuotedText(val) + ")";
-
-							// System.out.println(val);
-
-							String inCounter = String.valueOf(inList.size());
-							String source = words[i - 1];
-
-							// was NOT
-							if (source.equals("") && i > 1) {
-								source = words[i - 2];
-								if (source.charAt(0) == '!') {
-									words[i - 2] = "!";
-									source = source.substring(1);
-								}
-							} else {
-								words[i - 1] = "";
-							}
-
-							words[i] = "inList[" + inCounter + "].match(" + source + ")";
-							// System.out.println(words[i]);
-							SQLStringIN sl = new SQLStringIN(val);
-							inList.add(sl);
-							words[i + 1] = "";
-
-							i = j;
-
-						}
-					} else if (SQLParser.isMathFunction(words[i])) {
-						words[i] = "Math." + SQLParser.mathFunctionRegCase(words[i]);
-					}
-				}
-			}
-		}
-
-		expression = "";
-		for (String word : words) {
-			expression = expression + word + " ";
-		}
-		expression = expression.trim();
-		expression = expression.replace("=", "==");
-		expression = expression.replace("!==", "!=");
-		expression = expression.replace(">==", ">=");
-		expression = expression.replace("<==", "<=");
-
-		expression = expression.replace("( \"", "(\"");
-		expression = expression.replace(") .equals(", ").equals(");
-		while (expression.contains("  ")) {
-			expression = expression.replace("  ", " ");
-		}
-
-		SQLStringLIKE[] likeArr = new SQLStringLIKE[likeList.size()];
-		likeArr = likeList.toArray(likeArr);
-
-		SQLStringIN[] inArr = new SQLStringIN[inList.size()];
-		inArr = inList.toArray(inArr);
-
-		expression = SQLParser.decodeQuotedText(expression).replace("''", "'");
-
-		return new SQLWindowConditionExpression(expression, streamId, likeArr, inArr, whereStr);
-	}
-
+	
+	
 	private static int getRangeTime(String rangeStr) throws ExceptionSQLStatement {
 		int windowRange;
 		if (rangeStr.charAt(rangeStr.length() - 1) == 's' || rangeStr.charAt(rangeStr.length() - 1) == 'm'
@@ -669,5 +380,8 @@ public final class SQLWindowOperations {
 		}
 		return windowRange;
 	}
+	
+	
+	
 
 }

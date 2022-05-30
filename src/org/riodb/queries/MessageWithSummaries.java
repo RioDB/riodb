@@ -37,7 +37,7 @@ package org.riodb.queries;
 import org.riodb.windows.WindowSummary;
 import org.riodb.windows.WindowSummary_String;
 import org.riodb.plugin.RioDBStreamMessage;
-import org.riodb.sql.SQLParser;
+import org.riodb.sql.BASE64Utils;
 
 public class MessageWithSummaries {
 	// The message object
@@ -77,7 +77,7 @@ public class MessageWithSummaries {
 			s = s + "  " + message.getDouble(i) + ",";
 		}
 		for (int i = 0; i < message.getStringFieldsCount(); i++) {
-			s = s + "  " + SQLParser.decodeText(message.getString(i)) + ",";
+			s = s + "  " + BASE64Utils.decodeText(message.getString(i)) + ",";
 		}
 		System.out.println(s);
 	}

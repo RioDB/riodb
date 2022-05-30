@@ -45,7 +45,7 @@ package org.riodb.windows;
 import java.util.ArrayDeque;
 
 import org.riodb.engine.RioDB;
-import org.riodb.sql.SQLFunctionMap;
+import org.riodb.sql.SQLAggregateFunctions;
 
 public class WindowOfTimeSimple_String implements Window_String {
 
@@ -168,11 +168,11 @@ public class WindowOfTimeSimple_String implements Window_String {
 
 		this.partitionExpiration = partitionExpiration;
 		this.functionsRequired = functionsRequired;
-		this.requiresCount = functionsRequired[SQLFunctionMap.getFunctionId("count")];
-		this.requiresFirst = functionsRequired[SQLFunctionMap.getFunctionId("first")];
-		this.requiresMax = functionsRequired[SQLFunctionMap.getFunctionId("max")];
-		this.requiresMin = functionsRequired[SQLFunctionMap.getFunctionId("min")];
-		this.requiresPrevious = functionsRequired[SQLFunctionMap.getFunctionId("previous")];
+		this.requiresCount = functionsRequired[SQLAggregateFunctions.getFunctionId("count")];
+		this.requiresFirst = functionsRequired[SQLAggregateFunctions.getFunctionId("first")];
+		this.requiresMax = functionsRequired[SQLAggregateFunctions.getFunctionId("max")];
+		this.requiresMin = functionsRequired[SQLAggregateFunctions.getFunctionId("min")];
+		this.requiresPrevious = functionsRequired[SQLAggregateFunctions.getFunctionId("previous")];
 
 		RioDB.rio.getSystemSettings().getLogger().debug("\tconstructing Window (String) of time, simple, for Strings");
 		// list = new LinkedList<SecondNode>();
@@ -506,7 +506,7 @@ public class WindowOfTimeSimple_String implements Window_String {
 
 	@Override
 	public String getAggregations() {
-		return SQLFunctionMap.getFunctionsAvailable(functionsRequired);
+		return SQLAggregateFunctions.getFunctionsAvailable(functionsRequired);
 	}
 
 	@Override

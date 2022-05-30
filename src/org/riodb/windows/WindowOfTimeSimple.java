@@ -45,7 +45,7 @@ package org.riodb.windows;
 import java.util.ArrayDeque;
 
 import org.riodb.engine.RioDB;
-import org.riodb.sql.SQLFunctionMap;
+import org.riodb.sql.SQLAggregateFunctions;
 
 public class WindowOfTimeSimple implements Window {
 
@@ -178,12 +178,12 @@ public class WindowOfTimeSimple implements Window {
 
 		this.partitionExpiration = partitionExpiration;
 		this.functionsRequired = functionsRequired;
-		this.requiresCount = functionsRequired[SQLFunctionMap.getFunctionId("count")];
-		this.requiresFirst = functionsRequired[SQLFunctionMap.getFunctionId("first")];
-		this.requiresMax = functionsRequired[SQLFunctionMap.getFunctionId("max")];
-		this.requiresMin = functionsRequired[SQLFunctionMap.getFunctionId("min")];
-		this.requiresPrevious = functionsRequired[SQLFunctionMap.getFunctionId("previous")];
-		this.requiresSum = functionsRequired[SQLFunctionMap.getFunctionId("sum")];
+		this.requiresCount = functionsRequired[SQLAggregateFunctions.getFunctionId("count")];
+		this.requiresFirst = functionsRequired[SQLAggregateFunctions.getFunctionId("first")];
+		this.requiresMax = functionsRequired[SQLAggregateFunctions.getFunctionId("max")];
+		this.requiresMin = functionsRequired[SQLAggregateFunctions.getFunctionId("min")];
+		this.requiresPrevious = functionsRequired[SQLAggregateFunctions.getFunctionId("previous")];
+		this.requiresSum = functionsRequired[SQLAggregateFunctions.getFunctionId("sum")];
 
 		RioDB.rio.getSystemSettings().getLogger().debug("\tconstructing Window of time, simple");
 		// list = new LinkedList<SecondNode>();
@@ -531,7 +531,7 @@ public class WindowOfTimeSimple implements Window {
 
 	@Override
 	public String getAggregations() {
-		return SQLFunctionMap.getFunctionsAvailable(functionsRequired);
+		return SQLAggregateFunctions.getFunctionsAvailable(functionsRequired);
 	}
 
 	@Override

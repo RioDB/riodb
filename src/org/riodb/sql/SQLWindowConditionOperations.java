@@ -25,24 +25,26 @@ import java.util.TreeSet;
 
 import org.riodb.engine.RioDB;
 
-final public class SQLQueryConditionOperations {
+final public class SQLWindowConditionOperations {
 
-	public static SQLQueryCondition getQueryConditions(String whenStr, SQLQueryResources queryResources)
+	static final SQLWindowCondition getWindowCondition(String whereStr, int drivingStreamId)
 			throws ExceptionSQLStatement {
 
-		if (whenStr == null) {
+		if (whereStr == null || whereStr.equals("-")) {
 			return null;
 		}
-
-		int drivingStreamId = queryResources.getDrivingStreamId();
 
 		// ArrayLists of StringLike and StringIn objects if needed
 		ArrayList<SQLStringLIKE> likeList = new ArrayList<SQLStringLIKE>();
 		ArrayList<SQLStringIN> inList = new ArrayList<SQLStringIN>();
+
 		// get the list of all required Windows for this query condition
 		TreeSet<Integer> requiredWindows = new TreeSet<Integer>();
 
-		String javaExpression = JavaGenerator.convertSqlToJava(whenStr, queryResources, drivingStreamId, likeList,
+		// Not used, but we can share same procedure for JavaGenerator
+		SQLQueryResources queryResources = null;
+
+		String javaExpression = JavaGenerator.convertSqlToJava(whereStr, queryResources, drivingStreamId, likeList,
 				inList, requiredWindows);
 
 		RioDB.rio.getSystemSettings().getLogger().trace("\tcompiled: " + javaExpression);
@@ -53,7 +55,8 @@ final public class SQLQueryConditionOperations {
 		SQLStringIN[] inArr = new SQLStringIN[inList.size()];
 		inArr = inList.toArray(inArr);
 
-		return new SQLQueryConditionExpression(javaExpression, likeArr, inArr, whenStr, requiredWindows);
+		return new SQLWindowConditionExpression(javaExpression, drivingStreamId, likeArr, inArr, whereStr);
+
 	}
 
 }

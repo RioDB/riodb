@@ -26,4 +26,6 @@ import org.riodb.plugin.RioDBStreamMessage;
 
 public interface SQLQueryColumnCompiled {
 	public String getValue(RioDBStreamMessage message, WindowSummary[] windowSummaries, WindowSummary_String[] windowSummaries_String) throws ExceptionSQLExecution;
+	public void loadIn(SQLStringIN inArr[]);
+	public void loadLike(SQLStringLIKE likeArr[]);
 }

@@ -23,7 +23,7 @@ package org.riodb.sql;
 import org.riodb.plugin.RioDBStreamMessage;
 
 public interface SQLWindowConditionCompiled {
-	public boolean match(RioDBStreamMessage message);
+	public boolean match(RioDBStreamMessage message,RioDBStreamMessage previousMessage);
 	public void loadIn(SQLStringIN inArr[]);
 	public void loadLike(SQLStringLIKE likeArr[]);
 }

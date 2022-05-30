@@ -22,9 +22,9 @@ package org.riodb.windows;
 
 import org.riodb.engine.RioDB;
 import org.riodb.sql.ExceptionSQLExecution;
-import org.riodb.sql.SQLFunctionMap;
+import org.riodb.sql.SQLAggregateFunctions;
 import org.riodb.sql.SQLWindowCondition;
-
+import org.riodb.sql.SQLWindowSourceExpression;
 import org.riodb.plugin.RioDBStreamMessage;
 
 public class WindowWrapper {
@@ -32,6 +32,10 @@ public class WindowWrapper {
 	// what data stream these queries run against
 	protected int streamId;
 	protected String windowName;
+
+	protected boolean windowOfNumericExpression;
+	protected SQLWindowSourceExpression windowSourceExpression;
+
 	protected int numericFieldIndex;
 	protected boolean hasCondition;
 
@@ -43,13 +47,26 @@ public class WindowWrapper {
 	protected SQLWindowCondition windowCondition;
 	protected boolean errorAlreadyCaught;
 
+	protected boolean keepPreviousMessage;
+	protected RioDBStreamMessage previousMessage;
+	protected RioDBStreamMessage currentMessage;
+	protected boolean firstMessage;
+
 	public WindowWrapper(int streamId, String windowName, Window window, int fieldId,
-			SQLWindowCondition windowCondition, boolean rangeByTime, boolean rangeByTimeIsTimestamp) {
+			SQLWindowCondition windowCondition, boolean rangeByTime, boolean rangeByTimeIsTimestamp,
+			SQLWindowSourceExpression windowSourceExpression) {
 
 		this.streamId = streamId;
 		this.windowName = windowName;
 		this.defaultWindow = window;
-		this.numericFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getNumericFieldIndex(fieldId);
+
+		this.windowOfNumericExpression = false;
+		if (windowSourceExpression != null) {
+			windowOfNumericExpression = true;
+			this.windowSourceExpression = windowSourceExpression;
+		} else {
+			this.numericFieldIndex = RioDB.rio.getEngine().getStream(streamId).getDef().getNumericFieldIndex(fieldId);
+		}
 
 		this.rangeByTime = rangeByTime;
 		this.rangeByTimeIsTimestamp = rangeByTimeIsTimestamp;
@@ -64,6 +81,13 @@ public class WindowWrapper {
 		}
 
 		errorAlreadyCaught = false;
+
+		keepPreviousMessage = false;
+		if (windowSourceExpression != null && windowSourceExpression.requiresPrevious()) {
+			keepPreviousMessage = true;
+			firstMessage = true;
+		}
+		previousMessage = null;
 	}
 
 	public String getName() {
@@ -73,16 +97,21 @@ public class WindowWrapper {
 	public String describeWindow() {
 
 		String s = "{\"name\":\"" + windowName + "\",\n \"steam\":\""
-				+ RioDB.rio.getEngine().getStream(streamId).getName() + "\",\n \"field\":\""
-				+ RioDB.rio.getEngine().getStream(streamId).getDef().getNumericFieldName(numericFieldIndex) + "\",\n";
-		
-				if(windowCondition != null) {
-					s = s + " \"where\": \"" + windowCondition.getExpression() + "\",\n";
-				}
-				
-				s = s + " \"running\":["
-				+ defaultWindow.getAggregations() + "]"  
-				+ ",\n \"range_by\": ";
+				+ RioDB.rio.getEngine().getStream(streamId).getName() + "\",\n \"field\":\"";
+
+		if (windowOfNumericExpression) {
+			s = s + windowSourceExpression.getExpression();
+		} else {
+			s = s + RioDB.rio.getEngine().getStream(streamId).getDef().getNumericFieldName(numericFieldIndex);
+		}
+
+		s = s + "\",\n";
+
+		if (windowCondition != null) {
+			s = s + " \"where\": \"" + windowCondition.getExpression() + "\",\n";
+		}
+
+		s = s + " \"running\":[" + defaultWindow.getAggregations() + "]" + ",\n \"range_by\": ";
 		if (rangeByTime) {
 			if (rangeByTimeFieldNumericIndexId == -1) {
 				s = s + "\"clock\"";
@@ -103,10 +132,20 @@ public class WindowWrapper {
 	}
 
 	public WindowSummaryInterface putMessageRef(RioDBStreamMessage message, int currentSecond) {
+
+		if (keepPreviousMessage) {
+			previousMessage = currentMessage;
+			currentMessage = message;
+			if(firstMessage) {
+				firstMessage = false;
+				return new WindowSummary();
+			}
+		}
+
 		try {
 
 			// if there's a required condition and it doesn't match
-			if (hasCondition && !windowCondition.match(message)) {
+			if (hasCondition && !windowCondition.match(message, previousMessage)) {
 				// then we just read the summary. no updates made.
 				if (rangeByTime && rangeByTimeIsTimestamp) {
 					return defaultWindow.trimAndGetWindowSummaryCopy(
@@ -117,21 +156,34 @@ public class WindowWrapper {
 					return defaultWindow.trimAndGetWindowSummaryCopy(currentSecond);
 				}
 
+				// else... there's no condition, or the condition matches. We update and read
+				// summary:
 			} else {
-				// there's no condition, or the condition matches. We update and read summary:
-				double d = message.getDouble(numericFieldIndex);
+
+				double d;
+
+				// if this window is NOT sourced from an expression:
+				if (!windowOfNumericExpression) {
+					d = message.getDouble(numericFieldIndex);
+				}
+				// else, window is sourced from a numeric expression:
+				else {
+					d = windowSourceExpression.getNumber(message, previousMessage);
+				}
 				// for range by time using timestamp, we pass in the timestamp
 				if (rangeByTime && rangeByTimeIsTimestamp) {
 					return defaultWindow.trimAddAndGetWindowSummaryCopy(d,
 							(int) (message.getDouble(rangeByTimeFieldNumericIndexId) / 1000d));
-				// else (for window of quantity or range by clock, we pass current second
+					// else (for window of quantity or range by clock, we pass current second
 				} else {
 					return defaultWindow.trimAddAndGetWindowSummaryCopy(d, currentSecond);
 				}
 			}
+
 		} catch (ExceptionSQLExecution e) {
 			if (!errorAlreadyCaught) {
-				RioDB.rio.getSystemSettings().getLogger().error("Window " + windowName + ": " + e.getMessage().replace("\n", " ").replace("\r", " "));
+				RioDB.rio.getSystemSettings().getLogger()
+						.error("Window " + windowName + ": " + e.getMessage().replace("\n", " ").replace("\r", " "));
 				errorAlreadyCaught = true;
 			}
 			return null;
@@ -140,11 +192,11 @@ public class WindowWrapper {
 	}
 
 	public boolean windowRequiresFunction(int functionId) {
-		if (functionId >= SQLFunctionMap.functionsAvailable() || functionId < 0)
+		if (functionId >= SQLAggregateFunctions.functionsAvailable() || functionId < 0)
 			return false;
 		return defaultWindow.requiresFunction(functionId);
 	}
-	
+
 	public int getStreamId() {
 		return streamId;
 	}
@@ -154,9 +206,10 @@ public class WindowWrapper {
 			defaultWindow.trimExpiredWindowElements(currentSecond);
 		}
 	}
-	
+
 	public void resetWindow() {
 		defaultWindow = defaultWindow.makeEmptyClone();
+		previousMessage = null;
 	}
 
 }

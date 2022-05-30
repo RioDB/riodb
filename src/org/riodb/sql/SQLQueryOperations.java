@@ -54,7 +54,7 @@ public final class SQLQueryOperations {
 		if (whenStr != null && !whenStr.equals("-")) {
 			queryCondition = SQLQueryConditionOperations.getQueryConditions(whenStr, queryResources);
 		}
-
+		
 		String limitStr = SQLParser.getQueryLimitStr(statement);
 		limitStr = SQLParser.getQueryLimitStr(originalStmt);
 		RioDB.rio.getSystemSettings().getLogger().trace("QUERY_LIMIT: " + limitStr);
@@ -94,6 +94,7 @@ public final class SQLQueryOperations {
 			}
 		}
 
+				
 		String sleepStr = SQLParser.getQuerySleepStr(statement);
 		RioDB.rio.getSystemSettings().getLogger().trace("QUERY_SLEEP: " + sleepStr);
 		int sleep = -1;
@@ -128,7 +129,7 @@ public final class SQLQueryOperations {
 				throw new ExceptionSQLStatement("sleep '" + sleepStr + "' is invalid.");
 			}
 		}
-
+		
 		String outputStr = SQLParser.getQueryOutputStr(statement);
 		RioDB.rio.getSystemSettings().getLogger().trace("QUERY_OUTPUT: " + outputStr);
 		int drivingStreamId = queryResources.getDrivingStreamId();
@@ -172,7 +173,7 @@ public final class SQLQueryOperations {
 
 			int queryId = query.getQueryId();
 			RioDB.rio.getEngine().getStream(drivingStreamId).addQueryRef(query);
-
+			
 			if (persistStmt && limit == -1) {
 				if (actingUser != null && actingUser.equals("SYSTEM")) {
 					RioDB.rio.getSystemSettings().getPersistedStatements().loadQueryStmt(queryId, statement);
@@ -180,7 +181,7 @@ public final class SQLQueryOperations {
 					RioDB.rio.getSystemSettings().getPersistedStatements().saveNewQueryStmt(queryId, statement);
 				}
 			}
-
+			
 			return "Created query " + queryId;
 
 		}

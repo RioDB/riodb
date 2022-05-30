@@ -23,6 +23,7 @@ package org.riodb.sql;
 import org.mdkt.compiler.InMemoryJavaCompiler;
 import org.riodb.engine.RioDB;
 import org.riodb.windows.WindowSummary;
+import org.riodb.windows.WindowSummary_String;
 
 import org.riodb.plugin.RioDBStreamMessage;
 
@@ -45,31 +46,41 @@ public class SQLQueryConditionExpression implements SQLQueryCondition {
 				"import org.riodb.plugin.RioDBStreamMessage;\r\n" +
 				"import org.riodb.engine.RioDB;\r\n"+
 				"import org.riodb.windows.WindowSummary;\r\n" + 
-				"import org.riodb.sql.SQLStringIN;\r\n" + 
+				"import org.riodb.windows.WindowSummary_String;\r\n"+
+				"import org.riodb.sql.SQLStringIN;\r\n"+
 				"import org.riodb.sql.SQLStringLIKE;\r\n";
-		
-				if(expression!=null && expression.contains("Math.")) {
-					source = source + 
-					"import java.lang.Math;\r\n";
-				}
-				source = source + 
-				"public class "+ className +" implements SQLQueryConditionCompiled {\r\n" + 
-				"	SQLStringLIKE likeList[];\r\n" + 
-				"	SQLStringIN inList[];\r\n";
-				
-					source = source +
-				"	public void loadLike(SQLStringLIKE likeArr[]) {\r\n" + 
-				"		this.likeList = likeArr;\r\n" + 
-				"		String s = \"\";\r\n" + 
-				"		for(int i = 0; i < likeArr.length; i++) {\r\n" + 
-				"			s = s + likeArr[i].getElements();\r\n" + 
-				"			if(i < likeArr.length-2)\r\n" + 
-				"				s = s + \" | \";\r\n" + 
-				"		}\r\n"+
-				"       RioDB.rio.getSystemSettings().getLogger().debug(\"loadLike(): \"+ s);\r\n"+
-				"	}\r\n";
 
-					source = source + 
+		if (expression != null && expression.contains("SQLScalarFunctions.")) {
+			source = source + "import org.riodb.sql.SQLScalarFunctions;\r\n";
+		}
+		if (expression != null && expression.contains("Math.")) {
+			source = source + "import java.lang.Math;\r\n";
+		}
+		
+		source = source + 
+				"public class "+ className +" implements SQLQueryConditionCompiled {\r\n";
+		
+		if(likeArr.length > 0) {
+			source += 	
+					"	SQLStringLIKE likeList[];\r\n"+
+					"	public void loadLike(SQLStringLIKE likeArr[]) {\r\n" + 
+					"		this.likeList = likeArr;\r\n" + 
+					"		String s = \"\";\r\n" + 
+					"		for(int i = 0; i < likeArr.length; i++) {\r\n" + 
+					"			s = s + likeArr[i].getElements();\r\n" + 
+					"			if(i < likeArr.length-2)\r\n" + 
+					"				s = s + \" | \";\r\n" + 
+					"		}\r\n"+
+					"		RioDB.rio.getSystemSettings().getLogger().debug(\"loadLike(): \"+ s);\r\n"+
+					"	}\r\n";
+		} else {
+			source += 	
+					"	public void loadLike(SQLStringLIKE likeArr[]) {}\r\n";
+		}
+		
+		if(inArr.length > 0) {
+			source = source + 
+				"	SQLStringIN inList[];\r\n"+
 				"	public void loadIn(SQLStringIN inArr[]) {\r\n" + 
 				"		this.inList = inArr;\r\n" +
 				"		String s = \"\";\r\n" + 
@@ -78,29 +89,39 @@ public class SQLQueryConditionExpression implements SQLQueryCondition {
 				"			if(i < inArr.length-2)\r\n" + 
 				"				s = s + \" | \";\r\n" + 
 				"		}\r\n"+
-				"       RioDB.rio.getSystemSettings().getLogger().debug(\"loadIn(): \"+ s);\r\n"+
+				"		RioDB.rio.getSystemSettings().getLogger().debug(\"loadIn(): \"+ s);\r\n"+
 				"	}\r\n";
-				
-				source = source+
+		} else {
+			source = source + 
+				"	public void loadIn(SQLStringIN inArr[]) {}\r\n"; 
+		}
+		
+		source = source+
 				"	@Override\r\n" + 
-				"	public boolean match(RioDBStreamMessage message, WindowSummary[] windowSummaries) {\r\n";
+				"	public boolean match(RioDBStreamMessage message, WindowSummary[] windowSummaries, WindowSummary_String[] windowSummaries_String) {\r\n";
+				
 				
 				Iterator<Integer> iterator = requiredWindows.iterator(); 
 		        while (iterator.hasNext()) {
-		        	source = source + 
-		        "		if(windowSummaries["+ String.valueOf(iterator.next()) +"] == null)\r\n"+
-		        "			return false;\r\n";
+		        	int windowId = Integer.valueOf(String.valueOf(iterator.next()));
+		        	
+		        	if(windowId >= 0) {
+		        		source = source + 
+		        		        "		if(  windowSummaries["+ String.valueOf(windowId) +"] == null)  \r\n"+
+		        		        "			return false;\r\n";	
+		        	} else {
+		        		source = source + 
+		        		        "		if(  windowSummaries_String["+ String.valueOf((windowId + 1) * -1) +"] == null)  \r\n"+
+		        		        "			return false;\r\n";
+		        	}
+		        	
 		        }
 
-			
 				source = source +
-				"\r\n		return "+ expression +";\r\n" + 
+				"\r\n		return "+ expression +";\r\n\r\n" + 
 				"	}\r\n" + 
 				"}\r\n" + 
 				"";
-				
-				
-				
 				
 				
 		try {
@@ -128,8 +149,8 @@ public class SQLQueryConditionExpression implements SQLQueryCondition {
 	}
 
 	@Override
-	public boolean match(RioDBStreamMessage message, WindowSummary[] windowSummaries) {
-		return compiledCondition.match(message, windowSummaries);
+	public boolean match(RioDBStreamMessage message, WindowSummary[] windowSummaries, WindowSummary_String[] windowSummaries_String) {
+		return compiledCondition.match(message, windowSummaries, windowSummaries_String);
 	}
 
 	@Override

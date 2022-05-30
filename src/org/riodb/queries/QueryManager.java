@@ -34,6 +34,7 @@ import java.util.Iterator;
 
 import org.riodb.engine.RioDB;
 import org.riodb.plugin.RioDBPluginException;
+import org.riodb.sql.BASE64Utils;
 import org.riodb.sql.ExceptionSQLExecution;
 import org.riodb.sql.SQLParser;
 
@@ -106,7 +107,7 @@ public class QueryManager{
 				String queryString = queries.get(i).getQueryStr();
 			
 				queryString = queryString.replace("\"","\\\"");
-				queryString = SQLParser.decodeQuotedText(queryString);
+				queryString = BASE64Utils.decodeQuotedText(queryString);
 				queryString = SQLParser.hidePassword(queryString);
 			
 				response = response + "{\"id\":" + queries.get(i).getQueryId() + ", \"stream\":\""
@@ -148,7 +149,7 @@ public class QueryManager{
 				String queryString = queries.get(i).getQueryStr();
 				
 				queryString = queryString.replace("\"","\\\"");
-				queryString = SQLParser.decodeQuotedText(queryString);
+				queryString = BASE64Utils.decodeQuotedText(queryString);
 				queryString = SQLParser.hidePassword(queryString);
 				
 				return "\"" + queryString + "\"";

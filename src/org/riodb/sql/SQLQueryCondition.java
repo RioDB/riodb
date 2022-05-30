@@ -21,11 +21,12 @@
 package org.riodb.sql;
 
 import org.riodb.windows.WindowSummary;
+import org.riodb.windows.WindowSummary_String;
 
 import org.riodb.plugin.RioDBStreamMessage;
 
 public interface SQLQueryCondition {
 
-	public boolean match(RioDBStreamMessage message, WindowSummary[] summaries) throws ExceptionSQLExecution ;
+	public boolean match(RioDBStreamMessage message, WindowSummary[] summaries, WindowSummary_String[] summaries_String) throws ExceptionSQLExecution ;
 	public String  getExpression();
 }

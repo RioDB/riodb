@@ -73,7 +73,6 @@ public class SQLQueryResources {
 				throw new ExceptionSQLStatement("Resource not identified: "+ resourceName);
 			}
 		}
-//		System.out.println(resources.size()+" resources");
 		
 		if(drivingStreamId == -1) {
 			for(SQLQueryResource r : resources) {
