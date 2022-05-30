@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.TreeMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -366,7 +367,7 @@ public class SystemSettings {
 					passwdFile = javaRelativePath + "/" + passwdFile;
 				}
 				passwdFile = adaptPathSlashes(passwdFile);
-				logger.debug("Password file: " + passwdFile);
+				logger.debug("Password File: " + passwdFile);
 
 				try {
 					RioDB.rio.setUserMgr(passwdFile);
@@ -408,9 +409,11 @@ public class SystemSettings {
 		// into an abstract pathname
 
 		File f = new File(sqlDirectory);
-
+		
 		// Populates the array with names of files and directories
 		sqlFiles = f.list();
+		// files must be sorted alphabetically so that user has control over which files to load first.
+		Arrays.sort(sqlFiles);
 
 		// For each pathname in the pathnames array
 		for (String file : sqlFiles) {
@@ -437,7 +440,7 @@ public class SystemSettings {
 							logger.debug("loading persisted statements");
 							// true for persistStatement, false for respondWithDetails
 							loadOutput = SQLExecutor.execute(fileContent, "SYSTEM", true, false);
-							logger.info(loadOutput);
+							//logger.info(loadOutput);
 						}
 						// queries from other .sql files can be dropped, but will execute again on
 						// reboot. Meaning, other .sql files are never modified by RioDB. So if 
@@ -448,7 +451,7 @@ public class SystemSettings {
 							loadOutput = SQLExecutor.execute(fileContent, "SYSTEM", false, false); // permanent. Will
 																									// always execute on
 																									// reboot.
-							logger.debug(loadOutput);
+							//logger.info(loadOutput);
 						}
 
 						if (!loadOutput.contains("\"status\": 200")) {

@@ -18,36 +18,35 @@
  
 */
 
-
 /*
- * Windows don't have string values, only numeric. 
- * So for the WHEN condition on a string field, it must pertain to a field from the message. 
- * we just wrap this and pass to the SQLWhereConditionString (for message string conditions)
- * 
+ *   user selects a Double value from the Stream  message:
+ *   SELECT myStream.myStringField  from myStream... 
  */
-
 package org.riodb.sql;
-import org.riodb.windows.WindowSummary;
 
+import org.riodb.windows.WindowSummary;
+import org.riodb.windows.WindowSummary_String;
 import org.riodb.plugin.RioDBStreamMessage;
 
-public class SQLQueryConditionString implements SQLQueryCondition{
+public class SQLQueryColumnNumberFromMessage implements SQLQueryColumn {
 
-	private SQLWindowConditionString strCondition;
-	
-	SQLQueryConditionString(int streamId, int columnId, String operator, String patternStr, String expression)
-	throws ExceptionSQLStatement {
-		strCondition = new SQLWindowConditionString(streamId, columnId, operator, patternStr, expression);
+	private int doubleColumnIndex;
+	private String heading;
+
+	SQLQueryColumnNumberFromMessage(int doubleColumnIndex, String heading) throws ExceptionSQLStatement {
+		this.doubleColumnIndex = doubleColumnIndex;
+		this.heading = heading;
 	}
 
 	@Override
-	public boolean match(RioDBStreamMessage message, WindowSummary[] summaries) {
-		
-		return strCondition.match(message);
+	public String getValue(RioDBStreamMessage message, WindowSummary[] windowSummaries,
+			WindowSummary_String[] windowSummaries_String) throws ExceptionSQLExecution {
+		return String.valueOf(message.getDouble(doubleColumnIndex));
 	}
 
 	@Override
-	public String getExpression() {
-		return strCondition.getExpression();
+	public String getHeading() {
+		return heading;
 	}
+
 }

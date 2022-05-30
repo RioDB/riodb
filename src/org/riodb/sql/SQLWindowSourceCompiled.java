@@ -18,12 +18,24 @@
  
 */
 
+/*
+ *  Windows have a FROM clause, typically running a value from a Stream message.
+ *  But sometimes windows can run a value from an expression, or formula. 
+ *  For example, a formula to convert KM to Miles:
+ *  
+ *    FROM number(my_travel_stream.distanceKM * 1.60934) 
+ * 
+ * 	The SQLWindowSourceCompiled is used as a Class of such compiled formulas. 
+ * 
+ */
+
 package org.riodb.sql;
 
 import org.riodb.plugin.RioDBStreamMessage;
 
-public interface SQLWindowCondition {
-
-	public boolean match(RioDBStreamMessage message,RioDBStreamMessage previousMessage) throws ExceptionSQLExecution ;
-	public String  getExpression();
+public interface SQLWindowSourceCompiled {
+	public String getString(RioDBStreamMessage message, RioDBStreamMessage previousMessage);
+	public double getNumber(RioDBStreamMessage message, RioDBStreamMessage previousMessage);
+	public void loadIn(SQLStringIN inArr[]);
+	public void loadLike(SQLStringLIKE likeArr[]);
 }

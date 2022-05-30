@@ -32,29 +32,28 @@ public final class SQLExecutor {
 	public final static String execute(String stmt, String actingUser, boolean persistStmt,
 			boolean respondWithDetails) {
 
-		
 		// time elapsed....
 		long startTime = System.currentTimeMillis();
 
 		ArrayList<String> responseList = new ArrayList<String>();
 		String httpResponseStatus = "200";
-		
-		if(actingUser == null) {
-			
+
+		if (actingUser == null) {
+
 			responseList.add("No user provided.");
 			httpResponseStatus = "401";
-			
-		}
-		else if (stmt != null && stmt.contains(";")) {
-			
-			if(!actingUser.equals("SYSTEM")) {
+
+		} else if (stmt != null && stmt.contains(";")) {
+
+			if (!actingUser.equals("SYSTEM")) {
 				actingUser = actingUser.toUpperCase();
-				RioDB.rio.getSystemSettings().getLogger().trace("SQLExecutor received statement from '"+ actingUser +"' ("+ RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).stringValue() +")");
+				RioDB.rio.getSystemSettings().getLogger().trace("SQLExecutor received statement from '" + actingUser
+						+ "' (" + RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).stringValue() + ")");
 			}
 			RioDB.rio.getSystemSettings().getLogger().trace("Removing comments...");
 			stmt = SQLParser.removeComments(stmt);
 			RioDB.rio.getSystemSettings().getLogger().trace("Encoding quoted text...");
-			stmt = SQLParser.encodeQuotedText(stmt);
+			stmt = BASE64Utils.encodeQuotedText(stmt);
 			// System.out.println(stmt);
 
 			// split statements from stmt (in case there are multiple statements in one
@@ -65,15 +64,15 @@ public final class SQLExecutor {
 			for (int i = 0; i < statements.length; i++) {
 
 				String statement = statements[i];
-				
-								try {
+
+				try {
 					String originalStatement = statement;
 					statement = SQLParser.formatStmt(statement + ";");
 
 					if (statement != null && !statement.equals(";")) {
 
-						RioDB.rio.getSystemSettings().getLogger().debug("Statement " + (i + 1) + ": \""
-								+ SQLParser.hidePassword(SQLParser.decodeQuotedText(statement)) + "\"");
+						RioDB.rio.getSystemSettings().getLogger().debug("  "+actingUser + " Statement " + (i + 1) + ": \""
+								+ SQLParser.hidePassword(BASE64Utils.decodeQuotedText(statement)) + "\"");
 
 						if (statement.startsWith("select ")) {
 							if (RioDB.rio.getUserMgr() == null
@@ -290,7 +289,7 @@ public final class SQLExecutor {
 											|| RioDB.rio.getUserMgr().getUserAccessLevel(actingUser).can("QUERY")) {
 										String description = SQLQueryOperations.describeQuery(statement);
 										responseList.add(description);
-										
+
 									} else {
 										RioDB.rio.getSystemSettings().getLogger()
 												.debug("User not authorized to manage windows.");
@@ -425,12 +424,15 @@ public final class SQLExecutor {
 					}
 
 				} catch (ExceptionSQLStatement e) {
+					RioDB.rio.getSystemSettings().getLogger().debug("FAILED statement "+ (i + 1) +". "+ e.getMessage().replace("\n"," "));
 					responseList.add(e.getMessage().replace("\"", "\\\""));
 					httpResponseStatus = "400";
 				} catch (ExceptionAccessMgt e) {
+					RioDB.rio.getSystemSettings().getLogger().debug("FAILED statement "+ (i + 1)+". "+ e.getMessage().replace("\n"," "));
 					responseList.add(e.getMessage().replace("\"", "\\\""));
 					httpResponseStatus = "401";
 				} catch (RioDBPluginException e) {
+					RioDB.rio.getSystemSettings().getLogger().debug("FAILED statement "+ (i + 1) +". "+ e.getMessage().replace("\n"," "));
 					responseList.add(e.getMessage().replace("\"", "\\\""));
 					httpResponseStatus = "500";
 				}

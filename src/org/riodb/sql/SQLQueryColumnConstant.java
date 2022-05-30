@@ -36,8 +36,8 @@ public class SQLQueryColumnConstant implements SQLQueryColumn {
 	private String heading;
 
 	SQLQueryColumnConstant(String constant, String heading) throws ExceptionSQLStatement {
-		this.constant = SQLParser.decodeQuotedText(constant);
-		this.heading = SQLParser.decodeQuotedText(heading);
+		this.constant = BASE64Utils.decodeQuotedText(constant);
+		this.heading = BASE64Utils.decodeQuotedText(heading);
 		
 		if(this.constant != null && this.constant.startsWith("'") && this.constant.endsWith("'") ) {
 			this.constant = this.constant.substring(1, this.constant.length()-1);

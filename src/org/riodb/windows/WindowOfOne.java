@@ -29,7 +29,7 @@
 package org.riodb.windows;
 
 import org.riodb.engine.RioDB;
-import org.riodb.sql.SQLFunctionMap;
+import org.riodb.sql.SQLAggregateFunctions;
 
 public class WindowOfOne implements Window {
 
@@ -133,22 +133,22 @@ public class WindowOfOne implements Window {
 	// requires any aggregate function?
 	@Override
 	public boolean requiresFunction(int functionId) {
-		if(functionId == SQLFunctionMap.getFunctionId("avg") ||
-				functionId == SQLFunctionMap.getFunctionId("avg") ||
-				functionId == SQLFunctionMap.getFunctionId("count") ||
-				functionId == SQLFunctionMap.getFunctionId("count_distinct") ||
-				functionId == SQLFunctionMap.getFunctionId("first") ||
-				functionId == SQLFunctionMap.getFunctionId("last") ||
-				functionId == SQLFunctionMap.getFunctionId("max") ||
-				functionId == SQLFunctionMap.getFunctionId("median") ||
-				functionId == SQLFunctionMap.getFunctionId("min") ||
-				functionId == SQLFunctionMap.getFunctionId("mode") ||
-				functionId == SQLFunctionMap.getFunctionId("slope") ||
-				functionId == SQLFunctionMap.getFunctionId("sum") ||
-				functionId == SQLFunctionMap.getFunctionId("variance")) {
+		if(functionId == SQLAggregateFunctions.getFunctionId("avg") ||
+				functionId == SQLAggregateFunctions.getFunctionId("avg") ||
+				functionId == SQLAggregateFunctions.getFunctionId("count") ||
+				functionId == SQLAggregateFunctions.getFunctionId("count_distinct") ||
+				functionId == SQLAggregateFunctions.getFunctionId("first") ||
+				functionId == SQLAggregateFunctions.getFunctionId("last") ||
+				functionId == SQLAggregateFunctions.getFunctionId("max") ||
+				functionId == SQLAggregateFunctions.getFunctionId("median") ||
+				functionId == SQLAggregateFunctions.getFunctionId("min") ||
+				functionId == SQLAggregateFunctions.getFunctionId("mode") ||
+				functionId == SQLAggregateFunctions.getFunctionId("slope") ||
+				functionId == SQLAggregateFunctions.getFunctionId("sum") ||
+				functionId == SQLAggregateFunctions.getFunctionId("variance")) {
 			return true;
 		}
-		if(functionId == SQLFunctionMap.getFunctionId("previous")) {
+		if(functionId == SQLAggregateFunctions.getFunctionId("previous")) {
 			return requiresPrevious;
 		}
 		return false;		

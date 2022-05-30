@@ -25,8 +25,6 @@
 package org.riodb.sql;
 
 import java.util.ArrayList;
-import java.util.Base64;
-
 import org.riodb.engine.RioDB;
 
 public final class SQLParser {
@@ -43,7 +41,7 @@ public final class SQLParser {
 
 	private static final String operatorWords[] = { ">", ">=", "<", "<=", "=", "!=", "in", "not_in", "like", "not_like",
 			"is_null", "is_not_null", "not", "null", ".equals(", ".equals (", ".equals(\"\")", "!= Float.NaN",
-			"= Float.NaN" };
+			"= Float.NaN", ".compareTo(", ".compareTo (" };
 
 	public static final boolean containsOperator(String word) {
 		if (word == null || word.length() == 0)
@@ -250,6 +248,38 @@ public final class SQLParser {
 		return select;
 	}
 
+	public static String[] splitColumns(String selectStr) {
+		ArrayList<String> list = new ArrayList<String>();
+
+		int parenthesisDepth = 0;
+		int lastStart = 0;
+
+		for (int i = 0; i < selectStr.length(); i++) {
+
+			if (selectStr.charAt(i) == '(') {
+				parenthesisDepth++;
+			} else if (selectStr.charAt(i) == ')') {
+				parenthesisDepth--;
+			} else if (selectStr.charAt(i) == ',' && parenthesisDepth == 0) {
+				String column = selectStr.substring(lastStart, i).trim();
+				list.add(column);
+				lastStart = ++i;
+			}
+		}
+
+		if (selectStr.length() > lastStart) {
+			String column = selectStr.substring(lastStart).trim();
+			list.add(column);
+		}
+
+		String columns[] = new String[list.size()];
+		for (int i = 0; i < columns.length; i++) {
+			columns[i] = list.get(i);
+		}
+
+		return columns;
+	}
+
 	public static final String getQuerySleepStr(String stmt) throws ExceptionSQLStatement {
 
 		if (stmt.contains(" sleep "))
@@ -282,6 +312,31 @@ public final class SQLParser {
 		return whenStr;
 	}
 
+	// used for Create Window
+	public static final String getWindowFromStr(String stmt) throws ExceptionSQLStatement {
+
+		String fromStr = null;
+
+		int fromIndex = stmt.indexOf(" from ");
+
+		if (fromIndex == -1) {
+			throw new ExceptionSQLStatement("'FROM' keyword not found.");
+		}
+
+		fromStr = stmt.substring(fromIndex + 5);
+		if (fromStr.indexOf(" when ") > 0) {
+			fromStr = fromStr.substring(0, fromStr.indexOf(" when "));
+		} else if (fromStr.indexOf(" range ") > 0) {
+			fromStr = fromStr.substring(0, fromStr.indexOf(" range "));
+		} else if (fromStr.indexOf(";") > 0) {
+			fromStr = fromStr.substring(0, fromStr.indexOf(";"));
+		}
+
+		fromStr = fromStr.trim();
+
+		return fromStr;
+	}
+
 	// used for Create Window.
 	public static final int getWindowFieldId(String stmt) throws ExceptionSQLStatement {
 
@@ -308,23 +363,25 @@ public final class SQLParser {
 		}
 		String fromStr = stmt.substring(stmt.indexOf(" from ") + 6);
 		if (fromStr == null || !fromStr.contains(".")) {
-			throw new ExceptionSQLStatement("Steam malformed. use \"from stream.field \" notation.");
+			throw new ExceptionSQLStatement("Could not identify a stream. use \"stream.field \" notation after FROM.");
 		}
 
 		String fieldName = fromStr.substring(fromStr.indexOf(".") + 1);
 		fieldName = fieldName.substring(0, fieldName.indexOf(" "));
 		fieldName = fieldName.trim();
+
 		int fieldId = RioDB.rio.getEngine().getStream(streamId).getDef().getFieldId(fieldName);
 		if (fieldId < 0) {
 			throw new ExceptionSQLStatement("field not found. ");
 		}
 		/*
-		if (!RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId)) {
-			throw new ExceptionSQLStatement("field '" + fieldName + "' is not a numeric field.  ");
+		 * if (!RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId)) {
+		 * throw new ExceptionSQLStatement("field '" + fieldName +
+		 * "' is not a numeric field.  ");
+		 * 
+		 * }
+		 */
 
-		}
-		*/
-		
 		return fieldId;
 	}
 
@@ -392,30 +449,25 @@ public final class SQLParser {
 
 	}
 
-	 
-	/* // not used.
-	public static final int getWindowRangeByFieldId(String stmt, int streamId) throws ExceptionSQLStatement {
+	/*
+	 * // not used. public static final int getWindowRangeByFieldId(String stmt, int
+	 * streamId) throws ExceptionSQLStatement {
+	 * 
+	 * if (stmt != null && stmt.contains(" by ") && stmt.indexOf(";") >
+	 * stmt.indexOf(" by ")) { String dateField =
+	 * stmt.substring(stmt.indexOf(" by ") + 4,
+	 * stmt.indexOf(";")).trim().toLowerCase(); if
+	 * (SQLParser.isStreamField(streamId, dateField)) { int fieldId =
+	 * RioDB.rio.getEngine().getStream(streamId).getDef().getFieldId(dateField); if
+	 * (RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId)) {
+	 * return fieldId; } else { throw new ExceptionSQLStatement( "Field '" +
+	 * dateField + "' is not a 'date' field, and cannot be used for time range."); }
+	 * } else { throw new ExceptionSQLStatement( "Field '" + dateField +
+	 * "' not found. It and cannot be used for time range."); } }
+	 * 
+	 * return -1; }
+	 */
 
-		if (stmt != null && stmt.contains(" by ") && stmt.indexOf(";") > stmt.indexOf(" by ")) {
-			String dateField = stmt.substring(stmt.indexOf(" by ") + 4, stmt.indexOf(";")).trim().toLowerCase();
-			if (SQLParser.isStreamField(streamId, dateField)) {
-				int fieldId = RioDB.rio.getEngine().getStream(streamId).getDef().getFieldId(dateField);
-				if (RioDB.rio.getEngine().getStream(streamId).getDef().isNumeric(fieldId)) {
-					return fieldId;
-				} else {
-					throw new ExceptionSQLStatement(
-							"Field '" + dateField + "' is not a 'date' field, and cannot be used for time range.");
-				}
-			} else {
-				throw new ExceptionSQLStatement(
-						"Field '" + dateField + "' not found. It and cannot be used for time range.");
-			}
-		}
-
-		return -1;
-	}
-	*/
-	
 	public static final String getWindowRangeStr(String stmt) throws ExceptionSQLStatement {
 		if (stmt != null && stmt.contains(" range ") && stmt.indexOf(";") > stmt.indexOf(" range ")) {
 
@@ -492,8 +544,22 @@ public final class SQLParser {
 			throw new ExceptionSQLStatement("missing keyword: create window ... running ... *from* ");
 		}
 		String fromStr = stmt.substring(stmt.indexOf(" from ") + 6);
+
+		if (fromStr.contains(" range ")) {
+			fromStr = fromStr.substring(0, fromStr.indexOf(" range "));
+
+			String fromWords[] = fromStr.split(" ");
+			for (int i = 0; i < fromWords.length; i++) {
+				if (fromWords[i].indexOf(".") > 0 && fromWords[i].indexOf(".") < fromWords[i].length() - 2) {
+					String streamStr = fromWords[i].substring(0, fromWords[i].indexOf("."));
+					return RioDB.rio.getEngine().getStreamId(streamStr);
+				}
+			}
+
+		}
+
 		if (fromStr == null || !fromStr.contains(".")) {
-			throw new ExceptionSQLStatement("Steam malformed. use \"from stream.field \" notation.");
+			throw new ExceptionSQLStatement("Could not identify a stream. use \"stream.field \" notation after FROM.");
 		}
 		String streamName = fromStr.substring(0, fromStr.indexOf("."));
 		streamName = streamName.trim();
@@ -506,9 +572,9 @@ public final class SQLParser {
 
 		int fromIndex = stmt.indexOf(" from ");
 
-		int whereIndex = stmt.indexOf(" where ", fromIndex);
+		int whereIndex = stmt.indexOf(" when ", fromIndex);
 		if (whereIndex == -1)
-			whereIndex = stmt.indexOf(" where(", fromIndex);
+			whereIndex = stmt.indexOf(" when(", fromIndex);
 
 		if (whereIndex > fromIndex) {
 			whereIndex = whereIndex + 6;
@@ -585,7 +651,9 @@ public final class SQLParser {
 
 		if (isOperator(word))
 			return true;
-		if (isSQLFunction(word))
+		if (isAggregateFunction(word))
+			return true;
+		if (isScalarFunction(word))
 			return true;
 		if (isMathFunction(word))
 			return true;
@@ -599,8 +667,13 @@ public final class SQLParser {
 		return false;
 	}
 
-	static boolean isSQLFunction(String word) {
-		return SQLFunctionMap.isFunction(word);
+	static boolean isAggregateFunction(String word) {
+		return SQLAggregateFunctions.isFunction(word);
+	}
+
+	// checks if word is scalar function
+	public static boolean isScalarFunction(String word) {
+		return SQLScalarFunctions.isScalarFunction(word);
 	}
 
 	public static final boolean isStreamField(int streamId, String word) {
@@ -654,153 +727,6 @@ public final class SQLParser {
 		return word;
 	}
 
-	// Function to encode any quoted text into base64
-	static final String encodeQuotedText(String s) {
-
-		// System.out.println("Encoding: "+ s);
-		if (s == null) {
-			return null;
-		}
-
-		boolean inQuote = false;
-		ArrayList<Integer> quoteBeginList = new ArrayList<Integer>();
-		ArrayList<Integer> quoteEndList = new ArrayList<Integer>();
-		for (int i = 0; i < s.length(); i++) {
-			if (s.charAt(i) == '\'') {
-				if (inQuote) {
-					if (i < s.length() - 1 && s.charAt(i + 1) == '\'') {
-						i++;
-					} else {
-						inQuote = false;
-						quoteEndList.add(i);
-
-					}
-				} else {
-					inQuote = true;
-					quoteBeginList.add(i);
-				}
-			}
-		}
-
-		String r = s;
-		for (int i = 0; i < quoteEndList.size(); i++) {
-			if (i < quoteEndList.size()) {
-				String t = s.substring(quoteBeginList.get(i) + 1, quoteEndList.get(i));
-				String e = Base64.getEncoder().encodeToString(t.getBytes());
-				e = e.replace("=", "$");
-				t = "'" + t + "'";
-				e = "'" + e + "'";
-				r = r.replace(t, e);
-				// System.out.println(t + " -> " + e);
-			}
-		}
-
-		// System.out.println("Encoded: "+ r);
-
-		return r;
-
-	}
-
-	// function to decode base64 text in quotes only.
-	public static final String decodeQuotedText(String s) {
-
-		// System.out.println("decoding:"+s);
-
-		if (s == null) {
-			return null;
-		}
-
-		boolean inQuote = false;
-		ArrayList<Integer> quoteBeginList = new ArrayList<Integer>();
-		ArrayList<Integer> quoteEndList = new ArrayList<Integer>();
-		for (int i = 0; i < s.length(); i++) {
-			if (s.charAt(i) == '\'') {
-				if (inQuote) {
-					inQuote = false;
-					quoteEndList.add(i);
-				} else {
-					inQuote = true;
-					quoteBeginList.add(i);
-				}
-			}
-		}
-
-		String r = s;
-		for (int i = 0; i < quoteEndList.size(); i++) {
-
-			if (i < quoteEndList.size()) {
-				String t = s.substring(quoteBeginList.get(i) + 1, quoteEndList.get(i));
-				byte[] decodedBytes = Base64.getDecoder().decode(t.replace("$", "="));
-				String d = new String(decodedBytes);
-				t = "'" + t + "'";
-				d = "'" + d + "'";
-				// System.out.println("replacing... "+ t + " -> " + d);
-				r = r.replace(t, d);
-			}
-		}
-
-		// System.out.println("Decoded: "+ r);
-
-		return r;
-
-	}
-
-	// function to decode base64 text in quotes only. Substituting single quotes for double quotes. 
-	public static final String decodeQuotedTextToDoubleQuoted(String s) {
-
-		// System.out.println("decoding:"+s);
-
-		if (s == null) {
-			return null;
-		}
-
-		boolean inQuote = false;
-		ArrayList<Integer> quoteBeginList = new ArrayList<Integer>();
-		ArrayList<Integer> quoteEndList = new ArrayList<Integer>();
-		for (int i = 0; i < s.length(); i++) {
-			if (s.charAt(i) == '\'') {
-				if (inQuote) {
-					inQuote = false;
-					quoteEndList.add(i);
-				} else {
-					inQuote = true;
-					quoteBeginList.add(i);
-				}
-			}
-		}
-
-		String r = s;
-		for (int i = 0; i < quoteEndList.size(); i++) {
-
-			if (i < quoteEndList.size()) {
-				String t = s.substring(quoteBeginList.get(i) + 1, quoteEndList.get(i));
-				byte[] decodedBytes = Base64.getDecoder().decode(t.replace("$", "="));
-				String d = new String(decodedBytes);
-				d.replace("''","'");
-				t = "'" + t + "'";
-				d = "\"" + d + "\"";
-				// System.out.println("replacing... "+ t + " -> " + d);
-				r = r.replace(t, d);
-			}
-		}
-
-		// System.out.println("Decoded: "+ r);
-
-		return r;
-
-	}
-
-	// function to decode base64
-	public static final String decodeText(String s) {
-
-		try {
-			byte[] decodedBytes = Base64.getDecoder().decode(s.replace("$", "="));
-			return new String(decodedBytes);
-		} catch (IllegalArgumentException iae) {
-			// if s is invalid Base64, return original s
-			return s;
-		}
-	}
 
 	// a function to turn statement all to lowercase, while preserving quoted text
 	private static String lowerCase(String stmt) {
@@ -876,5 +802,120 @@ public final class SQLParser {
 		}
 		return stmt;
 	}
+
+	// method to go back in array of words and find index of an opening parenthesis
+	// note: accounts for nested parenthesis pairs in between
+	public static int getIndexOfOpeningParenthesis(String words[], int indexOfClosingParenthesis) {
+
+		if (indexOfClosingParenthesis == 0) {
+			return -1;
+		}
+
+		int parenthesisDepth = 1;
+
+		for (int i = indexOfClosingParenthesis - 1; i >= 0; i--) {
+
+			if (words[i].equals(")")) {
+				parenthesisDepth++;
+			} else if (words[i].equals("(") && parenthesisDepth > 1) {
+				parenthesisDepth--;
+			} else if (words[i].equals("(")) {
+				return i;
+			}
+
+		}
+		return 0;
+	}
+
+	// method to go forward in array of words and find index of a closing
+	// parenthesis
+	// note: accounts for nested parenthesis pairs in between
+	public static int getIndexOfClosingParenthesis(String words[], int indexOfOpeningParenthesis) {
+
+		if (indexOfOpeningParenthesis == words.length - 1) {
+			return -1;
+		}
+
+		int parenthesisDepth = 1;
+
+		for (int i = indexOfOpeningParenthesis + 1; i < words.length; i++) {
+
+			if (words[i].equals("(")) {
+				parenthesisDepth++;
+			} else if (words[i].equals(")") && parenthesisDepth > 1) {
+				parenthesisDepth--;
+			} else if (words[i].equals(")")) {
+				return i;
+			}
+
+		}
+		return -1;
+	}
+
+	public static boolean stringContainsScalarFunction(String s) {
+		if (s == null) {
+			return false;
+		}
+		if (SQLScalarFunctions.stringContainsStringFunction(s) || SQLScalarFunctions.stringContainsNumericFunction(s)) {
+			return true;
+		}
+		return false;
+	}
+	
+public static boolean isStringResource(String word, int streamId) {
+		
+		// resource is a static number
+		if (SQLParser.isNumber(word)) {
+			return false;
+		} 
+		
+		// resource is a numeric stream field
+		if (word.contains("getDouble(")) {
+			return false;
+		} 
+
+		// is a scalar function 
+		if (word.startsWith("SQLScalarFunctions.")) {
+			if (SQLScalarFunctions.stringContainsStringFunction(word)) {
+				return true;
+			} else {
+				return false;
+			}
+		}
+		
+		// is a Math function 
+		if (word.startsWith("Math.")) {
+			return false;
+		}
+		
+		// is a window function for a window of Numbers:
+		if (word.startsWith("windowSummaries[0].")) {
+			return false;			
+		}
+		
+		// if is a window function for a window of Strings
+		if (word.startsWith("windowSummaries_String[0].")) {
+			if(word.contains(".count") ||
+				word.contains("count_distinct") ||
+				word.contains("empty") ||
+				word.contains("full") ||
+				word.contains("avg") ||
+				word.contains("sum") ||
+				word.contains("variance") ||
+				word.contains("stddev") ||
+				word.contains("slope") 
+				) {
+				return false;
+			}
+		}
+		
+		if(SQLParser.isDelimiter(word) ||
+				SQLParser.isMathOperator(word) ||
+				SQLParser.isOperator(word)) {
+			return false;
+		}
+		return true;
+	}
+
 
 }

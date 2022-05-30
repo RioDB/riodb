@@ -1,0 +1,135 @@
+
+# bench stream:
+
+create stream my_bench_stream ( bid number , symbol string ) input bench ( ceiling 40 strings 'apple|bone|cat|dog|dog|apple|empathy|dog|house|house|pho' interval 400 ) ;
+
+select '1' , 'static text from stream' from my_bench_stream when bid = 1 output stdout;
+select '2' , 'fields from stream' , bid , symbol from my_bench_stream when bid = 2 output stdout;
+
+
+# simple numeric windows of quantity:
+create window last_10_bids running all from my_bench_stream.bid range 10;
+select '3' , 'values from numeric window' , avg , count , count_distinct , first , last , max , median , min , mode , stddev_pop , variance_pop , previous , stddev , variance , slope , sum from last_10_bids when bid = 3 output stdout;
+
+create window last_10_numeric_formula running all from number ( my_bench_stream.bid * previous my_bench_stream.bid ) range 10;
+select '4' , 'values from numeric formula window' , avg , count , count_distinct , first , last , max , median , min , mode , stddev_pop , variance_pop , previous , stddev , variance , slope , sum from last_10_numeric_formula when bid = 4 output stdout;
+
+create window last_10_2_bids running all from my_bench_stream.bid range 10-2;
+select '5' , 'values from numeric window with range end' , avg , count , count_distinct , first , last , max , median , min , mode , stddev_pop , variance_pop , previous , stddev , variance , slope , sum from last_10_2_bids when bid = 5 output stdout;
+
+
+# partitioned numeric windows :
+
+create window last_10_bids_by_symbol running all from my_bench_stream.bid PARTITION BY symbol EXPIRE 1h range 10;
+select '6' , 'values from partitioned numeric window' , avg , count , count_distinct , first , last , max , median , min , mode , stddev_pop , variance_pop , previous , stddev , variance , slope , sum from last_10_bids_by_symbol when bid = 6 output stdout;
+
+create window last_10_numeric_formula_by_symbol running all from number ( my_bench_stream.bid * previous my_bench_stream.bid ) PARTITION BY symbol EXPIRE 1h range 10;
+select '7' , 'values from partitioned numeric formula window' , avg , count , count_distinct , first , last , max , median , min , mode , stddev_pop , variance_pop , previous , stddev , variance , slope , sum from last_10_numeric_formula_by_symbol when bid = 7 output stdout;
+
+create window last_10_2_bids_by_symbol running all from my_bench_stream.bid PARTITION BY symbol EXPIRE 1h range 10-2;
+select '8' , 'values from partitioned numeric window with range end' , avg , count , count_distinct , first , last , max , median , min , mode , stddev_pop , variance_pop , previous , stddev , variance , slope , sum from last_10_2_bids_by_symbol when bid = 8 output stdout;
+
+
+# simple string windows
+
+create window last_10_symbols running all from my_bench_stream.symbol range 10;
+select '9' , 'values from string window' , count , count_distinct , first , last , max , min , mode , previous from last_10_symbols when bid = 9 output stdout;
+
+create window last_10_string_formula running all from string ( concat(my_bench_stream.symbol,'-', decode(my_bench_stream.symbol,'apple','good','bad')) ) range 10;
+select '10' , 'values from string formula window' , count , count_distinct , first , last , max , min , mode , previous from last_10_string_formula when bid = 10 output stdout;
+
+create window last_10_2_symbols running all from my_bench_stream.symbol range 10-2;
+select '11' , 'values from string window' , count , count_distinct , first , last , max , min , mode , previous from last_10_2_symbols when bid = 11 output stdout;
+
+
+# partitioned string windows
+create window last_10_symbols_by_symbol running all from my_bench_stream.symbol range 10;
+select '12' , 'values from partitioned string window' , count , count_distinct , first , last , max , min , mode , previous from last_10_symbols_by_symbol when bid = 12 output stdout;
+
+create window last_10_string_formula_by_symbol running all from string ( concat ( my_bench_stream.symbol , '-' , previous my_bench_stream.symbol ) ) range 10;
+select '13' , 'values from partitioned string formula window' , count , count_distinct , first , last , max , min , mode , previous from last_10_string_formula_by_symbol when bid = 13 output stdout;
+
+create window last_10_2_symbols_by_symbol running all from my_bench_stream.symbol range 10-2;
+select '14' , 'values from partitioned string window with range end' , count , count_distinct , first , last , max , min , mode , previous from last_10_2_symbols_by_symbol when bid = 14 output stdout;
+
+
+# conditional numeric windows
+
+create window last_10_bids_conditional running count from my_bench_stream.bid when symbol IN ('empathy','dog','house','pho') or symbol like 'd%' or symbol = 'cat' or symbol like '%e' or (1=2 and 'a' = 'b') range 10;
+select '15' , 'values from numeric window, conditions' , count from last_10_bids_conditional when bid = 15 output stdout;
+# numeric windows of time simple:
+
+create window last_6s_bids running avg , count , first , last , max , min , previous , sum from my_bench_stream.bid range 6s;
+select '16' , 'values from numeric window of time' , avg , count , first , last , max , min , previous , sum from last_6s_bids when bid = 16 output stdout;
+
+create window last_6s_numeric_formula running avg , count , first , last , max , min , previous , sum from number ( my_bench_stream.bid * previous my_bench_stream.bid ) range 6s;
+select '17' , 'values from numeric formula window of time' , avg , count , first , last , max , min , previous , sum from last_6s_numeric_formula when bid = 17 output stdout;
+
+create window last_6s_2s_bids running avg , count , first , last , max , min , previous , sum from my_bench_stream.bid range 6s-2s;
+select '18' , 'values from numeric window of time with range end' , avg , count , first , last , max , min , previous , sum from last_6s_2s_bids when bid = 18 output stdout;
+
+
+# numeric windows of time complex:
+
+create window last_6s_bids_complex running all from my_bench_stream.bid range 6s;
+select '19' , 'values from numeric window of time complex' , avg , count , count_distinct , first , last , max , median , min , mode , stddev_pop , variance_pop , previous , stddev , variance , slope , sum from last_6s_bids_complex when bid = 19 output stdout;
+
+create window last_6s_numeric_formula_complex running all from number ( my_bench_stream.bid * previous my_bench_stream.bid ) range 6s;
+select '20' , 'values from numeric formula window of time complex' , avg , count , count_distinct , first , last , max , median , min , mode , stddev_pop , variance_pop , previous , stddev , variance , slope , sum from last_6s_numeric_formula_complex when bid = 20 output stdout;
+
+create window last_6s_2s_bids_complex running all from my_bench_stream.bid range 6s-2s;
+select '21' , 'values from numeric window of time complex with range end' , avg , count , count_distinct , first , last , max , median , min , mode , stddev_pop , variance_pop , previous , stddev , variance , slope , sum from last_6s_2s_bids_complex when bid = 21 output stdout;
+
+
+
+# string windows of time simple:
+
+create window last_6s_symbols running count , first , last , max , min , previous  from my_bench_stream.symbol range 6s;
+select '22' , 'values from string window of time' count , first , last , max , min , previous from last_6s_symbols when bid = 22 output stdout;
+
+create window last_6s_string_formula running count , first , last , max , min , previous from string ( concat(my_bench_stream.symbol,'-',previous my_bench_stream.symbol ) )range 6s;
+select '23' , 'values from string formula window of time' count , first , last , max , min , previous from last_6s_string_formula when bid = 23 output stdout;
+
+create window last_6s_2s_symbols running count , first , last , max , min , previous from my_bench_stream.symbol range 6s-2s;
+select '24' , 'values from string window of time with range end' count , first , last , max , min , previous from last_6s_2s_symbols when bid = 24 output stdout;
+
+
+# string windows of time complex:
+
+create window last_6s_symbols_complex running all from my_bench_stream.symbol range 6s;
+select '25' , 'values from string window of time complex' count , count_distinct , first , last , max , min , mode , previous from last_6s_symbols_complex when bid = 25 output stdout;
+
+create window last_6s_string_formula_complex running all from string ( concat(my_bench_stream.symbol,'-',previous my_bench_stream.symbol )  ) range 6s;
+select '26' , 'values from string formula window of time complex'  count , count_distinct , first , last , max , min , mode , previous  from last_6s_string_formula_complex when bid = 26 output stdout;
+
+create window last_6s_2s_symbols_complex running all from my_bench_stream.symbol range 6s-2s;
+select '27' , 'values from string window of time complex with range end' , avg , count , count_distinct , first , last , max , median , min , mode , stddev_pop , variance_pop , previous , stddev , variance , slope , sum from last_6s_2s_symbols_complex when bid = 27 output stdout;
+
+# different types of query:
+select '28' , 'values from numeric window, conditions' , count from last_10_bids when (bid = 27 AND bid = 29) OR bid = 28 output stdout;
+
+select '29' , 'values from numeric window, aggregate function' , count from last_10_bids when bid = 29 and last_10_bids.slope > 0 output stdout;
+
+select '30' , 'values from numeric window using alias' , a.count from last_10_bids a when a.last = 30 output stdout;
+
+select '31' , 'values from string window using alias' , a.count from last_10_symbols a when a.last like '%' and bid = 31 output stdout;
+
+select '32' , 'values from numeric window using no table reference' , count from last_10_bids a when last = 32 output stdout;
+
+select '33' , 'values from string window using no table reference' , count from last_10_symbols when last like '%' and bid = 33 output stdout;
+
+select '34' , 'values with static special characters: # '' \n ( ) != == Math. concat select from when range limit ', 84.3 from my_bench_stream  when bid = 34 output stdout;
+
+select '35' , 'value with expression', bid+4 from my_bench_stream when bid = 35 output stdout;
+
+select '36' , 'value with scalar functions', concat(symbol,': ',to_string(bid)) from my_bench_stream when bid = 36 output stdout;
+
+select '37', 'query condition with scalar functions', symbol from my_bench_stream when bid = 37 and (concat(symbol,'eef') >= concat('cat',decode('abc','abc','abc','123'))) output stdout;
+
+create window last_10_string_condition_expression running all from string ( decode(my_bench_stream.symbol,'apple','apple-good',my_bench_stream.symbol) ) when  decode(symbol,'apple','apple-good','bad') = concat(symbol,'-','good') range 10;
+
+select '38', 'window with compiled source and compiled when conditions.', symbol, last from last_10_string_condition_expression when bid = 38 output stdout;
+
+create window last_10_string_condition_previous running all from string ( decode(my_bench_stream.symbol, previous my_bench_stream.symbol, 'same as previous', 'different from previous') ) when previous symbol = symbol or previous symbol != symbol range 10;
+
+select '39', 'window with compiled source and compiled when conditions both using PREVIOUS.', symbol, last from last_10_string_condition_previous when bid = 39 output stdout;

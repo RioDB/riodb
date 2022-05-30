@@ -37,8 +37,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Map.Entry;
 import java.util.TreeMap;
-
-import org.riodb.sql.SQLParser;
+import org.riodb.sql.BASE64Utils;
 
 public class PersistedStatements {
 
@@ -80,20 +79,20 @@ public class PersistedStatements {
 
 	// load newly created stream statement
 	public void saveNewStreamStmt(String name, String statement) {
-		streamStatements.put(name, SQLParser.decodeQuotedText(statement));
+		streamStatements.put(name, statement);
 		RioDB.rio.getSystemSettings().getLogger().debug("Saving statement to sql file for " + name);
 		updatePersistedStmtFile();
 	}
 
 	// load newly created window statement
 	public void saveNewWindowStmt(String name, String statement) {
-		windowStatements.put(name, SQLParser.decodeQuotedText(statement));
+		windowStatements.put(name, statement);
 		updatePersistedStmtFile();
 	}
 
 	// load newly created select statement
 	public void saveNewQueryStmt(Integer queryId, String statement) {
-		queryStatements.put(queryId, SQLParser.decodeQuotedText(statement));
+		queryStatements.put(queryId, statement);
 		updatePersistedStmtFile();
 	}
 
@@ -155,24 +154,21 @@ public class PersistedStatements {
 	private void updatePersistedStmtFile() {
 
 		if (fileExists || createPersistedStmtFile()) {
-
 			String newFileStr = "";
 			for (Entry<String, String> entry : streamStatements.entrySet()) {
-				newFileStr += entry.getValue() + "\n\r";
+				newFileStr += BASE64Utils.decodeQuotedText(entry.getValue()) + "\n\r";
 			}
 			for (Entry<String, String> entry : windowStatements.entrySet()) {
-				newFileStr += entry.getValue() + "\n\r";
+				newFileStr += BASE64Utils.decodeQuotedText(entry.getValue()) + "\n\r";
 			}
 			for (Entry<Integer, String> entry : queryStatements.entrySet()) {
-				newFileStr += entry.getValue() + "\n\r";
+				newFileStr += BASE64Utils.decodeQuotedText(entry.getValue()) + "\n\r";
 			}
-
 			PrintWriter prw = null;
 			try {
 				RioDB.rio.getSystemSettings().getLogger().debug("Updating statement file.");
 				prw = new PrintWriter(RioDB.rio.getSystemSettings().getPersistedStmtFile());
 				prw.println(newFileStr);
-
 				RioDB.rio.getSystemSettings().getLogger().debug("Statement persisted to local file '"
 						+ RioDB.rio.getSystemSettings().getPersistedStmtFile() + "'");
 

@@ -26,9 +26,9 @@ import java.util.Map;
 
 import org.riodb.engine.RioDB;
 import org.riodb.sql.ExceptionSQLExecution;
-import org.riodb.sql.SQLFunctionMap;
+import org.riodb.sql.SQLAggregateFunctions;
 import org.riodb.sql.SQLWindowCondition;
-
+import org.riodb.sql.SQLWindowSourceExpression;
 import org.riodb.plugin.RioDBStreamMessage;
 
 public class WindowWrapperPartitioned_String extends WindowWrapper_String {
@@ -39,9 +39,9 @@ public class WindowWrapperPartitioned_String extends WindowWrapper_String {
 
 	public WindowWrapperPartitioned_String(int streamId, String windowName, Window_String window, int fieldId,
 			SQLWindowCondition windowCondition, boolean rangeByTime, boolean rangeByTimeIsTimestamp,
-			int partitionByStringColumnId) {
+			int partitionByStringColumnId, SQLWindowSourceExpression windowSourceExpression) {
 
-		super(streamId, windowName, window, fieldId, windowCondition, rangeByTime, rangeByTimeIsTimestamp);
+		super(streamId, windowName, window, fieldId, windowCondition, rangeByTime, rangeByTimeIsTimestamp, windowSourceExpression);
 
 		windowMap = new HashMap<String, Window_String>();
 
@@ -86,12 +86,22 @@ public class WindowWrapperPartitioned_String extends WindowWrapper_String {
 	}
 
 	public WindowSummaryInterface_String putMessageRef(RioDBStreamMessage message, int currentSecond) {
+		
+		if (keepPreviousMessage) {
+			previousMessage = currentMessage;
+			currentMessage = message;
+			if(firstMessage) {
+				firstMessage = false;
+				return new WindowSummary_String();
+			}
+		}
+		
 		try {
 
 			// if there's a required condition and it doesn't match
 			Window_String w = windowMap.get(message.getString(partitionByStringFieldId));
 
-			if (hasCondition && !windowCondition.match(message)) {
+			if (hasCondition && !windowCondition.match(message, previousMessage)) {
 				// then we just read the summary. no updates made.
 				if (w == null) {
 					return null;
@@ -104,7 +114,16 @@ public class WindowWrapperPartitioned_String extends WindowWrapper_String {
 				}
 			} else {
 				// there's no condition, or the condition matches. We update and read summary:
-				String s = message.getString(stringFieldIndex);
+				String s;
+
+				// if this window is NOT sourced from an expression:
+				if (!windowOfStringExpression) {
+					s = message.getString(stringFieldIndex);
+				}
+				// else, window is sourced from a numeric expression:
+				else {
+					s = windowSourceExpression.getString(message, previousMessage);
+				}
 
 				// for range by time using timestamp, we pass in the timestamp
 				if (rangeByTime && rangeByTimeIsTimestamp) {
@@ -147,7 +166,7 @@ public class WindowWrapperPartitioned_String extends WindowWrapper_String {
 	}
 
 	public boolean windowRequiresFunction(int functionId) {
-		if (functionId >= SQLFunctionMap.functionsAvailable() || functionId < 0)
+		if (functionId >= SQLAggregateFunctions.functionsAvailable() || functionId < 0)
 			return false;
 		return defaultWindow.requiresFunction(functionId);
 	}

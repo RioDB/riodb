@@ -80,7 +80,7 @@ public final class SQLStreamOperations {
 						String parts[] = map.get(key).split(" ");
 						if(parts.length > 1) {
 							if(parts[1].startsWith("'") && parts[1].endsWith("'")) {
-								parts[1] = SQLParser.decodeQuotedText(parts[1]);
+								parts[1] = BASE64Utils.decodeQuotedText(parts[1]);
 								timestampFormat = parts[1].substring(1,parts[1].length()-1);
 								timestampFormat = timestampFormat.replace("''", "'");
 								RioDB.rio.getSystemSettings().getLogger().trace("STREAM_TIMESTAMP_FORMAT: "+ timestampFormat);
@@ -108,7 +108,7 @@ public final class SQLStreamOperations {
 			String inputParams = SQLStreamOperations.getListenerParams(statement);
 			RioDB.rio.getSystemSettings().getLogger().trace("STREAM_PARAMS: "+ inputParams);
 			if(inputParams != null) {
-				inputParams = SQLParser.decodeQuotedText(inputParams);
+				inputParams = BASE64Utils.decodeQuotedText(inputParams);
 				RioDB.rio.getSystemSettings().getLogger().trace("STREAM_DECODED_INPUT_PARAMS: "+ inputParams);
 			}
 			Stream newStream = new Stream(RioDB.rio.getEngine().getStreamCounter(), streamName, def, inputType,

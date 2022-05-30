@@ -26,9 +26,9 @@ import java.util.Map;
 
 import org.riodb.engine.RioDB;
 import org.riodb.sql.ExceptionSQLExecution;
-import org.riodb.sql.SQLFunctionMap;
+import org.riodb.sql.SQLAggregateFunctions;
 import org.riodb.sql.SQLWindowCondition;
-
+import org.riodb.sql.SQLWindowSourceExpression;
 import org.riodb.plugin.RioDBStreamMessage;
 
 public class WindowWrapperPartitioned extends WindowWrapper {
@@ -36,12 +36,15 @@ public class WindowWrapperPartitioned extends WindowWrapper {
 	// what data stream these queries run against
 	private HashMap<String, Window> windowMap;
 	private int partitionByStringFieldId;
+	
+	private boolean windowOfNumericExpression;
+	private SQLWindowSourceExpression windowSourceExpression;
 
 	public WindowWrapperPartitioned(int streamId, String windowName, Window window, int fieldId,
 			SQLWindowCondition windowCondition, boolean rangeByTime, boolean rangeByTimeIsTimestamp,
-			int partitionByStringColumnId) {
+			int partitionByStringColumnId, SQLWindowSourceExpression windowSourceExpression) {
 
-		super(streamId, windowName, window, fieldId, windowCondition, rangeByTime, rangeByTimeIsTimestamp);
+		super(streamId, windowName, window, fieldId, windowCondition, rangeByTime, rangeByTimeIsTimestamp, windowSourceExpression);
 
 		windowMap = new HashMap<String, Window>();
 
@@ -52,9 +55,17 @@ public class WindowWrapperPartitioned extends WindowWrapper {
 
 	public String describeWindow() {
 		String s = "{\"name\":\"" + windowName + "\",\n \"steam\":\""
-				+ RioDB.rio.getEngine().getStream(streamId).getName() + "\",\n \"field\":\""
-				+ RioDB.rio.getEngine().getStream(streamId).getDef().getNumericFieldName(numericFieldIndex)
-				+ "\",\n \"where\": \"" + windowCondition.getExpression() + "\",\n \"running\":["
+				+ RioDB.rio.getEngine().getStream(streamId).getName() + "\",\n \"field\":\"";
+
+				if (windowOfNumericExpression) {
+					s = s + windowSourceExpression.getExpression();
+				} else {
+					s = s + RioDB.rio.getEngine().getStream(streamId).getDef().getNumericFieldName(numericFieldIndex);
+				}
+
+				s = s + "\",\n";
+				
+				s = s + "\"where\": \"" + windowCondition.getExpression() + "\",\n \"running\":["
 				+ defaultWindow.getAggregations() + "]" + ",\n \"partition_by\":\""
 				+ RioDB.rio.getEngine().getStream(this.streamId).getDef().getStringFieldName(partitionByStringFieldId)
 				+ "\",\n \"range_by\": ";
@@ -86,12 +97,22 @@ public class WindowWrapperPartitioned extends WindowWrapper {
 	}
 
 	public WindowSummaryInterface putMessageRef(RioDBStreamMessage message, int currentSecond) {
+		
+		if (keepPreviousMessage) {
+			previousMessage = currentMessage;
+			currentMessage = message;
+			if(firstMessage) {
+				firstMessage = false;
+				return new WindowSummary();
+			}
+		}
+		
 		try {
 
 			// if there's a required condition and it doesn't match
 			Window w = windowMap.get(message.getString(partitionByStringFieldId));
 
-			if (hasCondition && !windowCondition.match(message)) {
+			if (hasCondition && !windowCondition.match(message, previousMessage)) {
 				// then we just read the summary. no updates made.
 				if (w == null) {
 					return null;
@@ -104,7 +125,16 @@ public class WindowWrapperPartitioned extends WindowWrapper {
 				}
 			} else {
 				// there's no condition, or the condition matches. We update and read summary:
-				double d = message.getDouble(numericFieldIndex);
+				double d;
+
+				// if this window is NOT sourced from an expression:
+				if (!windowOfNumericExpression) {
+					d = message.getDouble(numericFieldIndex);
+				}
+				// else, window is sourced from a numeric expression:
+				else {
+					d = windowSourceExpression.getNumber(message, previousMessage);
+				}
 
 				// for range by time using timestamp, we pass in the timestamp
 				if (rangeByTime && rangeByTimeIsTimestamp) {
@@ -147,7 +177,7 @@ public class WindowWrapperPartitioned extends WindowWrapper {
 	}
 
 	public boolean windowRequiresFunction(int functionId) {
-		if (functionId >= SQLFunctionMap.functionsAvailable() || functionId < 0)
+		if (functionId >= SQLAggregateFunctions.functionsAvailable() || functionId < 0)
 			return false;
 		return defaultWindow.requiresFunction(functionId);
 	}

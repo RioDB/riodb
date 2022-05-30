@@ -145,7 +145,7 @@ public class Query {
 			// if the condition is not null (some queries don't have a condition), check for
 			// condition match:
 			if (sqlQueryCondition != null
-					&& !sqlQueryCondition.match(esum.getMessageRef(), esum.getWindowSummariesRef())) {
+					&& !sqlQueryCondition.match(esum.getMessageRef(), esum.getWindowSummariesRef(), esum.getWindowSummariesRef_String())) {
 				// the query is NOT a match the conditions
 				return false;
 			}

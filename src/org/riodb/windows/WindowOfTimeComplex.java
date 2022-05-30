@@ -46,7 +46,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import org.riodb.engine.RioDB;
-import org.riodb.sql.SQLFunctionMap;
+import org.riodb.sql.SQLAggregateFunctions;
 
 import java.util.TreeMap;
 
@@ -155,18 +155,18 @@ public class WindowOfTimeComplex implements Window {
 
 		this.partitionExpiration = partitionExpiration;
 		this.functionsRequired = functionsRequired;
-		this.requiresCount = functionsRequired[SQLFunctionMap.getFunctionId("count")];
-		this.requiresCountDistinct = functionsRequired[SQLFunctionMap.getFunctionId("count_distinct")];
-		this.requiresFirst = functionsRequired[SQLFunctionMap.getFunctionId("first")];
-		this.requiresLast = functionsRequired[SQLFunctionMap.getFunctionId("last")];
-		this.requiresMax = functionsRequired[SQLFunctionMap.getFunctionId("max")];
-		this.requiresMedian = functionsRequired[SQLFunctionMap.getFunctionId("median")];
-		this.requiresMin = functionsRequired[SQLFunctionMap.getFunctionId("min")];
-		this.requiresMode = functionsRequired[SQLFunctionMap.getFunctionId("mode")];
-		this.requiresPrevious = functionsRequired[SQLFunctionMap.getFunctionId("previous")];
-		this.requiresSlope = functionsRequired[SQLFunctionMap.getFunctionId("slope")];
-		this.requiresSum = functionsRequired[SQLFunctionMap.getFunctionId("sum")];
-		this.requiresVariance = functionsRequired[SQLFunctionMap.getFunctionId("variance")];
+		this.requiresCount = functionsRequired[SQLAggregateFunctions.getFunctionId("count")];
+		this.requiresCountDistinct = functionsRequired[SQLAggregateFunctions.getFunctionId("count_distinct")];
+		this.requiresFirst = functionsRequired[SQLAggregateFunctions.getFunctionId("first")];
+		this.requiresLast = functionsRequired[SQLAggregateFunctions.getFunctionId("last")];
+		this.requiresMax = functionsRequired[SQLAggregateFunctions.getFunctionId("max")];
+		this.requiresMedian = functionsRequired[SQLAggregateFunctions.getFunctionId("median")];
+		this.requiresMin = functionsRequired[SQLAggregateFunctions.getFunctionId("min")];
+		this.requiresMode = functionsRequired[SQLAggregateFunctions.getFunctionId("mode")];
+		this.requiresPrevious = functionsRequired[SQLAggregateFunctions.getFunctionId("previous")];
+		this.requiresSlope = functionsRequired[SQLAggregateFunctions.getFunctionId("slope")];
+		this.requiresSum = functionsRequired[SQLAggregateFunctions.getFunctionId("sum")];
+		this.requiresVariance = functionsRequired[SQLAggregateFunctions.getFunctionId("variance")];
 
 		RioDB.rio.getSystemSettings().getLogger().debug("\tconstructing Window of time, complex");
 
@@ -991,7 +991,7 @@ public class WindowOfTimeComplex implements Window {
 
 	@Override
 	public String getAggregations() {
-		return SQLFunctionMap.getFunctionsAvailable(functionsRequired);
+		return SQLAggregateFunctions.getFunctionsAvailable(functionsRequired);
 	}
 
 	@Override

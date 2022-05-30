@@ -39,7 +39,7 @@ import java.util.HashMap;
 import java.util.Map.Entry;
 
 import org.riodb.engine.RioDB;
-import org.riodb.sql.SQLFunctionMap;
+import org.riodb.sql.SQLAggregateFunctions;
 
 import java.util.TreeMap;
 
@@ -141,14 +141,14 @@ public class WindowOfQuantity_String implements Window_String {
 		this.partitionExpiration = partitionExpiration;
 
 		this.required_Functions = functionsRequired;
-		this.requiresCount = functionsRequired[SQLFunctionMap.getFunctionId("count")];
-		this.requiresCountDistinct = functionsRequired[SQLFunctionMap.getFunctionId("count_distinct")];
-		this.requiresFirst = functionsRequired[SQLFunctionMap.getFunctionId("first")];
-		this.requiresLast = functionsRequired[SQLFunctionMap.getFunctionId("last")];
-		this.requiresMax = functionsRequired[SQLFunctionMap.getFunctionId("max")];
-		this.requiresMin = functionsRequired[SQLFunctionMap.getFunctionId("min")];
-		this.requiresMode = functionsRequired[SQLFunctionMap.getFunctionId("mode")];
-		this.requiresPrevious = functionsRequired[SQLFunctionMap.getFunctionId("previous")];
+		this.requiresCount = functionsRequired[SQLAggregateFunctions.getFunctionId("count")];
+		this.requiresCountDistinct = functionsRequired[SQLAggregateFunctions.getFunctionId("count_distinct")];
+		this.requiresFirst = functionsRequired[SQLAggregateFunctions.getFunctionId("first")];
+		this.requiresLast = functionsRequired[SQLAggregateFunctions.getFunctionId("last")];
+		this.requiresMax = functionsRequired[SQLAggregateFunctions.getFunctionId("max")];
+		this.requiresMin = functionsRequired[SQLAggregateFunctions.getFunctionId("min")];
+		this.requiresMode = functionsRequired[SQLAggregateFunctions.getFunctionId("mode")];
+		this.requiresPrevious = functionsRequired[SQLAggregateFunctions.getFunctionId("previous")];
 
 
 		RioDB.rio.getSystemSettings().getLogger().debug("\tconstructing Window (String) of Quantity for Strings");
@@ -263,7 +263,6 @@ public class WindowOfQuantity_String implements Window_String {
 							// update windowMode if the new element quantity is greater than windowMode
 							if (requiresMode && c.isGT(modeQuantity)) {
 								windowSummary.setMode(elementInserted);
-								System.out.println("newMode: "+ windowSummary.getMode());
 								modeQuantity = c.intValue();
 							}
 						} else {
@@ -769,7 +768,7 @@ public class WindowOfQuantity_String implements Window_String {
 
 	@Override
 	public String getAggregations() {
-		return SQLFunctionMap.getFunctionsAvailable(required_Functions);
+		return SQLAggregateFunctions.getFunctionsAvailable(required_Functions);
 	}
 
 	@Override
