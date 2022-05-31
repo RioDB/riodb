@@ -673,7 +673,16 @@ public final class SQLParser {
 
 	// checks if word is scalar function
 	public static boolean isScalarFunction(String word) {
-		return SQLScalarFunctions.isScalarFunction(word);
+		if (SQLScalarFunctionsReturningString.isStringFunction(word)) {
+			return true;
+		}
+		if (SQLScalarFunctionsReturningNumber.isNumericFunction(word)) {
+			return true;
+		}
+		if (SQLScalarFunctionsReturningBoolean.isBooleanFunction(word)) {
+			return true;
+		}
+		return false;
 	}
 
 	public static final boolean isStreamField(int streamId, String word) {
@@ -726,7 +735,6 @@ public final class SQLParser {
 
 		return word;
 	}
-
 
 	// a function to turn statement all to lowercase, while preserving quoted text
 	private static String lowerCase(String stmt) {
@@ -856,66 +864,70 @@ public final class SQLParser {
 		if (s == null) {
 			return false;
 		}
-		if (SQLScalarFunctions.stringContainsStringFunction(s) || SQLScalarFunctions.stringContainsNumericFunction(s)) {
+
+		else if (SQLScalarFunctionsReturningString.stringContainsStringFunction(s)
+				|| SQLScalarFunctionsReturningNumber.stringContainsNumericFunction(s)
+				|| SQLScalarFunctionsReturningBoolean.stringContainsBooleanFunction(s)) {
 			return true;
 		}
 		return false;
 	}
-	
-public static boolean isStringResource(String word, int streamId) {
-		
+
+	public static boolean isStringResource(String word, int streamId) {
+
 		// resource is a static number
 		if (SQLParser.isNumber(word)) {
 			return false;
-		} 
-		
-		// resource is a numeric stream field
-		if (word.contains("getDouble(")) {
-			return false;
-		} 
-
-		// is a scalar function 
-		if (word.startsWith("SQLScalarFunctions.")) {
-			if (SQLScalarFunctions.stringContainsStringFunction(word)) {
-				return true;
-			} else {
-				return false;
-			}
 		}
-		
-		// is a Math function 
+
+		// resource is a numeric stream field
+		if (word.contains(".getDouble(")) {
+			return false;
+		}
+
+		// resource is a numeric stream field
+		if (word.contains(".getString(")) {
+			return true;
+		}
+
+		// is a scalar function that returns strings
+		if (word.startsWith("SQLScalarFunctionsReturningString.")) {
+			return true;
+		}
+
+		// is a scalar function that returns strings
+		if (word.startsWith("SQLScalarFunctionsReturningBoolean.")) {
+			return false;
+		}
+
+		// is a scalar function that returns strings
+		if (word.startsWith("SQLScalarFunctionsReturningNumber.")) {
+			return false;
+		}
+
+		// is a Math function
 		if (word.startsWith("Math.")) {
 			return false;
 		}
-		
+
 		// is a window function for a window of Numbers:
 		if (word.startsWith("windowSummaries[0].")) {
-			return false;			
+			return false;
 		}
-		
+
 		// if is a window function for a window of Strings
 		if (word.startsWith("windowSummaries_String[0].")) {
-			if(word.contains(".count") ||
-				word.contains("count_distinct") ||
-				word.contains("empty") ||
-				word.contains("full") ||
-				word.contains("avg") ||
-				word.contains("sum") ||
-				word.contains("variance") ||
-				word.contains("stddev") ||
-				word.contains("slope") 
-				) {
+			if (word.contains(".count") || word.contains("count_distinct") || word.contains("empty")
+					|| word.contains("full") || word.contains("avg") || word.contains("sum")
+					|| word.contains("variance") || word.contains("stddev") || word.contains("slope")) {
 				return false;
 			}
 		}
-		
-		if(SQLParser.isDelimiter(word) ||
-				SQLParser.isMathOperator(word) ||
-				SQLParser.isOperator(word)) {
+
+		if (SQLParser.isDelimiter(word) || SQLParser.isMathOperator(word) || SQLParser.isOperator(word)) {
 			return false;
 		}
 		return true;
 	}
-
 
 }
