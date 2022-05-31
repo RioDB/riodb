@@ -81,8 +81,14 @@ public final class JavaGenerator {
 				words[i] = "Math." + SQLParser.mathFunctionRegCase(words[i]);
 			}
 
-			else if (SQLScalarFunctions.isScalarFunction(words[i].toLowerCase())) {
-				words[i] = "SQLScalarFunctions." + words[i].toLowerCase();
+			else if (SQLScalarFunctionsReturningString.isStringFunction(words[i].toLowerCase())) {
+				words[i] = "SQLScalarFunctionsReturningString." + words[i].toLowerCase();
+			}
+			else if (SQLScalarFunctionsReturningBoolean.isBooleanFunction(words[i].toLowerCase())) {
+				words[i] = "SQLScalarFunctionsReturningBoolean." + words[i].toLowerCase();
+			}
+			else if (SQLScalarFunctionsReturningNumber.isNumericFunction(words[i].toLowerCase())) {
+				words[i] = "SQLScalarFunctionsReturningNumber." + words[i].toLowerCase();
 			}
 
 			else if (words[i].contains(".")) {
@@ -132,7 +138,12 @@ public final class JavaGenerator {
 			words[0] = "!";
 		}
 
+		
+		
+		
 		// REPLACE OPERATORS
+		
+		
 		for (int i = 1; i < words.length; i++) {
 
 			if (words[i].equals("not")) {
@@ -159,7 +170,7 @@ public final class JavaGenerator {
 					if (openingParenthesisIndex == -1) {
 						throw new ExceptionSQLStatement("Could not identify opening parenthesis in query condition.");
 					} else if (openingParenthesisIndex > 0
-							&& words[openingParenthesisIndex - 1].startsWith("SQLScalarFunctions.")) {
+							&& words[openingParenthesisIndex - 1].startsWith("SQLScalarFunctionsReturningString.")) {
 						preceededByString = true;
 						if (words[i].equals("!=")) {
 							words[openingParenthesisIndex - 1] = "!" + words[openingParenthesisIndex - 1];
@@ -171,7 +182,7 @@ public final class JavaGenerator {
 				if (preceededByString) {
 
 					words[i] = ".equals(";
-					if (i < words.length - 2 && words[i + 1].startsWith("SQLScalarFunctions.")
+					if (i < words.length - 2 && words[i + 1].startsWith("SQLScalarFunctionsReturningString.")
 							&& words[i + 2].equals("(")) {
 						int closingParenthesisIndex = SQLParser.getIndexOfClosingParenthesis(words, i + 2);
 						if (closingParenthesisIndex == -1) {
@@ -210,7 +221,7 @@ public final class JavaGenerator {
 					if (openingParenthesisIndex == -1) {
 						throw new ExceptionSQLStatement("Could not identify opening parenthesis in query condition.");
 					} else if (openingParenthesisIndex > 0
-							&& words[openingParenthesisIndex - 1].startsWith("SQLScalarFunctions.")) {
+							&& words[openingParenthesisIndex - 1].startsWith("SQLScalarFunctionsReturningString.")) {
 						preceededByString = true;
 					}
 
@@ -219,7 +230,7 @@ public final class JavaGenerator {
 				if (preceededByString) {
 
 					words[i] = ".compareTo(";
-					if (i < words.length - 2 && words[i + 1].startsWith("SQLScalarFunctions.")
+					if (i < words.length - 2 && words[i + 1].startsWith("SQLScalarFunctionsReturningString.")
 							&& words[i + 2].equals("(")) {
 						int closingParenthesisIndex = SQLParser.getIndexOfClosingParenthesis(words, i + 2);
 						if (closingParenthesisIndex == -1) {

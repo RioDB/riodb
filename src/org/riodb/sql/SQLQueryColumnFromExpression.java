@@ -44,8 +44,14 @@ public class SQLQueryColumnFromExpression implements SQLQueryColumn {
 				  "import org.riodb.sql.SQLStringIN;\r\n"+
 				  "import org.riodb.sql.SQLStringLIKE;\r\n";
 		
-		if (expression != null && expression.contains("SQLScalarFunctions.")) {
-			source = source + "import org.riodb.sql.SQLScalarFunctions;\r\n";
+		if (expression != null && expression.contains("SQLScalarFunctionsReturningNumber.")) {
+			source = source + "import org.riodb.sql.SQLScalarFunctionsReturningNumber;\r\n";
+		}
+		if (expression != null && expression.contains("SQLScalarFunctionsReturningString.")) {
+			source = source + "import org.riodb.sql.SQLScalarFunctionsReturningString;\r\n";
+		}
+		if (expression != null && expression.contains("SQLScalarFunctionsReturningBoolean.")) {
+			source = source + "import org.riodb.sql.SQLScalarFunctionsReturningBoolean;\r\n";
 		}
 		if (expression != null && expression.contains("Math.")) {
 			source = source + "import java.lang.Math;\r\n";
