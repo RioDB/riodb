@@ -292,7 +292,7 @@ final public class SQLQueryColumnOperations {
 		// ArrayLists of StringLike and StringIn objects if needed
 		ArrayList<SQLStringLIKE> likeList = new ArrayList<SQLStringLIKE>();
 		ArrayList<SQLStringIN> inList = new ArrayList<SQLStringIN>();
-		// get the list of all required Windows for this query condition
+		// get the list of all required Windows for this query column
 		TreeSet<Integer> requiredWindows = new TreeSet<Integer>();
 
 		String javaExpression = JavaGenerator.convertSqlToJava(expression, queryResources, streamId, likeList,
@@ -308,7 +308,7 @@ final public class SQLQueryColumnOperations {
 		
 		RioDB.rio.getSystemSettings().getLogger().debug("SELECT expression: " + javaExpression);
 
-		return new SQLQueryColumnFromExpression(javaExpression, heading, likeArr, inArr);
+		return new SQLQueryColumnFromExpression(javaExpression, heading, likeArr, inArr, requiredWindows);
 	}
 
 }

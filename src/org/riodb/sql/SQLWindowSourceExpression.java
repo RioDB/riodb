@@ -113,13 +113,35 @@ public class SQLWindowSourceExpression {
 				
 				source = source+
 				"	@Override\r\n" + 
-				"	public String getString(RioDBStreamMessage message,RioDBStreamMessage previousMessage) {\r\n" + 
-				"		return "+ stringExpression +";\r\n" + 
+				"	public String getString(RioDBStreamMessage message,RioDBStreamMessage previousMessage) throws ExceptionSQLExecution  {\r\n" 
+
+				
+				
+				// use TRY to catch exceptions like divide by 0
+				+ "		try {\r\n"
+				+ "			return "+ stringExpression +";\r\n"
+				+ "		} catch (java.lang.ArithmeticException e) { \r\n"
+				+ "			throw new ExceptionSQLExecution(\"Arithmetic Exception. Devide by 0 or rouding overflow.\");\r\n" 
+				+ "		}\r\n" +
+				
+				
+				
 				"	}\r\n" + 
 
 				"	@Override\r\n" + 
-				"	public double getNumber(RioDBStreamMessage message,RioDBStreamMessage previousMessage) {\r\n" + 
-				"		return "+ numberExpression +";\r\n" + 
+				"	public double getNumber(RioDBStreamMessage message,RioDBStreamMessage previousMessage) throws ExceptionSQLExecution  {\r\n"  
+				
+				
+				
+				// use TRY to catch exceptions like divide by 0
+				+ "		try {\r\n"
+				+ "			return "+ numberExpression +";\r\n"
+				+ "		} catch (java.lang.ArithmeticException e) { \r\n"
+				+ "			throw new ExceptionSQLExecution(\"Arithmetic Exception. Devide by 0 or rouding overflow.\");\r\n" 
+				+ "		}\r\n"  +
+				
+				
+				
 				"	}\r\n" + 
 
 				"}\r\n" + 
@@ -144,11 +166,11 @@ public class SQLWindowSourceExpression {
 
 	}
 
-	public String getString(RioDBStreamMessage message, RioDBStreamMessage previousMessage) {
+	public String getString(RioDBStreamMessage message, RioDBStreamMessage previousMessage) throws ExceptionSQLExecution  {
 		return compiledSource.getString(message, previousMessage);
 	}
 	
-	public double getNumber(RioDBStreamMessage message, RioDBStreamMessage previousMessage) {
+	public double getNumber(RioDBStreamMessage message, RioDBStreamMessage previousMessage) throws ExceptionSQLExecution  {
 		return compiledSource.getNumber(message, previousMessage);
 	}
 

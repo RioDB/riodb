@@ -93,8 +93,15 @@ public class SQLWindowConditionExpression implements SQLWindowCondition {
 		}
 
 		source = source + "	@Override\r\n"
-				+ "	public boolean match(RioDBStreamMessage message,RioDBStreamMessage previousMessage) {\r\n"
-				+ "		return " + expression + ";\r\n" 
+				+ "	public boolean match(RioDBStreamMessage message,RioDBStreamMessage previousMessage) throws ExceptionSQLExecution {\r\n"
+				
+				// use TRY to catch exceptions like divide by 0
+				+ "		try {\r\n"
+				+ "			return "+ expression +";\r\n"
+				+ "		} catch (java.lang.ArithmeticException e) { \r\n"
+				+ "			throw new ExceptionSQLExecution(\"Arithmetic Exception. Devide by 0 or rouding overflow.\");\r\n" 
+				+ "		}\r\n" 
+			
 				+ "	}\r\n" 
 				+ "}\r\n";
 		
@@ -126,7 +133,7 @@ public class SQLWindowConditionExpression implements SQLWindowCondition {
 	}
 
 	@Override
-	public boolean match(RioDBStreamMessage message, RioDBStreamMessage previousMessage) {
+	public boolean match(RioDBStreamMessage message, RioDBStreamMessage previousMessage) throws ExceptionSQLExecution  {
 		return compiledCondition.match(message, previousMessage);
 	}
 

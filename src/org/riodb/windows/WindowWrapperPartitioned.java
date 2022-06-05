@@ -170,6 +170,7 @@ public class WindowWrapperPartitioned extends WindowWrapper {
 			if (!errorAlreadyCaught) {
 				e.printStackTrace();
 				errorAlreadyCaught = true;
+				this.status = e.getMessage().replace("\"", "'").replace("\n", "\\t");
 			}
 			return null;
 		}

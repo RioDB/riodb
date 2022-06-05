@@ -137,12 +137,15 @@ public class Stream implements Runnable {
 		if (interrupt)
 			threadStatus = "stopped";
 
-		String s = "{ \n   \"stream_name\":\"" + streamName + "\"," + "\n   \"_thread\": \"" + streamInput.status()
-				+ "\"," + "\n   \"window_count\": " + streamWindowMgr.getWindowCount() + ","
-				+ "\n   \"handler_thread\": \"" + threadStatus + "\","
-				// + "\n \"message_queue_size\": " + streamPacketInbox.size() + ","
-				+ "\n   \"query_count\": "	+ streamQueryMgr.queryCount() 
-				+ "\n}";
+		String s = "{ \n   \"stream_name\":\"" + streamName;
+		s = s + "\",\n   \"_thread\": \"" + streamInput.status();
+		s = s + "\",\n   \"input_type\": \"" + streamInput.getType();
+		s = s + "\",\n   \"handler_thread\": \"" + threadStatus;
+		s = s + "\",\n   \"window_count\": " + streamWindowMgr.getWindowCount();
+		s = s + ",\n   \"windows\": [" + streamWindowMgr.listAllWindows() + "]";
+		s = s + ",\n   \"query_count\": " + streamQueryMgr.queryCount();
+		s = s + ",\n   \"queries\": [" + streamQueryMgr.listAllQueries() + "]";
+		s = s + "}";
 		return s;
 	}
 
@@ -205,11 +208,11 @@ public class Stream implements Runnable {
 		if (interrupt == true) {
 
 			try {
-				
+
 				// start query
 				streamQueryMgr.start();
 				Clock.sleep(40);
-				
+
 				// start stream thread
 				// counter = 0;
 				interrupt = false;
@@ -220,9 +223,9 @@ public class Stream implements Runnable {
 				Clock.sleep(40);
 
 				streamInput.start();
-				
+
 				Clock.sleep(40);
-				
+
 				RioDB.rio.getSystemSettings().getLogger().debug("Stream.start(): started.");
 			} catch (RioDBPluginException e) {
 				interrupt = true;
@@ -284,7 +287,7 @@ public class Stream implements Runnable {
 	public void addWindowRef(WindowWrapper newWindow) {
 		streamWindowMgr.addWindow(newWindow);
 	}
-	
+
 	// Add window of STRING to this stream
 	public void addWindowRef_String(WindowWrapper_String newWindow) {
 		streamWindowMgr.addWindow_String(newWindow);
@@ -343,7 +346,7 @@ public class Stream implements Runnable {
 				// get next message from dataSource. non-blocking. Null can be returned.
 				RioDBStreamMessage message = streamInput.getNextInputMessage();
 				if (message != null) {
-					
+
 					/*
 					 * Tell windowManager to run this message on ALL windows. Collect all windows
 					 * responses (windowSummary) into array. This array is filled with the clone of
@@ -358,29 +361,19 @@ public class Stream implements Runnable {
 
 					// make new object that wraps the Message & window summaries together.
 					final MessageWithSummaries ews = new MessageWithSummaries(message, results, results_String);
-					
 
 					// Send message + window summaries to Queries for processing.
 					sendMessageResultsRefToQueries(ews);
 
-				} 
-				/*
-				else {
-					/*
-					 * UPDATE: This sleep block should be removed. It should be a responsibility of the 
-					 * plugin to implement a blocking queue or busy-waiting on the plugin side. Then
-					 * plugins can be made to prioritize either throughput, or latency, or CPU efficiency
-					 * based on the plugin's purpose.  
-					 * Once this is removed, RioDB will not have any performance safety net!
-					 * it will be up to the plugin.
-					 * /
-					try {
-						Thread.sleep(1);
-					} catch (InterruptedException e) {
-						;
-					}
 				}
-				*/
+				/*
+				 * else { /* UPDATE: This sleep block should be removed. It should be a
+				 * responsibility of the plugin to implement a blocking queue or busy-waiting on
+				 * the plugin side. Then plugins can be made to prioritize either throughput, or
+				 * latency, or CPU efficiency based on the plugin's purpose. Once this is
+				 * removed, RioDB will not have any performance safety net! it will be up to the
+				 * plugin. / try { Thread.sleep(1); } catch (InterruptedException e) { ; } }
+				 */
 			}
 
 		} catch (RioDBPluginException e) {

@@ -239,15 +239,18 @@ public class WindowManager {
 	// get all window names in JSON format
 	public String listAllWindows() {
 		String response = "";
+
 		for (int i = 0; i < windowWrapperList.size(); i++) {
-			response = response + "{\"window_id\": " + i + ", \"stream\":\""
+
+			response = response + "{\"numeric_window_id\": " + i + ", \"stream\":\""
 					+ RioDB.rio.getEngine().getStream(streamId).getName() + "\", \"window_name\":\""
-					+ windowWrapperList.get(i).getName() + "\"},";
+					+ windowWrapperList.get(i).getName() + "\", \"status\": \""+ windowWrapperList.get(i).getStatus() +"\"   },";
 		}
 		for (int i = 0; i < windowWrapperList_String.size(); i++) {
-			response = response + "{\"window_id\": " + ((i * -1) - 1) + ", \"stream\":\""
+
+			response = response + "{\"string_window_id\": " + ((i * -1) - 1) + ", \"stream\":\""
 					+ RioDB.rio.getEngine().getStream(streamId).getName() + "\", \"window_name\":\""
-					+ windowWrapperList_String.get(i).getName() + "\"},";
+					+ windowWrapperList_String.get(i).getName() + "\", \"status\": \""+ windowWrapperList_String.get(i).getStatus() +"\"   },";
 		}
 
 		return response;

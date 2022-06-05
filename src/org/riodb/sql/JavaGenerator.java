@@ -48,6 +48,7 @@ public final class JavaGenerator {
 
 			if (SQLParser.isNumber(words[i])) {
 				// leave this check here. So it doesn't get picked up by contains(".") later...
+				words[i] = words[i]+ "d";
 			}
 
 			// decode constant strings from BASE64
@@ -81,13 +82,13 @@ public final class JavaGenerator {
 				words[i] = "Math." + SQLParser.mathFunctionRegCase(words[i]);
 			}
 
-			else if (SQLScalarFunctionsReturningString.isStringFunction(words[i].toLowerCase())) {
+			else if (SQLScalarFunctions.isStringFunction(words[i].toLowerCase())) {
 				words[i] = "SQLScalarFunctionsReturningString." + words[i].toLowerCase();
 			}
-			else if (SQLScalarFunctionsReturningBoolean.isBooleanFunction(words[i].toLowerCase())) {
+			else if (SQLScalarFunctions.isBooleanFunction(words[i].toLowerCase())) {
 				words[i] = "SQLScalarFunctionsReturningBoolean." + words[i].toLowerCase();
 			}
-			else if (SQLScalarFunctionsReturningNumber.isNumericFunction(words[i].toLowerCase())) {
+			else if (SQLScalarFunctions.isNumericFunction(words[i].toLowerCase())) {
 				words[i] = "SQLScalarFunctionsReturningNumber." + words[i].toLowerCase();
 			}
 

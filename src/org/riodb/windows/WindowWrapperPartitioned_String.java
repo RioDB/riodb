@@ -159,6 +159,7 @@ public class WindowWrapperPartitioned_String extends WindowWrapper_String {
 			if (!errorAlreadyCaught) {
 				e.printStackTrace();
 				errorAlreadyCaught = true;
+				status = e.getMessage().replace("\"", "'").replace("\n", "\\t");
 			}
 			return null;
 		}
