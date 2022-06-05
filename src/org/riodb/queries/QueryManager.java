@@ -51,17 +51,12 @@ public class QueryManager{
 	private boolean queryWaitingToBeInserted = false;
 	
 	
-
-	private boolean erroAlreadyCaught;
-	
-	
 	// Sessions of API SELECT statements that are waiting for a reply. 
 	private final QuerySessions sessions = new QuerySessions();
 	
 	// constructor
 	public QueryManager() {
 		//this.streamId = streamId;
-		erroAlreadyCaught = false;
 	}
 	
 	// sets the streamId of this query mgr
@@ -110,9 +105,12 @@ public class QueryManager{
 				queryString = BASE64Utils.decodeQuotedText(queryString);
 				queryString = SQLParser.hidePassword(queryString);
 			
-				response = response + "{\"id\":" + queries.get(i).getQueryId() + ", \"stream\":\""
-			    + RioDB.rio.getEngine().getStream(streamId).getName() +"\", \"status\": "+ !queries.get(i).isDestroying() 
-			    +",  \"statement\": \"" +  queryString + "\"},";
+				response = response + "{\"id\":" + queries.get(i).getQueryId() 
+				+ ", \"stream\":\"" + RioDB.rio.getEngine().getStream(streamId).getName() 
+				+ "\", \"output_type\": \""+ queries.get(i).getOutputType()
+				+ "\", \"status\": \""+ queries.get(i).getStatus()
+				+ "\", \"limit\": "+ queries.get(i).getLimit() 
+			    + ",\n  \"statement\": \"" +  queryString + "\"},";
 				
 			}
 		}
@@ -215,11 +213,11 @@ public class QueryManager{
 						RioDB.rio.getSystemSettings().getLogger().info("Query "+ String.valueOf(queryId) +" removed.");
 					}
 				} catch (ExceptionSQLExecution e) {
-					if (!erroAlreadyCaught) {
-						RioDB.rio.getSystemSettings().getLogger().debug("Error executing query.");
-						RioDB.rio.getSystemSettings().getLogger().debug(e.getMessage());
-						erroAlreadyCaught = true;
-					}
+					//if (!erroAlreadyCaught) {
+					//	RioDB.rio.getSystemSettings().getLogger().debug("Error executing query.");
+					//	RioDB.rio.getSystemSettings().getLogger().debug(e.getMessage());
+						
+					//}
 				}
 			}
 

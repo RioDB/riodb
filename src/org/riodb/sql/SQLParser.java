@@ -673,13 +673,7 @@ public final class SQLParser {
 
 	// checks if word is scalar function
 	public static boolean isScalarFunction(String word) {
-		if (SQLScalarFunctionsReturningString.isStringFunction(word)) {
-			return true;
-		}
-		if (SQLScalarFunctionsReturningNumber.isNumericFunction(word)) {
-			return true;
-		}
-		if (SQLScalarFunctionsReturningBoolean.isBooleanFunction(word)) {
+		if (SQLScalarFunctions.isScalarFunction(word)) {
 			return true;
 		}
 		return false;
@@ -863,11 +857,7 @@ public final class SQLParser {
 	public static boolean stringContainsScalarFunction(String s) {
 		if (s == null) {
 			return false;
-		}
-
-		else if (SQLScalarFunctionsReturningString.stringContainsStringFunction(s)
-				|| SQLScalarFunctionsReturningNumber.stringContainsNumericFunction(s)
-				|| SQLScalarFunctionsReturningBoolean.stringContainsBooleanFunction(s)) {
+		} else if (SQLScalarFunctions.stringContainsScalarFunction(s)) {
 			return true;
 		}
 		return false;

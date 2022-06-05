@@ -32,10 +32,9 @@ package org.riodb.sql;
 
 public final class SQLScalarFunctionsReturningNumber {
 
-	private static String[] numericFunctions = { "to_number", "decode", "length" };
 
 	// Decode function that evaluates numbers and return number.
-	public static double decode(double... numbers) {
+	public static double decode_number(double... numbers) throws ExceptionSQLExecution {
 		if (numbers.length > 2) {
 			for (int i = 1; i < numbers.length; i += 2) {
 				if (numbers[0] == numbers[i] && (i + 1) < numbers.length) {
@@ -49,37 +48,9 @@ public final class SQLScalarFunctionsReturningNumber {
 		return Double.NaN;
 	}
 
-	// Decode function that evaluates Strings and return number.
-	public static String decode(String... strings) {
-		if (strings.length > 2) {
-			for (int i = 1; i < strings.length; i += 2) {
-				if (strings[0].equals(strings[i]) && (i + 1) < strings.length) {
-					return strings[i + 1];
-				}
-			}
-			if (strings.length % 2 == 0) {
-				return strings[strings.length - 1];
-			}
-		}
-		return null;
-	}
-
-	// checks if a word is the name of a scalar function
-	public static boolean isNumericFunction(String word) {
-		if (word == null) {
-			return false;
-		}
-		String w = word.toLowerCase();
-		for (String f : numericFunctions) {
-			if (f.equals(w)) {
-				return true;
-			}
-		}
-		return false;
-	}
 
 	// function that returns the length of a string
-	public static int length(String s) {
+	public static int length(String s) throws ExceptionSQLExecution {
 		if (s == null) {
 			return 0;
 		}
@@ -87,23 +58,14 @@ public final class SQLScalarFunctionsReturningNumber {
 	}
 
 	// function that returns a string as number.
-	public static double to_number(String s) {
-		return Double.valueOf(s);
-	}
-	
-	// This is not a scalar function. Just a function to check if a string contains
-	// the name of a scalar function that returns a String.
-	public static boolean stringContainsNumericFunction(String word) {
-		if (word == null) {
-			return false;
+	public static double to_number(String s) throws ExceptionSQLExecution {
+		if(s == null) {
+			return Double.NaN;
 		}
-		String s = word.toLowerCase();
-		for (String f : numericFunctions) {
-			if (s.contains(f)) {
-				return true;
-			}
+		else if(SQLParser.isNumber(s)) {
+			return Double.valueOf(s);
 		}
-		return false;
+		throw new ExceptionSQLExecution("TO_NUMBER: Failed attempt to convert an alpha-numeric string into a number.");
 	}
 
 }

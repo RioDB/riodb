@@ -31,12 +31,11 @@ package org.riodb.sql;
 
 public final class SQLScalarFunctionsReturningString {
 
-	private static String[] stringFunctions = { "concat", "decode", "to_string" };
 
 	// a function to concatenate any number of String arguments
-	public static String concat(String... strings) {
+	public static String concat(String... strings) throws ExceptionSQLExecution {
 		String s = "";
-		if (strings.length > 0) {
+		if (strings != null && strings.length > 0) {
 			s = strings[0];
 			for (int i = 1; i < strings.length; i++) {
 				if (strings[i] != null) {
@@ -48,24 +47,10 @@ public final class SQLScalarFunctionsReturningString {
 		return s;
 	}
 
-	// a string to decode and evaluate Numbers
-	public static double decode(double... numbers) {
-		if (numbers.length > 2) {
-			for (int i = 1; i < numbers.length; i += 2) {
-				if (numbers[0] == (numbers[i]) && (i + 1) < numbers.length) {
-					return numbers[i + 1];
-				}
-			}
-			if (numbers.length % 2 == 0) {
-				return numbers[numbers.length - 1];
-			}
-		}
-		return Double.NaN;
-	}
-
 	// a string to decode and evaluate strings
-	public static String decode(String... strings) {
-		if (strings.length > 2) {
+	public static String decode(String... strings) throws ExceptionSQLExecution {
+
+		if (strings != null && strings.length > 2) {
 			for (int i = 1; i < strings.length; i += 2) {
 				if (strings[0].equals(strings[i]) && (i + 1) < strings.length) {
 					return strings[i + 1];
@@ -74,57 +59,30 @@ public final class SQLScalarFunctionsReturningString {
 			if (strings.length % 2 == 0) {
 				return strings[strings.length - 1];
 			}
+		} else if (strings == null || strings.length == 0) {
+			throw new ExceptionSQLExecution("DECODE: decode() called with no arguments.");
 		}
-		return null;
+		return strings[0];
 	}
 
-	// function to check if a word is the name of a String function
-	public static boolean isStringFunction(String word) {
-		if (word == null) {
-			return false;
-		}
-		String w = word.toLowerCase();
-		for (String f : stringFunctions) {
-			if (f.equals(w)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	// This is not a scalar function. Just a function to check if a string contains
-	// the name of a scalar function that returns a String.
-	public static boolean stringContainsStringFunction(String word) {
-		if (word == null) {
-			return false;
-		}
-		String s = word.toLowerCase();
-		for (String f : stringFunctions) {
-			if (s.contains(f)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	public static String to_string(boolean b) {
+	public static String to_string(boolean b) throws ExceptionSQLExecution {
 		return String.valueOf(b);
 	}
 
 	// functions to convert anything into a String
-	public static String to_string(double d) {
+	public static String to_string(double d) throws ExceptionSQLExecution {
 		return String.valueOf(d);
 	}
 
-	public static String to_string(float f) {
+	public static String to_string(float f) throws ExceptionSQLExecution {
 		return String.valueOf(f);
 	}
 
-	public static String to_string(int i) {
+	public static String to_string(int i) throws ExceptionSQLExecution {
 		return String.valueOf(i);
 	}
 
-	public static String to_string(Object o) {
+	public static String to_string(Object o) throws ExceptionSQLExecution {
 		return o.toString();
 	}
 

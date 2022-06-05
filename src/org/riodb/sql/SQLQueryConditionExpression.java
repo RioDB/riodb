@@ -104,7 +104,7 @@ public class SQLQueryConditionExpression implements SQLQueryCondition {
 		
 		source = source+
 				"	@Override\r\n" + 
-				"	public boolean match(RioDBStreamMessage message, WindowSummary[] windowSummaries, WindowSummary_String[] windowSummaries_String) {\r\n";
+				"	public boolean match(RioDBStreamMessage message, WindowSummary[] windowSummaries, WindowSummary_String[] windowSummaries_String) throws ExceptionSQLExecution {\r\n";
 				
 				
 				Iterator<Integer> iterator = requiredWindows.iterator(); 
@@ -124,10 +124,15 @@ public class SQLQueryConditionExpression implements SQLQueryCondition {
 		        }
 
 				source = source +
-				"\r\n		return "+ expression +";\r\n\r\n" + 
-				"	}\r\n" + 
-				"}\r\n" + 
-				"";
+				"\r\n"
+				+ "		try {\r\n"
+				+ "			return "+ expression +";\r\n"
+				+ "		} catch (java.lang.ArithmeticException e) { \r\n"
+				+ "			throw new ExceptionSQLExecution(\"Arithmetic Exception. Devide by 0 or rouding overflow.\");\r\n" 
+				+ "		}\r\n" 
+				+ "	}\r\n"  
+				+ "}\r\n" 
+				+ "";
 				
 				
 		try {
@@ -155,7 +160,7 @@ public class SQLQueryConditionExpression implements SQLQueryCondition {
 	}
 
 	@Override
-	public boolean match(RioDBStreamMessage message, WindowSummary[] windowSummaries, WindowSummary_String[] windowSummaries_String) {
+	public boolean match(RioDBStreamMessage message, WindowSummary[] windowSummaries, WindowSummary_String[] windowSummaries_String) throws ExceptionSQLExecution {
 		return compiledCondition.match(message, windowSummaries, windowSummaries_String);
 	}
 

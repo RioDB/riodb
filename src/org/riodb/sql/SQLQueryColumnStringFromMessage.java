@@ -40,7 +40,10 @@ public class SQLQueryColumnStringFromMessage implements SQLQueryColumn {
 
 	@Override
 	public String getValue(RioDBStreamMessage message, WindowSummary[] windowSummaries, WindowSummary_String[] windowSummaries_String) throws ExceptionSQLExecution {
-		return message.getString(stringColumnIndex);
+		if(message != null) {
+			return message.getString(stringColumnIndex);
+		}
+		return "";
 	}
 
 	@Override

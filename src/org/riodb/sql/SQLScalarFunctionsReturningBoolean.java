@@ -32,38 +32,9 @@ package org.riodb.sql;
 
 public final class SQLScalarFunctionsReturningBoolean {
 
-	private static String[] booleanFunctions = {  };
-	
-	// function to check if a word is the name of a scalar function that returns a boolean
-	public static boolean isBooleanFunction(String word) {
-		if (word == null) {
-			return false;
-		}
-		String w = word.toLowerCase();
-		for (String f : booleanFunctions) {
-			if (f.equals(w)) {
-				return true;
-			}
-		}
-		return false;
-	}
 	
 	
-	// This is not a scalar function. Just a function to check if a string contains
-	// the name of a scalar function that returns a String.
-	public static boolean stringContainsBooleanFunction(String word) {
-		if (word == null) {
-			return false;
-		}
-		String s = word.toLowerCase();
-		for (String f : booleanFunctions) {
-			if (s.contains(f)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
+	
 
 
 }

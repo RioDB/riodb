@@ -71,6 +71,10 @@ public class Query {
 	// Query status / false = destroying..
 	private boolean destroy = false;
 
+	// flag to log errors only once
+	private boolean exceptionAlreadyCaught;
+	private String status;
+
 	// constructor
 	public Query(SQLQueryCondition condition, RioDBPlugin output, SQLQueryColumn columns[], int limit,
 			boolean limitByTime, int timeout, boolean timeoutByTime, String queryStr,
@@ -94,25 +98,25 @@ public class Query {
 		} else {
 			usesTimeout = false;
 		}
+
+		this.exceptionAlreadyCaught = false;
+		this.status = "ok";
 	}
 
 	// run a query, and get status to see if it can be dropped
 	// if 'true' is returned, the query will be removed.
 	public boolean evalAndGetStatus(MessageWithSummaries esum) throws ExceptionSQLExecution {
-		
-		
-		
+
 		// print function for troubleshooting...
 		// System.out.println("Evaluating query "+ queryId);
 		// esum.printMessage();
-		
 
 		// PART 1, take care of expiring queries and queries in timeout
 
 		// If the query is limited by time and the time is up, drop the query
 		if (destroy || (limitByTime && limit < RioDB.rio.getEngine().getClock().getCurrentSecond())) {
-			if(!destroy)
-				RioDB.rio.getSystemSettings().getLogger().debug("Query "+ queryId +" reached age.");
+			if (!destroy)
+				RioDB.rio.getSystemSettings().getLogger().debug("Query " + queryId + " reached age.");
 			return true; // this Query is overdue and can be destroyed.
 		}
 
@@ -144,25 +148,45 @@ public class Query {
 
 			// if the condition is not null (some queries don't have a condition), check for
 			// condition match:
-			if (sqlQueryCondition != null
-					&& !sqlQueryCondition.match(esum.getMessageRef(), esum.getWindowSummariesRef(), esum.getWindowSummariesRef_String())) {
-				// the query is NOT a match the conditions
-				return false;
+			if (sqlQueryCondition != null) {
+
+				// use 'try' to catch query execution errors, like divide by 0.
+				try {
+
+					if (!sqlQueryCondition.match(esum.getMessageRef(), esum.getWindowSummariesRef(),
+							esum.getWindowSummariesRef_String())) {
+						// the query conditions did NOT match.
+						// Nothing more to do. But don't destroy the query.
+						return false;
+					}
+				} catch (ExceptionSQLExecution e) {
+					if (!exceptionAlreadyCaught) {
+						exceptionAlreadyCaught = true;
+						RioDB.rio.getSystemSettings().getLogger()
+								.warn("Query " + queryId + " error: " + e.getMessage());
+						this.status = e.getMessage().replace("\"", "'").replace("\n", "\\t");
+						// error recorded.
+					}
+					// return. But don't destroy the query.
+					return false;
+				}
 			}
-			// Continuing... Either the query condition has been matched, or it has no conditions to test...
+
+			// Continuing... Either the query condition has been matched, or it has no
+			// conditions to test...
 
 			// Make array of SELECTed column values:
 			String columnValues[] = new String[columns.length];
 			for (int i = 0; i < columns.length; i++) {
-				columnValues[i] = columns[i].getValue(esum.getMessageRef(), esum.getWindowSummariesRef(),esum.getWindowSummariesRef_String());
-				if(columnValues[i] != null && columnValues[i].equals("NaN")) {
+				columnValues[i] = columns[i].getValue(esum.getMessageRef(), esum.getWindowSummariesRef(),
+						esum.getWindowSummariesRef_String());
+				if (columnValues[i] != null && columnValues[i].equals("NaN")) {
 					columnValues[i] = "null";
 				}
 			}
 
 			// send output to output plugin.
 			output.sendOutput(columnValues);
-			
 
 			// set timeout if necessary for this query
 			if (!limitByTime) {
@@ -187,7 +211,17 @@ public class Query {
 	public int getLimit() {
 		return limit;
 	}
-
+	
+	// get status
+	public String getStatus() {
+		return status;
+	}
+	
+	// get status
+	public String getOutputType() {
+		return output.getType();
+	}
+	
 	// get isLimitedByTime
 	public boolean isLimitedByTime() {
 		return limitByTime;
@@ -238,13 +272,13 @@ public class Query {
 	public boolean isDestroying() {
 		return destroy;
 	}
-	
+
 	// start plugin (in case it has a startup procedure)
 	public void start() throws RioDBPluginException {
 		RioDB.rio.getSystemSettings().getLogger().debug("Query.start(): starting query " + queryId);
 		output.start();
 	}
-	
+
 	// stop plugin (in case it has stop steps)
 	public void stop() throws RioDBPluginException {
 		RioDB.rio.getSystemSettings().getLogger().debug("Query.stop(): stopping query" + queryId);

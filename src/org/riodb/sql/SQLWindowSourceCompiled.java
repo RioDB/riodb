@@ -34,8 +34,13 @@ package org.riodb.sql;
 import org.riodb.plugin.RioDBStreamMessage;
 
 public interface SQLWindowSourceCompiled {
-	public String getString(RioDBStreamMessage message, RioDBStreamMessage previousMessage);
-	public double getNumber(RioDBStreamMessage message, RioDBStreamMessage previousMessage);
+	public String getString(RioDBStreamMessage message, RioDBStreamMessage previousMessage)
+			throws ExceptionSQLExecution;
+
+	public double getNumber(RioDBStreamMessage message, RioDBStreamMessage previousMessage)
+			throws ExceptionSQLExecution;
+
 	public void loadIn(SQLStringIN inArr[]);
+
 	public void loadLike(SQLStringLIKE likeArr[]);
 }

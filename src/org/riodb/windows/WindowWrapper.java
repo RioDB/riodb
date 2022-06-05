@@ -46,6 +46,7 @@ public class WindowWrapper {
 	protected Window defaultWindow;
 	protected SQLWindowCondition windowCondition;
 	protected boolean errorAlreadyCaught;
+	protected String  status;
 
 	protected boolean keepPreviousMessage;
 	protected RioDBStreamMessage previousMessage;
@@ -81,6 +82,7 @@ public class WindowWrapper {
 		}
 
 		errorAlreadyCaught = false;
+		status = "ok";
 
 		keepPreviousMessage = false;
 		if (windowSourceExpression != null && windowSourceExpression.requiresPrevious()) {
@@ -92,6 +94,10 @@ public class WindowWrapper {
 
 	public String getName() {
 		return windowName;
+	}
+	
+	public String getStatus() {
+		return status;
 	}
 
 	public String describeWindow() {
@@ -185,6 +191,7 @@ public class WindowWrapper {
 				RioDB.rio.getSystemSettings().getLogger()
 						.error("Window " + windowName + ": " + e.getMessage().replace("\n", " ").replace("\r", " "));
 				errorAlreadyCaught = true;
+				this.status = e.getMessage().replace("\"", "'").replace("\n", "\\t");
 			}
 			return null;
 		}

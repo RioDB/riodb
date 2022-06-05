@@ -48,6 +48,11 @@ public class SQLQueryColumnFromForeignWindow implements SQLQueryColumn {
 
 		// if window of Number
 		if (windowId >= 0) {
+			
+			if(RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId).getWindowSummary().isEmpty()) {
+				return "";
+			}
+			
 			// moved LAST and SUM to top because of popularity
 			if (functionId == 5) {
 				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow(windowId)
@@ -112,6 +117,10 @@ public class SQLQueryColumnFromForeignWindow implements SQLQueryColumn {
 
 		// else, window if String
 		else {
+			
+			if(RioDB.rio.getEngine().getStream(streamId).getWindowMgr().getWindow_String(windowId).getWindowSummary().isEmpty()) {
+				return "";
+			}
 
 			if (functionId == 5) {
 				return String.valueOf(RioDB.rio.getEngine().getStream(streamId).getWindowMgr()
