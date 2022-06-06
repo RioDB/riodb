@@ -67,5 +67,25 @@ public final class SQLScalarFunctionsReturningNumber {
 		}
 		throw new ExceptionSQLExecution("TO_NUMBER: Failed attempt to convert an alpha-numeric string into a number.");
 	}
+	
+	public static int floor(String s) throws ExceptionSQLExecution {
+		return (int) Math.floor(to_number(s));
+	}
+	
+	
+	public static int ceil(String s) throws ExceptionSQLExecution {
+		return (int) Math.ceil(to_number(s));
+	}
+	
+	/**
+	 * Rounds number to nearest integer.
+	 * 
+	 * @param s
+	 * @return
+	 * @throws ExceptionSQLExecution
+	 */
+	public static int round(String s) throws ExceptionSQLExecution {
+		return (int) Math.round(to_number(s));
+	}
 
 }
