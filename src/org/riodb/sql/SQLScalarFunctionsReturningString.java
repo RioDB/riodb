@@ -97,4 +97,8 @@ public final class SQLScalarFunctionsReturningString {
     public static String substr(String s, int from) throws StringIndexOutOfBoundsException {
         return (s == null) ? null : s.substring(from);
     }
+
+    public static String substr(String s, int from, int to) throws StringIndexOutOfBoundsException {
+        return (s == null) ? null : s.substring(from, to);
+    }
 }
