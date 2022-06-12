@@ -94,6 +94,10 @@ public final class SQLScalarFunctionsReturningString {
         return (s == null) ? null : s.toLowerCase();
     }
 
+    public static String replace(String s, String old_s, String new_s) {
+        return (s == null) ? null : s.replace(old_s, new_s);
+    }
+
     public static String substr(String s, int from) throws StringIndexOutOfBoundsException {
         return (s == null) ? null : s.substring(from);
     }
