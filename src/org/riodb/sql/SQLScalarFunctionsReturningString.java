@@ -86,4 +86,8 @@ public final class SQLScalarFunctionsReturningString {
 		return o.toString();
 	}
 
+    public static String upper(String s) {
+        return (s == null) ? null : s.toUpperCase();
+    }
+
 }
