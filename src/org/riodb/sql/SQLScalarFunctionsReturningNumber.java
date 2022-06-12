@@ -68,13 +68,13 @@ public final class SQLScalarFunctionsReturningNumber {
 		throw new ExceptionSQLExecution("TO_NUMBER: Failed attempt to convert an alpha-numeric string into a number.");
 	}
 	
-	public static int floor(String s) throws ExceptionSQLExecution {
-		return (int) Math.floor(to_number(s));
+	public static double floor(String s) throws ExceptionSQLExecution {
+		return Math.floor(to_number(s));
 	}
 	
 	
-	public static int ceil(String s) throws ExceptionSQLExecution {
-		return (int) Math.ceil(to_number(s));
+	public static double ceil(String s) throws ExceptionSQLExecution {
+		return Math.ceil(to_number(s));
 	}
 	
 	/**
@@ -84,8 +84,8 @@ public final class SQLScalarFunctionsReturningNumber {
 	 * @return
 	 * @throws ExceptionSQLExecution
 	 */
-	public static int round(String s) throws ExceptionSQLExecution {
-		return (int) Math.round(to_number(s));
+	public static double round(String s) throws ExceptionSQLExecution {
+		return Math.round(to_number(s));
 	}
 
 }
