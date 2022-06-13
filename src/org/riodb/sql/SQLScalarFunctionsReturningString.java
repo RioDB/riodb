@@ -86,27 +86,27 @@ public final class SQLScalarFunctionsReturningString {
 		return o.toString();
 	}
 
-    public static String upper(String s) {
-        return (s == null) ? null : s.toUpperCase();
-    }
+	public static String upper(String s) {
+		return (s == null) ? null : s.toUpperCase();
+	}
 
-    public static String lower(String s) {
-        return (s == null) ? null : s.toLowerCase();
-    }
+	public static String lower(String s) {
+		return (s == null) ? null : s.toLowerCase();
+	}
 
-    public static String replace(String s, String old_s, String new_s) {
-        return (s == null) ? null : s.replace(old_s, new_s);
-    }
+	public static String replace(String s, String old_s, String new_s) {
+		return (s == null) ? null : s.replace(old_s, new_s);
+	}
 
-    public static String substr(String s, int from) throws ExceptionSQLExecution {
+	public static String substr(String s, int from) throws ExceptionSQLExecution {
 		return substr(s, from, s.length());
-    }
+	}
 
-    public static String substr(String s, int from, int to) throws ExceptionSQLExecution {
+	public static String substr(String s, int from, int to) throws ExceptionSQLExecution {
 		try {
 			return (s == null) ? null : s.substring(from, to);
 		} catch (StringIndexOutOfBoundsException e) {
 			throw new ExceptionSQLExecution("SUBSTR: Out of bounds");
 		}
-    }
+	}
 }
