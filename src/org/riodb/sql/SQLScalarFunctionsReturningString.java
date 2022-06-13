@@ -98,11 +98,15 @@ public final class SQLScalarFunctionsReturningString {
         return (s == null) ? null : s.replace(old_s, new_s);
     }
 
-    public static String substr(String s, int from) throws StringIndexOutOfBoundsException {
-        return (s == null) ? null : s.substring(from);
+    public static String substr(String s, int from) throws ExceptionSQLExecution {
+		return substr(s, from, s.length());
     }
 
-    public static String substr(String s, int from, int to) throws StringIndexOutOfBoundsException {
-        return (s == null) ? null : s.substring(from, to);
+    public static String substr(String s, int from, int to) throws ExceptionSQLExecution {
+		try {
+			return (s == null) ? null : s.substring(from, to);
+		} catch (StringIndexOutOfBoundsException e) {
+			throw new ExceptionSQLExecution("SUBSTR: Out of bounds");
+		}
     }
 }
