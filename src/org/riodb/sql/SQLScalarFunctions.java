@@ -17,8 +17,7 @@ public final class SQLScalarFunctions {
 			"length", "floor", "ceil", "round" };
 
 	// SQLScalarFunctionsReturningString
-	private static String[] stringFunctions = { "decode", "concat",
-			"to_string" };
+	private static String[] stringFunctions = { "decode", "concat", "to_string", "upper", "lower", "replace", "substr" };
 
 	/*
 	 * 
