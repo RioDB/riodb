@@ -14,11 +14,10 @@ public final class SQLScalarFunctions {
 
 	// SQLScalarFunctionsReturningNumber,
 	private static String[] numericFunctions = { "to_number", "decode_number",
-			"length", "floor", "ceil", "round" };
+			"length", "floor", "ceil", "round", "instr" };
 
 	// SQLScalarFunctionsReturningString
-	private static String[] stringFunctions = { "decode", "concat",
-			"to_string" };
+	private static String[] stringFunctions = { "decode", "concat", "to_string", "upper", "lower", "replace", "substr" };
 
 	/*
 	 * 
