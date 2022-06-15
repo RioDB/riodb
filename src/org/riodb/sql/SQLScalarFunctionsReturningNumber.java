@@ -85,5 +85,24 @@ public final class SQLScalarFunctionsReturningNumber {
 	public static double round(double d) {
 		return Math.round(d);
 	}
+	
+	// Finds find occurrence of substring within string, returns -1 if not found,
+	// otherwise returns position of first occurrence
+	public static double instr(String string, String substring) {
+		if (string == null || substring == null) 
+			return -1;
+		if (string.length() < substring.length())
+			return -1;
+		for (int i = 0; i <= string.length() - substring.length(); i++) {
+			int j;
+			for (j = 0; j < substring.length(); j++) {
+				if (string.charAt(i + j) != substring.charAt(j))
+					break;
+			}
+			if (j == substring.length())
+				return i + 1;
+		}
+		return -1;
+	}
 
 }
