@@ -91,18 +91,9 @@ public final class SQLScalarFunctionsReturningNumber {
 	public static double instr(String string, String substring) {
 		if (string == null || substring == null) 
 			return -1;
-		if (string.length() < substring.length())
-			return -1;
-		for (int i = 0; i <= string.length() - substring.length(); i++) {
-			int j;
-			for (j = 0; j < substring.length(); j++) {
-				if (string.charAt(i + j) != substring.charAt(j))
-					break;
-			}
-			if (j == substring.length())
-				return i + 1;
-		}
-		return -1;
+		int pos = string.indexOf(substring) + 1;
+		return pos == 0 ? -1 : pos; 
+		// Since we need to add 1, if it's 0, then it must've been -1 before
 	}
 
 }
