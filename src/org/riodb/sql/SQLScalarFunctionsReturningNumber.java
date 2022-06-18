@@ -32,9 +32,9 @@ package org.riodb.sql;
 
 public final class SQLScalarFunctionsReturningNumber {
 
-
 	// Decode function that evaluates numbers and return number.
-	public static double decode_number(double... numbers) throws ExceptionSQLExecution {
+	public static double decode_number(double... numbers)
+			throws ExceptionSQLExecution {
 		if (numbers.length > 2) {
 			for (int i = 1; i < numbers.length; i += 2) {
 				if (numbers[0] == numbers[i] && (i + 1) < numbers.length) {
@@ -48,7 +48,6 @@ public final class SQLScalarFunctionsReturningNumber {
 		return Double.NaN;
 	}
 
-
 	// function that returns the length of a string
 	public static int length(String s) throws ExceptionSQLExecution {
 		if (s == null) {
@@ -59,41 +58,51 @@ public final class SQLScalarFunctionsReturningNumber {
 
 	// function that returns a string as number.
 	public static double to_number(String s) throws ExceptionSQLExecution {
-		if(s == null) {
+		if (s == null) {
 			return Double.NaN;
-		}
-		else if(SQLParser.isNumber(s)) {
+		} else if (SQLParser.isNumber(s)) {
 			return Double.valueOf(s);
 		}
-		throw new ExceptionSQLExecution("TO_NUMBER: Failed attempt to convert an alpha-numeric string into a number.");
+		throw new ExceptionSQLExecution(
+				"TO_NUMBER: Failed attempt to convert an alpha-numeric string into a number.");
 	}
-	
-	public static double floor(double d) {
+
+	public static double floor(double d) throws ExceptionSQLExecution {
+		throwExceptionIfNaN(d, "FLOOR");
 		return Math.floor(d);
 	}
-	
-	public static double ceil(double d) {
+
+	public static double ceil(double d) throws ExceptionSQLExecution {
+		throwExceptionIfNaN(d, "CEIL");
 		return Math.ceil(d);
 	}
-	
+
 	/**
 	 * Rounds number to nearest integer.
 	 * 
 	 * @param s
 	 * @return
+	 * @throws ExceptionSQLExecution
 	 */
-	public static double round(double d) {
+	public static double round(double d) throws ExceptionSQLExecution {
+		throwExceptionIfNaN(d, "ROUND");
 		return Math.round(d);
 	}
-	
-	// Finds find occurrence of substring within string, returns -1 if not found,
-	// otherwise returns position of first occurrence
+
+	// Finds find occurrence of substring within string, returns -1 if not
+	// found, otherwise returns position of first occurrence
 	public static double instr(String string, String substring) {
-		if (string == null || substring == null) 
+		if (string == null || substring == null)
 			return -1;
 		int pos = string.indexOf(substring) + 1;
-		return pos == 0 ? -1 : pos; 
+		return pos == 0 ? -1 : pos;
 		// Since we need to add 1, if it's 0, then it must've been -1 before
 	}
 
+	private static void throwExceptionIfNaN(double d, String methodName)
+			throws ExceptionSQLExecution {
+		if (d == Double.NaN)
+			throw new ExceptionSQLExecution(
+					methodName + ": Number entered is NaN");
+	}
 }
