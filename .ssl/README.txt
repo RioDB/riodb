@@ -26,7 +26,7 @@ The configuration file (conf/riodb.conf) also has a parameter for credentials_fi
 It is optional. To enable authentication/authorization, uncomment the credentials_file parameter
 and point it to a path of the credentials file. 
 By default, a credentials file is provided under .access/users.dat
-The default configuration file has user  "admin"  with default password  "riodb"
+The default configuration file has user  "admin"  with default password  "RioDB!"
 
 
 

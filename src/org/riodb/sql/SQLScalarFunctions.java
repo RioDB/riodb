@@ -13,7 +13,8 @@ public final class SQLScalarFunctions {
 	private static String[] booleanFunctions = { "" };
 
 	// SQLScalarFunctionsReturningNumber,
-	private static String[] numericFunctions = { "to_number", "decode_number", "length" };
+	private static String[] numericFunctions = { "to_number", "decode_number",
+			"length", "floor", "ceil", "round", "instr" };
 
 	// SQLScalarFunctionsReturningString
 	private static String[] stringFunctions = { "decode", "concat", "to_string", "upper", "lower", "replace", "substr" };
